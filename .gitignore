@@ -1,0 +1,38 @@
+# 构建产物
+*.fpk
+
+# 测试 / 诊断脚本与临时输出
+/scripts/
+*_diag.txt
+*_result.txt
+apps_manifests.txt
+cert_manifest_sample.txt
+llled_manifest_sample.txt
+fnpack_tpl.txt
+fnos_ver.txt
+sysver.txt
+install_diag.txt
+deep_diag.txt
+crash_diag.txt
+diag_out.txt
+check_result.txt
+
+# 旧版 LLLED 命令行与本地调试（非飞牛应用）
+ugreen_led_controller.sh
+ugreen_leds_cli
+quick_install.sh
+quick_led_test.sh
+uninstall.sh
+verify_detection.sh
+/config/
+/systemd/
+
+# 截图、源图与本地素材（可选自备）
+img/
+可爱灯泡设计.png
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+*.swp
+*~

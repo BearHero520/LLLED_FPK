@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>绿联 LED 灯控</title>
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <img src="./images/logo.png" alt="" class="app-logo" width="48" height="48">
+    <div>
+    <h1>绿联 LED 灯控</h1>
+    <p class="sub">盘位映射自动检测 · 支持电源灯与网络灯</p>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>快捷模式</h2>
+    <div class="mode-btns">
+      <button type="button" class="mode-btn" data-mode="off">关闭全部灯光</button>
+      <button type="button" class="mode-btn" data-mode="on">开启全部灯光</button>
+      <button type="button" class="mode-btn primary" data-mode="smart">智能模式</button>
+    </div>
+    <p class="hint" id="modeHint">当前：—</p>
+    <p class="action-msg" id="actionMsg" aria-live="polite"></p>
+    <div class="row-actions">
+      <button type="button" id="btnRemap" class="secondary">重新检测硬盘</button>
+    </div>
+  </section>
+
+  <section class="card" id="smartPanel">
+    <h2>智能模式 · 硬盘灯</h2>
+    <p class="hint">启动时按 HCTL 自动生成盘位映射。离线/拔出 = 关灯。</p>
+    <div class="color-grid" id="diskGrid"></div>
+
+    <h2 class="sub-h">网络灯</h2>
+    <p class="hint">外网：能 ping 通海外检测点。联网：仅国内通。断网：均不通。（223.5.5.5 / 8.8.8.8 等）</p>
+    <div class="color-grid" id="netGrid"></div>
+
+    <h2 class="sub-h">电源灯（智能模式下）</h2>
+    <div class="color-grid" id="powerGrid"></div>
+
+    <h2 class="sub-h">配色方案</h2>
+    <p class="hint">套用后可微调，记得点保存。</p>
+    <div class="preset-btns">
+      <button type="button" class="secondary" data-preset="classic">经典</button>
+      <button type="button" class="secondary" data-preset="minimal">极简蓝灰</button>
+      <button type="button" class="secondary" data-preset="vivid">醒目警示</button>
+      <button type="button" class="secondary" data-preset="soft">柔和护眼</button>
+      <button type="button" class="secondary" data-preset="white">白色系</button>
+    </div>
+
+    <button type="button" id="btnSave" class="save-btn">保存智能配色</button>
+  </section>
+
+  <section class="card">
+    <h2>硬盘映射</h2>
+    <table id="mapTable">
+      <thead><tr><th>设备</th><th>LED</th><th>状态</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <pre class="status-bar" id="statusBar"></pre>
+  </section>
+
+  <script src="./js/app.js?v=1.2.5"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+#!/bin/bash
+APP_ROOT="${TRIM_APPDEST:-/var/apps/App.Native.UGreenLED}"
+VAR_DIR="${TRIM_PKGVAR:-${APP_ROOT}/var}"
+mkdir -p "${VAR_DIR}/log" "${VAR_DIR}/led_cache" "${VAR_DIR}/disk_io"
+exit 0

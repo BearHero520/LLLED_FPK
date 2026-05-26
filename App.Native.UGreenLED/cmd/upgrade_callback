@@ -1,0 +1,3 @@
+#!/bin/bash
+/var/apps/App.Native.UGreenLED/cmd/install_callback
+exit 0

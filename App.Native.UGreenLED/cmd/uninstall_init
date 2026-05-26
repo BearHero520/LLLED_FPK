@@ -1,0 +1,8 @@
+#!/bin/bash
+APP_ROOT="/var/apps/App.Native.UGreenLED"
+if [[ -x "${APP_ROOT}/cmd/main" ]]; then
+    "${APP_ROOT}/cmd/main" stop 2>/dev/null
+elif [[ -x "${APP_ROOT}/target/cmd/main" ]]; then
+    "${APP_ROOT}/target/cmd/main" stop 2>/dev/null
+fi
+exit 0

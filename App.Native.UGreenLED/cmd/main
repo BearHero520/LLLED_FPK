@@ -1,0 +1,52 @@
+#!/bin/bash
+APP_NAME="App.Native.UGreenLED"
+APP_ROOT="${TRIM_APPDEST:-/var/apps/${APP_NAME}}"
+VAR_DIR="${TRIM_PKGVAR:-${APP_ROOT}/var}"
+
+# 解析 server 目录（兼容 @appcenter 与 /var/apps/.../target 两种布局）
+SERVER_DIR=""
+for d in "${APP_ROOT}/server" "${APP_ROOT}/target/server"; do
+    if [[ -f "${d}/led_daemon.sh" ]]; then
+        SERVER_DIR="$d"
+        break
+    fi
+done
+SERVER_DIR="${SERVER_DIR:-${APP_ROOT}/server}"
+
+export APP_ROOT VAR_DIR SERVER_DIR TARGET="${APP_ROOT}"
+
+case "$1" in
+start)
+    modprobe i2c-dev 2>/dev/null || true
+    mkdir -p "${VAR_DIR}/log" "${VAR_DIR}/led_cache"
+    CLI=""
+    for c in "${SERVER_DIR}/bin/ugreen_leds_cli" "${APP_ROOT}/target/server/bin/ugreen_leds_cli" /usr/bin/ugreen_leds_cli; do
+        [[ -x "$c" ]] && CLI="$c" && break
+    done
+    if [[ -z "$CLI" ]]; then
+        echo "ugreen_leds_cli 未安装，请重新安装应用" >&2
+        exit 1
+    fi
+    bash "${SERVER_DIR}/led_daemon.sh" start
+    bash "${SERVER_DIR}/http_api.sh" start
+    exit 0
+    ;;
+stop)
+    bash "${SERVER_DIR}/led_daemon.sh" stop 2>/dev/null
+    bash "${SERVER_DIR}/http_api.sh" stop 2>/dev/null
+    exit 0
+    ;;
+status)
+    d=3
+    bash "${SERVER_DIR}/led_daemon.sh" status 2>/dev/null && d=0
+    h=3
+    [[ -f "${VAR_DIR}/http_api.pid" ]] && kill -0 "$(cat "${VAR_DIR}/http_api.pid")" 2>/dev/null && h=0
+    if [[ $d -eq 0 || $h -eq 0 ]]; then
+        exit 0
+    fi
+    exit 3
+    ;;
+*)
+    exit 1
+    ;;
+esac

@@ -1,0 +1,12 @@
+{
+    ".url": {
+        "App.Native.UGreenLED.Web": {
+            "title": "绿联LED灯控",
+            "icon": "images/icon-{0}.png",
+            "type": "iframe",
+            "protocol": "http",
+            "url": "/cgi/ThirdParty/App.Native.UGreenLED/index.cgi/",
+            "allUsers": true
+        }
+    }
+}

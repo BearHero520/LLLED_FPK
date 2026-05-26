@@ -1,0 +1,7 @@
+{
+    "defaults": {
+        "run-as": "root"
+    },
+    "username": "App.Native.UGreenLED",
+    "groupname": "App.Native.UGreenLED"
+}
