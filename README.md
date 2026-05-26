@@ -63,7 +63,7 @@ fnpack build
 python App.Native.UGreenLED/scripts/process_logo.py
 ```
 
-会更新 `ICON.PNG`、`ICON_256.PNG` 及 `app/ui/images`、`app/www/images/logo.png`。
+会更新 `ICON.PNG`、`ICON_256.PNG` 及 `app/ui/images`、`app/www/images/logo.png`（保留原图绿色背景，不抠透明）。
 
 ## 使用说明
 

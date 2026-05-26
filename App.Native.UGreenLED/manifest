@@ -1,5 +1,5 @@
 appname               = App.Native.UGreenLED
-version               = 1.2.5
+version               = 1.2.6
 display_name          = 绿联LED灯控
 desc                  = 绿联 DXP4800 Plus / DX4600 系列机箱 LED 控制。支持关闭/开启全部灯光、智能硬盘状态与网络灯配色。
 platform              = x86
@@ -14,4 +14,4 @@ desktop_uidir         = ui
 desktop_applaunchname = App.Native.UGreenLED.Web
 service_port          = 5088
 checkport             = false
-changelog             = v1.2.5 使用可爱灯泡设计作为应用图标
+changelog             = v1.2.6 图标保留原图绿底（不抠透明）

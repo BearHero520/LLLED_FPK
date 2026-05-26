@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""将可爱灯泡设计.png 转为飞牛应用所需图标尺寸"""
+"""将可爱灯泡设计.png 转为飞牛应用所需图标尺寸（保留原图背景，不抠图）"""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from PIL import Image
@@ -18,44 +17,26 @@ OUTS = [
 ]
 
 
-def remove_green_bg(img: Image.Image, tolerance: int = 42) -> Image.Image:
-    """去除近似纯绿背景，保留灯泡主体（透明底）"""
-    img = img.convert("RGBA")
-    # 四角采样背景色
+def sample_bg(img: Image.Image) -> tuple[int, int, int]:
+    """四角取平均色，用于非正方形时补边"""
     w, h = img.size
-    corners = [img.getpixel((0, 0)), img.getpixel((w - 1, 0)), img.getpixel((0, h - 1)), img.getpixel((w - 1, h - 1))]
-    bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
-
-    px = img.load()
-    for y in range(h):
-        for x in range(w):
-            r, g, b, a = px[x, y]
-            if (
-                abs(r - bg[0]) <= tolerance
-                and abs(g - bg[1]) <= tolerance
-                and abs(b - bg[2]) <= tolerance
-                and g >= r - 15
-                and g >= b - 15
-            ):
-                px[x, y] = (r, g, b, 0)
-
-    # 轻微收缩边缘去绿晕
-    alpha = img.split()[3]
-    bbox = alpha.getbbox()
-    if bbox:
-        img = img.crop(bbox)
-
-    return img
+    corners = [
+        img.getpixel((0, 0)),
+        img.getpixel((w - 1, 0)),
+        img.getpixel((0, h - 1)),
+        img.getpixel((w - 1, h - 1)),
+    ]
+    return tuple(sum(c[i] for c in corners) // 4 for i in range(3))
 
 
 def square_fit(img: Image.Image, size: int) -> Image.Image:
-    """等比缩放后居中铺到正方形画布（透明底）"""
-    img = img.convert("RGBA")
-    side = max(img.size)
-    canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-    ox = (side - img.width) // 2
-    oy = (side - img.height) // 2
-    canvas.paste(img, (ox, oy), img)
+    """等比内容居中，用原图背景色补成正方形后缩放"""
+    img = img.convert("RGB")
+    w, h = img.size
+    bg = sample_bg(img)
+    side = max(w, h)
+    canvas = Image.new("RGB", (side, side), bg)
+    canvas.paste(img, ((side - w) // 2, (side - h) // 2))
     return canvas.resize((size, size), Image.Resampling.LANCZOS)
 
 
@@ -69,8 +50,7 @@ def main() -> None:
         raise SystemExit(f"源图不存在: {SRC}")
 
     raw = Image.open(SRC)
-    cut = remove_green_bg(raw)
-    base = square_fit(cut, 512)
+    base = square_fit(raw, 512)
 
     for out, size in OUTS:
         save_png(out, square_fit(base, size))
