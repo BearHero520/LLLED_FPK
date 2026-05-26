@@ -55,6 +55,14 @@ fnpack build
 
 生成 `App.Native.UGreenLED.fpk`，在 **应用中心 → 手动安装** 即可。
 
+也可在仓库根目录执行（需能 SSH 到已安装 fnpack 的 NAS）：
+
+```bash
+python scripts/build_fpk_remote.py
+```
+
+安装包输出：`App.Native.UGreenLED.fpk`（不纳入 Git，可从 [Releases](https://github.com/BearHero520/LLLED_FPK/releases) 下载）。
+
 ### 更换应用图标
 
 将源图命名为 `可爱灯泡设计.png` 放在仓库根目录（与 `App.Native.UGreenLED` 同级），然后：
