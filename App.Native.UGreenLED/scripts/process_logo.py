@@ -11,8 +11,8 @@ SRC = Path(__file__).resolve().parent.parent.parent / "可爱灯泡设计.png"
 OUTS = [
     (ROOT / "ICON.PNG", 64),
     (ROOT / "ICON_256.PNG", 256),
-    (ROOT / "app" / "ui" / "images" / "icon_64.png", 64),
-    (ROOT / "app" / "ui" / "images" / "icon_256.png", 256),
+    (ROOT / "app" / "ui" / "images" / "icon-64.png", 64),
+    (ROOT / "app" / "ui" / "images" / "icon-256.png", 256),
     (ROOT / "app" / "www" / "images" / "logo.png", 64),
 ]
 

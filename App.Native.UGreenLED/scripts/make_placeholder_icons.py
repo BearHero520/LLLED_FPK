@@ -36,6 +36,6 @@ def write(path, size):
 if __name__ == "__main__":
     write(os.path.join(ROOT, "ICON.PNG"), 64)
     write(os.path.join(ROOT, "ICON_256.PNG"), 256)
-    write(os.path.join(ROOT, "app", "ui", "images", "icon_64.png"), 64)
-    write(os.path.join(ROOT, "app", "ui", "images", "icon_256.png"), 256)
+    write(os.path.join(ROOT, "app", "ui", "images", "icon-64.png"), 64)
+    write(os.path.join(ROOT, "app", "ui", "images", "icon-256.png"), 256)
     print("icons written")
