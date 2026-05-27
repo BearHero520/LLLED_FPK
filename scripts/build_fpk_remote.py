@@ -8,9 +8,9 @@ from pathlib import Path
 
 import paramiko
 
-HOST = "192.168.50.200"
-USER = "Hero"
-PASSWORD = "1522151116Long"
+HOST = "飞牛IP"
+USER = "管理员用户名"
+PASSWORD = "管理员密码"
 PROJECT = Path(__file__).resolve().parent.parent / "App.Native.UGreenLED"
 REMOTE_DIR = "/tmp/App.Native.UGreenLED-build"
 LOCAL_ZIP = Path(__file__).resolve().parent / "ugreen_led_pkg.zip"
