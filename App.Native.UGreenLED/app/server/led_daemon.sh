@@ -85,10 +85,17 @@ DAEMON_RUN=true
 MAPPING_READY=false
 
 ensure_mapping() {
-    disk_refresh_mapping "$SETTINGS_FILE"
+    local mapping_mode
+    mapping_mode=$(disk_mapping_mode "$SETTINGS_FILE")
+    if [[ "$mapping_mode" == "manual" ]]; then
+        DISK_LED_MAP=()
+        disk_load_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || true
+    else
+        disk_refresh_mapping "$SETTINGS_FILE"
+    fi
     rm -f "${DISK_IO_CACHE_DIR}/"*.io "${DISK_IO_CACHE_DIR}/"*.power 2>/dev/null
     MAPPING_READY=true
-    log "动态映射 ${#DISK_LED_MAP[@]} 项 -> $(printf '%s ' "${DISK_LED_MAP[@]}")"
+    log "${mapping_mode} 映射 ${#DISK_LED_MAP[@]} 项 -> $(printf '%s ' "${DISK_LED_MAP[@]}")"
 }
 
 check_hotplug() {
@@ -236,6 +243,12 @@ daemon_loop() {
         fi
         if ! ensure_cli; then
             log_limited "cli" 60 "ERROR CLI 不可用"
+            sleep "$interval"
+            continue
+        fi
+
+        # 实验室检测期间由 CGI 临时接管硬盘灯，避免守护循环覆盖识别灯效。
+        if lab_mapping_session_active; then
             sleep "$interval"
             continue
         fi

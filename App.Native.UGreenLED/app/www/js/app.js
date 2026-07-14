@@ -8,6 +8,7 @@
     lighting: { title: '灯光设置', description: '配置硬盘、网络和电源灯的状态颜色。' },
     activity: { title: '活动提示', description: '控制磁盘读写和网络流量的速度闪动。' },
     devices: { title: '设备与高级', description: '管理盘位映射、监测频率、后台服务与诊断状态。' },
+    lab: { title: '实验室功能', description: '未经验证的高级硬件功能，请确认风险后谨慎使用。' },
   };
 
   const DISK_STATES = [
@@ -108,6 +109,10 @@
   let refreshPromise = null;
   let toastTimer = null;
   let currentIni = {};
+  let labState = { active: false, mode: 'auto', slots: [], disks: [] };
+  let labDraft = {};
+  let labIdentifying = '';
+  let labStatusPromise = null;
 
   function $(id) { return document.getElementById(id); }
 
@@ -208,6 +213,312 @@
     return `${Math.round(value)} KB/s`;
   }
 
+  function compareVersions(left, right) {
+    const normalize = (value) => String(value || '')
+      .replace(/^v/i, '')
+      .split(/[.+-]/)
+      .map((part) => Number.parseInt(part, 10))
+      .filter((part) => Number.isFinite(part));
+    const a = normalize(left);
+    const b = normalize(right);
+    const length = Math.max(a.length, b.length);
+    for (let index = 0; index < length; index += 1) {
+      const difference = (a[index] || 0) - (b[index] || 0);
+      if (difference !== 0) return difference > 0 ? 1 : -1;
+    }
+    return 0;
+  }
+
+  function formatCheckedAt(timestamp) {
+    const value = Number(timestamp);
+    if (!Number.isFinite(value) || value <= 0) return '刚刚完成检查';
+    try {
+      return `检查时间：${new Date(value * 1000).toLocaleString('zh-CN', { hour12: false })}`;
+    } catch (_) {
+      return '刚刚完成检查';
+    }
+  }
+
+  function renderUpdate(data) {
+    const badge = $('updateBadge');
+    const download = $('btnDownloadUpdate');
+    const notes = $('btnReleaseNotes');
+    const current = data.current_version || 'unknown';
+    $('currentAppVersion').textContent = current === 'unknown' ? '未知' : `v${String(current).replace(/^v/i, '')}`;
+    $('updateCheckedAt').textContent = formatCheckedAt(data.checked_at);
+    download.hidden = true;
+    notes.hidden = true;
+
+    if (!data.reachable) {
+      badge.textContent = '检查失败';
+      $('updateTitle').textContent = '暂时无法连接 GitHub Release';
+      $('updateDescription').textContent = data.error || '请检查 NAS 网络连接，稍后可再次手动检查。';
+      return;
+    }
+
+    const latest = data.latest_version || current;
+    notes.href = data.release_url || 'https://github.com/BearHero520/LLLED_FPK/releases/latest';
+    notes.hidden = false;
+    const comparison = compareVersions(latest, current);
+    if (comparison > 0) {
+      badge.textContent = '发现新版本';
+      $('updateTitle').textContent = `v${latest} 可以升级`;
+      $('updateDescription').textContent = '下载安装包后，请在 fnOS 应用中心使用手动安装完成升级，现有配置会保留。';
+      download.href = data.download_url || 'https://github.com/BearHero520/LLLED_FPK/releases/latest';
+      download.hidden = false;
+      return;
+    }
+
+    if (comparison < 0) {
+      badge.textContent = '开发版本';
+      $('updateTitle').textContent = `当前 v${current} 高于公开版本 v${latest}`;
+      $('updateDescription').textContent = '当前安装包可能来自开发构建；正式发布同版本或更高版本后会恢复正常提示。';
+    } else {
+      badge.textContent = '已是最新';
+      $('updateTitle').textContent = `当前已是最新版本 v${latest}`;
+      $('updateDescription').textContent = '应用会在打开管理页时自动检查，也可以随时手动重新检查。';
+    }
+  }
+
+  function checkForUpdates(force, button) {
+    setBusy(button, true);
+    return api('/update/check', { query: force ? 'force=1' : '' })
+      .then((data) => {
+        renderUpdate(data);
+        if (force) showMessage(data.reachable ? '更新检查完成' : '暂时无法连接 GitHub Release', data.reachable ? 'ok' : 'err');
+        return data;
+      })
+      .catch((error) => {
+        if (force) showError(error); else console.error('[UGreenLED] update check failed', error);
+      })
+      .finally(() => setBusy(button, false));
+  }
+
+  function labDiskLabel(disk) {
+    const details = [disk.size, disk.model, disk.serial ? `S/N ${disk.serial}` : ''].filter(Boolean).join(' · ');
+    return `${disk.device}${details ? ` · ${details}` : ''}`;
+  }
+
+  function resetLabDraft(data) {
+    labDraft = {};
+    (data.slots || []).forEach((slot) => { labDraft[slot.led] = ''; });
+    (data.disks || []).forEach((disk) => {
+      if (disk.led && Object.prototype.hasOwnProperty.call(labDraft, disk.led)) labDraft[disk.led] = disk.device;
+    });
+  }
+
+  function updateLabValidation() {
+    const disks = Array.isArray(labState.disks) ? labState.disks : [];
+    const supported = disks.filter((disk) => disk.supported);
+    const assignedDevices = Object.values(labDraft).filter(Boolean);
+    const uniqueDevices = new Set(assignedDevices);
+    const validation = $('labValidation');
+    const save = $('btnSaveLabMapping');
+    const valid = assignedDevices.length > 0 && assignedDevices.length === uniqueDevices.size;
+    save.disabled = !labState.active || !valid;
+    $('labProgressText').textContent = `已绑定 ${uniqueDevices.size} 个盘位`;
+
+    if (!disks.length) {
+      validation.textContent = '未检测到硬盘，请确认硬盘已被系统识别。';
+      validation.className = 'lab-validation';
+    } else if (!supported.length) {
+      validation.textContent = '检测到的设备没有可用于持久绑定的 HCTL，暂时无法保存。';
+      validation.className = 'lab-validation';
+    } else if (!assignedDevices.length) {
+      validation.textContent = '请至少为一个物理盘位选择硬盘。';
+      validation.className = 'lab-validation';
+    } else if (assignedDevices.length !== uniqueDevices.size) {
+      validation.textContent = '同一块硬盘不能绑定到多个盘位。';
+      validation.className = 'lab-validation';
+    } else {
+      const remaining = supported.length - uniqueDevices.size;
+      validation.textContent = remaining > 0
+        ? `映射有效；另有 ${remaining} 块带 HCTL 的设备未绑定，保存后这些设备不会控制硬盘灯。`
+        : '映射检查通过，可以保存。';
+      validation.className = 'lab-validation ok';
+    }
+  }
+
+  function renderLabInventory() {
+    const container = $('labDiskInventory');
+    const disks = Array.isArray(labState.disks) ? labState.disks : [];
+    const slotByDevice = {};
+    Object.entries(labDraft).forEach(([slot, device]) => { if (device) slotByDevice[device] = slot; });
+    container.innerHTML = '';
+    if (!disks.length) {
+      const empty = document.createElement('div');
+      empty.className = 'lab-empty';
+      empty.textContent = '未检测到硬盘';
+      container.appendChild(empty);
+      return;
+    }
+
+    disks.forEach((disk) => {
+      const card = document.createElement('div');
+      const boundSlot = slotByDevice[disk.device];
+      card.className = `lab-disk-card${boundSlot ? ' bound' : ''}${disk.supported ? '' : ' unsupported'}`;
+      const head = document.createElement('div');
+      head.className = 'lab-disk-card-head';
+      const title = document.createElement('strong');
+      title.textContent = disk.device || '未知设备';
+      title.title = disk.device || '';
+      const chip = document.createElement('span');
+      chip.className = `state-chip ${boundSlot ? 'active' : 'unknown'}`;
+      chip.textContent = !disk.supported ? '不可绑定' : boundSlot ? `盘位 ${String(boundSlot).replace('disk', '')}` : '未绑定';
+      head.append(title, chip);
+      const details = document.createElement('p');
+      const identity = [disk.model || '未知型号', disk.size || '未知容量', disk.serial ? `S/N ${disk.serial}` : '无序列号'].join(' · ');
+      details.append(document.createTextNode(`${identity} · `));
+      const hctl = document.createElement('code');
+      hctl.textContent = disk.hctl ? `HCTL ${disk.hctl}` : '无 HCTL';
+      details.appendChild(hctl);
+      card.append(head, details);
+      container.appendChild(card);
+    });
+  }
+
+  function renderLabWorkspace() {
+    const container = $('labSlotList');
+    const slots = Array.isArray(labState.slots) ? labState.slots : [];
+    const disks = Array.isArray(labState.disks) ? labState.disks.filter((disk) => disk.supported) : [];
+    const selectedDevices = new Set(Object.values(labDraft).filter(Boolean));
+    container.innerHTML = '';
+
+    if (!slots.length) {
+      const empty = document.createElement('div');
+      empty.className = 'lab-empty';
+      empty.textContent = '未读取到硬盘灯盘位';
+      container.appendChild(empty);
+    }
+
+    slots.forEach((slot) => {
+      const row = document.createElement('div');
+      row.className = `lab-slot-row${labIdentifying === slot.led ? ' identifying' : ''}`;
+      const label = document.createElement('div');
+      label.className = 'lab-slot-label';
+      const title = document.createElement('strong');
+      title.textContent = `物理盘位 ${slot.position}`;
+      const code = document.createElement('small');
+      code.textContent = slot.led;
+      label.append(title, code);
+
+      const select = document.createElement('select');
+      select.className = 'lab-disk-select';
+      select.setAttribute('aria-label', `物理盘位 ${slot.position} 对应硬盘`);
+      const emptyOption = document.createElement('option');
+      emptyOption.value = '';
+      emptyOption.textContent = '未绑定 / 空盘位';
+      select.appendChild(emptyOption);
+      disks.forEach((disk) => {
+        const option = document.createElement('option');
+        option.value = disk.device;
+        option.textContent = labDiskLabel(disk);
+        option.disabled = selectedDevices.has(disk.device) && labDraft[slot.led] !== disk.device;
+        select.appendChild(option);
+      });
+      select.value = labDraft[slot.led] || '';
+      select.addEventListener('change', () => {
+        labDraft[slot.led] = select.value;
+        renderLabWorkspace();
+      });
+
+      const identify = document.createElement('button');
+      identify.type = 'button';
+      identify.className = 'secondary-button';
+      identify.innerHTML = '<i class="bi bi-lightning-charge" aria-hidden="true"></i>闪烁此灯';
+      identify.addEventListener('click', () => {
+        setBusy(identify, true);
+        api('/lab/mapping/highlight', { method: 'POST', query: `led=${encodeURIComponent(slot.led)}` })
+          .then((data) => {
+            labIdentifying = slot.led;
+            renderLabStatus(data, true);
+            showMessage(`物理盘位 ${slot.position} 的灯正在闪烁`, 'ok');
+          })
+          .catch(showError)
+          .finally(() => setBusy(identify, false));
+      });
+      row.append(label, select, identify);
+      container.appendChild(row);
+    });
+    renderLabInventory();
+    updateLabValidation();
+  }
+
+  function renderLabStatus(data, preserveDraft) {
+    const previousDraft = labDraft;
+    labState = {
+      active: Boolean(data.active),
+      mode: data.mode === 'manual' ? 'manual' : 'auto',
+      slots: Array.isArray(data.slots) ? data.slots : [],
+      disks: Array.isArray(data.disks) ? data.disks : [],
+    };
+    document.body.classList.toggle('lab-session-active', labState.active);
+    $('labModeBadge').textContent = labState.mode === 'manual' ? '当前：自定义映射' : '当前：自动映射';
+    $('labSummary').textContent = labState.mode === 'manual'
+      ? '当前按已保存的 HCTL 自定义规则绑定。恢复自动映射后，将重新按控制器顺序生成盘位。'
+      : '当前按 HCTL 顺序自动生成盘位；如果实际机箱灯位乱序，可进入检测模式手动修正。';
+    $('labSession').hidden = !labState.active;
+    $('btnStartLabMapping').disabled = labState.active;
+    $('btnStartLabMapping').innerHTML = labState.active
+      ? '<i class="bi bi-check2-circle" aria-hidden="true"></i>检测模式已启动'
+      : '<i class="bi bi-lightbulb" aria-hidden="true"></i>开始检测并点亮全部硬盘灯';
+
+    if (labState.active) {
+      if (preserveDraft) {
+        const validDevices = new Set(labState.disks.map((disk) => disk.device));
+        labDraft = {};
+        labState.slots.forEach((slot) => {
+          const value = previousDraft[slot.led] || '';
+          labDraft[slot.led] = validDevices.has(value) ? value : '';
+        });
+      } else {
+        resetLabDraft(labState);
+      }
+      renderLabWorkspace();
+    } else {
+      labDraft = {};
+      labIdentifying = '';
+    }
+    return data;
+  }
+
+  function loadLabMappingStatus() {
+    if (labStatusPromise) return labStatusPromise;
+    labStatusPromise = api('/lab/mapping/status')
+      .then((data) => renderLabStatus(data, labState.active))
+      .catch(showError)
+      .finally(() => { labStatusPromise = null; });
+    return labStatusPromise;
+  }
+
+  function startLabMapping(button, preserveDraft) {
+    setBusy(button, true);
+    return api('/lab/mapping/start', { method: 'POST' })
+      .then((data) => {
+        labIdentifying = '';
+        renderLabStatus(data, Boolean(preserveDraft));
+        showMessage(data.message || '检测模式已启动', 'ok');
+        return data;
+      })
+      .catch(showError)
+      .finally(() => {
+        setBusy(button, false);
+        if (button && button.id === 'btnStartLabMapping') button.disabled = labState.active;
+      });
+  }
+
+  function finishLabMapping(path, button, body, successMessage) {
+    setBusy(button, true);
+    return api(path, { method: 'POST', body })
+      .then((data) => {
+        renderLabStatus(data, false);
+        showMessage(data.message || successMessage, 'ok');
+        return refresh();
+      })
+      .catch(showError)
+      .finally(() => setBusy(button, false));
+  }
+
   function setRoute(route, updateHash) {
     const next = ROUTES[route] ? route : 'overview';
     currentRoute = next;
@@ -223,8 +534,10 @@
     });
     $('pageTitle').textContent = ROUTES[next].title;
     $('pageDescription').textContent = ROUTES[next].description;
+    document.body.classList.toggle('lab-route', next === 'lab');
     if (updateHash !== false && location.hash !== `#${next}`) history.replaceState(null, '', `#${next}`);
     $('appMain').scrollTo({ top: 0, behavior: 'smooth' });
+    if (next === 'lab') loadLabMappingStatus();
   }
 
   function setLightingPanel(panel) {
@@ -478,6 +791,7 @@
       dot.classList.toggle('offline', !running);
     });
     $('statusBar').textContent = (data.led_status || '暂无 LED 原始状态').slice(0, 1400);
+    if (Boolean(data.lab_mapping_active) !== Boolean(labState.active)) loadLabMappingStatus();
   }
 
   function renderMapping(data) {
@@ -563,12 +877,42 @@
   $('btnDaemonStop').addEventListener('click', function () {
     runAction(this, api('/daemon/stop'), '后台服务已停止');
   });
+  $('btnCheckUpdate').addEventListener('click', function () {
+    checkForUpdates(true, this);
+  });
+  $('btnStartLabMapping').addEventListener('click', function () {
+    startLabMapping(this, false);
+  });
+  $('btnShowAllLabLeds').addEventListener('click', function () {
+    startLabMapping(this, true);
+  });
+  $('btnCancelLabMapping').addEventListener('click', function () {
+    if (!window.confirm('确定取消本次检测吗？尚未保存的盘位选择会丢失。')) return;
+    finishLabMapping('/lab/mapping/cancel', this, '', '已退出检测模式');
+  });
+  $('btnResetLabMapping').addEventListener('click', function () {
+    if (!window.confirm('确定恢复自动 HCTL 映射吗？已保存的自定义盘位规则将停用。')) return;
+    finishLabMapping('/lab/mapping/reset', this, '', '已恢复自动映射');
+  });
+  $('btnSaveLabMapping').addEventListener('click', function () {
+    const diskByDevice = new Map(labState.disks.map((disk) => [disk.device, disk]));
+    const lines = labState.slots.map((slot) => {
+      const device = labDraft[slot.led];
+      const disk = diskByDevice.get(device);
+      return device && disk && disk.hctl ? `${slot.led}|${device}|${disk.hctl}` : '';
+    }).filter(Boolean);
+    if (!lines.length) {
+      updateLabValidation();
+      return;
+    }
+    finishLabMapping('/lab/mapping/save', this, lines.join('\n'), '自定义硬盘位置已保存');
+  });
 
   window.addEventListener('hashchange', () => setRoute(location.hash.slice(1), false));
 
   setLightingPanel(currentLightingPanel);
   setRoute(location.hash.slice(1) || 'overview', false);
-  Promise.all([loadSettings(), refresh()]);
+  Promise.all([loadSettings(), refresh(), checkForUpdates(false)]);
   setInterval(() => {
     if (!document.hidden) refresh();
   }, 10000);

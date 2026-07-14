@@ -7,7 +7,7 @@
   <title>绿联 LED 灯控</title>
   <base href="/cgi/ThirdParty/App.Native.UGreenLED/index.cgi/">
   <link rel="stylesheet" href="./vendor/bootstrap-icons/font/bootstrap-icons.min.css?v=1.11.3">
-  <link rel="stylesheet" href="./css/style.css?v=1.4.5">
+  <link rel="stylesheet" href="./css/style.css?v=1.5.0">
 </head>
 <body>
   <div class="app-shell">
@@ -33,11 +33,14 @@
         <button type="button" class="nav-item" data-route="devices">
           <i class="bi bi-hdd-rack" aria-hidden="true"></i><span>设备与高级</span>
         </button>
+        <button type="button" class="nav-item lab-nav-item" data-route="lab">
+          <i class="bi bi-eyedropper" aria-hidden="true"></i><span>实验室功能</span><small>未经验证</small>
+        </button>
       </nav>
 
       <div class="rail-footer">
         <span class="rail-state"><span class="status-dot" id="railStatusDot"></span><span id="railStatusText">正在连接</span></span>
-        <small>v1.4.5 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
+        <small>v1.5.0 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
       </div>
     </aside>
 
@@ -229,6 +232,26 @@
             <div class="monitoring-actions"><button type="button" class="primary-button" id="btnSaveMonitoring"><i class="bi bi-floppy" aria-hidden="true"></i>保存监测频率</button></div>
           </article>
 
+          <article class="glass-surface update-surface">
+            <div class="section-heading">
+              <div><span class="section-kicker">APPLICATION UPDATE</span><h2>应用更新</h2></div>
+              <span class="soft-badge" id="updateBadge">尚未检查</span>
+            </div>
+            <div class="update-content">
+              <div class="update-copy">
+                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.4.6</strong></div>
+                <h3 id="updateTitle">检查 GitHub Release 获取新版本</h3>
+                <p class="surface-help" id="updateDescription">发现新版本后，可下载安装包并在 fnOS 应用中心手动升级。</p>
+                <small id="updateCheckedAt">不会自动安装，也不会在后台静默升级。</small>
+              </div>
+              <div class="update-actions">
+                <button type="button" class="secondary-button" id="btnCheckUpdate"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i>检查更新</button>
+                <a class="secondary-button" id="btnReleaseNotes" href="https://github.com/BearHero520/LLLED_FPK/releases" target="_blank" rel="noopener noreferrer" hidden><i class="bi bi-card-text" aria-hidden="true"></i>更新说明</a>
+                <a class="primary-button" id="btnDownloadUpdate" href="https://github.com/BearHero520/LLLED_FPK/releases/latest" target="_blank" rel="noopener noreferrer" hidden><i class="bi bi-download" aria-hidden="true"></i>下载升级包</a>
+              </div>
+            </div>
+          </article>
+
           <article class="glass-surface daemon-surface">
             <div><span class="section-kicker">SERVICE</span><h2>后台服务</h2><p class="surface-help">控制 LED 守护进程。停止后灯光不再自动更新。</p></div>
             <div class="daemon-actions">
@@ -243,6 +266,71 @@
           </details>
         </div>
       </section>
+
+      <section class="app-view" id="view-lab" data-view="lab" hidden>
+        <div class="lab-warning glass-surface" role="note">
+          <span class="surface-icon warning"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span>
+          <div>
+            <div class="lab-warning-title"><strong>实验室功能</strong><span class="warning-badge">未经验证 · 谨慎使用</span></div>
+            <p>此功能会临时接管硬盘灯，并改写硬盘与物理盘位的对应关系。请确认机箱旁无人进行维护，再开始检测。</p>
+          </div>
+        </div>
+
+        <div class="lab-layout">
+          <article class="glass-surface lab-intro-surface">
+            <div class="section-heading">
+              <div><span class="section-kicker">DISK POSITION BINDING</span><h2>硬盘位置自定义绑定</h2></div>
+              <span class="soft-badge" id="labModeBadge">读取中</span>
+            </div>
+            <p class="surface-help">适用于 6 盘位、8 盘位等硬盘灯顺序与系统 HCTL 顺序不一致的机型。网络灯和电源灯不会参与绑定。</p>
+
+            <ol class="lab-steps" aria-label="绑定流程">
+              <li><span>1</span><div><strong>点亮全部硬盘灯</strong><small>确认所有盘位灯均可见并进入检测模式</small></div></li>
+              <li><span>2</span><div><strong>逐盘位闪烁识别</strong><small>让一个盘位灯闪烁，再选择对应硬盘</small></div></li>
+              <li><span>3</span><div><strong>检查并保存</strong><small>重复绑定会被拦截，保存后立即生效</small></div></li>
+            </ol>
+
+            <div class="lab-current-summary" id="labSummary">正在读取当前映射方式…</div>
+            <div class="lab-intro-actions">
+              <button type="button" class="primary-button" id="btnStartLabMapping"><i class="bi bi-lightbulb" aria-hidden="true"></i>开始检测并点亮全部硬盘灯</button>
+              <button type="button" class="secondary-button" id="btnResetLabMapping"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>恢复自动映射</button>
+            </div>
+          </article>
+
+          <article class="glass-surface lab-session-surface" id="labSession" hidden>
+            <div class="lab-session-head">
+              <div>
+                <span class="section-kicker">DETECTION MODE</span>
+                <h2>检测模式进行中</h2>
+                <p class="surface-help">先确认全部硬盘灯已亮，再从盘位 1 开始逐个闪烁识别。未安装硬盘的盘位可以保持“未绑定”。</p>
+              </div>
+              <span class="session-live"><span class="status-dot online"></span>临时接管中</span>
+            </div>
+
+            <div class="lab-session-toolbar">
+              <div class="lab-progress"><strong id="labProgressText">已绑定 0 个盘位</strong><span id="labProgressHint">请选择每个物理盘位对应的硬盘</span></div>
+              <button type="button" class="secondary-button" id="btnShowAllLabLeds"><i class="bi bi-brightness-high" aria-hidden="true"></i>重新点亮全部</button>
+            </div>
+
+            <div class="lab-mapping-layout">
+              <div class="lab-slot-panel">
+                <div class="lab-panel-heading"><strong>物理盘位与硬盘</strong><span>点击“闪烁此灯”确认机箱位置</span></div>
+                <div class="lab-slot-list" id="labSlotList"></div>
+              </div>
+              <aside class="lab-inventory-panel" aria-labelledby="labInventoryTitle">
+                <div class="lab-panel-heading"><strong id="labInventoryTitle">检测到的硬盘</strong><span>通过型号、容量或序列号核对</span></div>
+                <div class="lab-disk-inventory" id="labDiskInventory"></div>
+              </aside>
+            </div>
+
+            <div class="lab-validation" id="labValidation" role="alert" aria-live="polite"></div>
+            <div class="lab-session-actions">
+              <button type="button" class="secondary-button" id="btnCancelLabMapping"><i class="bi bi-x-lg" aria-hidden="true"></i>取消并退出</button>
+              <button type="button" class="primary-button" id="btnSaveLabMapping" disabled><i class="bi bi-floppy" aria-hidden="true"></i>保存自定义映射</button>
+            </div>
+          </article>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -253,6 +341,6 @@
     <button type="button" class="mode-button primary" data-mode="smart"><i class="bi bi-stars" aria-hidden="true"></i><span>智能模式</span></button>
   </div>
 
-  <script src="./js/app.js?v=1.4.5"></script>
+  <script src="./js/app.js?v=1.5.0"></script>
 </body>
 </html>

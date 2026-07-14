@@ -20,7 +20,7 @@ LLLED_FPK/
 └── README.md
 ```
 
-应用 ID：`App.Native.UGreenLED` · 当前版本：**1.4.5**
+应用 ID：`App.Native.UGreenLED` · 当前版本：**1.5.0**
 
 ## 功能概览
 
@@ -28,7 +28,7 @@ LLLED_FPK/
 |------|------|
 | 三档模式 | 关闭全部 / 开启全部 / 智能模式 |
 | 硬盘灯 | 活动、空闲、休眠、深度睡眠、离线（拔出自动关灯） |
-| 盘位映射 | 按 **HCTL** 动态映射到 disk1–disk4，支持热插拔重映射 |
+| 盘位映射 | 按 **HCTL** 动态映射到 disk1–disk8，支持热插拔重映射；实验室功能可手动绑定物理盘位 |
 | 网络灯 | **外网**（海外检测点通）、**联网**（仅国内通）、**断网** |
 | 速度闪动 | 磁盘读写、网络上传下载超过阈值后闪动，速度越高闪动越快，两项可独立开关 |
 | 电源灯 | 智能 / 全开模式下可单独配色 |
@@ -66,6 +66,33 @@ python scripts/build_fpk_remote.py
 
 安装包输出：`App.Native.UGreenLED.fpk`（不纳入 Git，可从 [Releases](https://github.com/BearHero520/LLLED_FPK/releases) 下载）。
 
+### 本地无 NAS 打包
+
+仓库内置了跨平台构建器，可在 Windows、Linux 或 GitHub Actions 中直接生成与 `fnpack` 相同结构的 FPK，不需要连接 NAS：
+
+```bash
+python scripts/build_fpk.py
+```
+
+输出目录为 `dist/`，其中包括：
+
+- `App.Native.UGreenLED-<版本>.fpk`：带版本号的发布文件。
+- `App.Native.UGreenLED.fpk`：供应用更新检查使用的固定文件名。
+- `App.Native.UGreenLED-<版本>.fpk.sha256`：完整性校验文件。
+
+构建器会生成 `app.tgz`，把它的 MD5 写入 FPK 内部 `manifest` 的 `checksum` 字段，并在完成后重新读取安装包校验结构。
+
+### 自动创建 GitHub Release
+
+`.github/workflows/release.yml` 会在推送 `v*.*.*` 标签时自动构建并发布 Release。标签版本必须与 `App.Native.UGreenLED/manifest` 中的 `version` 一致：
+
+```bash
+git tag v1.5.0
+git push origin v1.5.0
+```
+
+也可以在 GitHub Actions 页面手动运行工作流，只生成可下载的构建产物而不创建 Release。Release 会同时上传带版本文件名、固定文件名以及 SHA256 校验文件。
+
 ### 本地预览 Web 界面
 
 无需安装到 fnOS，运行内置模拟 API 预览服务器：
@@ -98,6 +125,12 @@ python App.Native.UGreenLED/scripts/process_logo.py
 
 智能模式下盘位示例：`0:0:0:0→disk1`，`2:0:0:0→disk3`（以实际 HCTL 为准）。
 
+### 实验室：硬盘位置自定义绑定
+
+当 6 盘位或 8 盘位机型的硬盘灯顺序与 HCTL 顺序不一致时，可在侧边栏进入“实验室功能”。检测模式会先点亮全部硬盘灯，再允许逐个盘位闪烁；用户根据硬盘型号、容量、序列号和 HCTL 选择对应设备并保存。自定义规则按 HCTL 持久化，不依赖可能变化的 `/dev/sdX` 名称。
+
+> 此功能未经完整机型验证。检测期间会临时接管硬盘灯，保存、取消或会话超时后恢复后台灯效；网络灯和电源灯不参与绑定。页面提供“恢复自动映射”用于随时回退。
+
 运行时配置：`/var/apps/App.Native.UGreenLED/var/settings.conf`（Web 保存后写入）。高频状态、速度采样、LED 缓存和 PID 存放在 `/run/App.Native.UGreenLED`，重启后自动重建，避免持续写入应用所在存储池。
 
 硬盘活动仍按 `check_interval`（默认 5 秒）从内核 `/proc/diskstats` 读取；`hdparm -C` 电源状态查询由 `disk_power_probe_interval` 控制（默认 60 秒，可在“设备与高级”设置 10–3600 秒），热插拔扫描由 `hotplug_check_interval` 控制（默认 30 秒，可设置 5–3600 秒）。
@@ -111,13 +144,20 @@ python App.Native.UGreenLED/scripts/process_logo.py
 | `/status` | 守护进程与 LED 状态 |
 | `/mapping` | 硬盘映射表 |
 | `/settings` | GET / POST 配置 |
+| `/update/check?force=1` | 检查 GitHub 最新 Release；`force=1` 忽略 6 小时缓存 |
 | `/mode?mode=off\|on\|smart` | 切换模式 |
 | `/daemon/start` · `/daemon/stop` | 启停守护进程 |
 | `/remap` | 重新 HCTL 映射 |
+| `/lab/mapping/status` | 查询实验室检测状态、盘位和硬盘清单 |
+| `/lab/mapping/start` · `/lab/mapping/highlight` | 开始检测并逐盘位闪烁识别 |
+| `/lab/mapping/save` · `/lab/mapping/cancel` | 保存自定义 HCTL 映射或放弃检测 |
+| `/lab/mapping/reset` | 恢复自动 HCTL 映射 |
 | `/led/set?led=disk1&r=255&g=0&b=0` | 手动设色 |
 | `/led/off?led=disk1` | 手动关闭单个灯 |
 
 Web 管理页使用 fnOS CGI，不再自动启动旧版 5088 端口服务，减少无鉴权端口暴露和无效后台进程。
+
+“设备与高级 → 应用更新”会在打开管理页时检查 GitHub Release。发现新版后，用户可以查看更新说明并下载固定名称的 FPK；为避免依赖未公开的 fnOS 内部安装接口，应用不会静默安装，仍需在应用中心手动确认升级。
 
 ## 常见问题
 

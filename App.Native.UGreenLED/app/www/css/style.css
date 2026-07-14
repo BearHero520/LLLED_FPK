@@ -27,6 +27,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html, body { margin: 0; min-height: 100%; }
 
@@ -39,9 +40,9 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 button { color: inherit; }
-button:focus-visible, input:focus-visible {
+button:focus-visible, input:focus-visible, select:focus-visible {
   outline: 3px solid rgba(22, 119, 255, 0.24);
   outline-offset: 3px;
 }
@@ -110,6 +111,7 @@ button:focus-visible, input:focus-visible {
 }
 
 .nav-item i { width: 20px; font-size: 18px; text-align: center; }
+.nav-item small { margin-left: auto; padding: 3px 6px; border-radius: 999px; background: rgba(232, 145, 36, 0.13); color: #a7610f; font-size: 9px; font-weight: 800; white-space: nowrap; }
 .nav-item:hover { color: var(--text); background: rgba(255, 255, 255, 0.52); transform: translateX(2px); }
 .nav-item.active {
   color: var(--blue);
@@ -264,6 +266,7 @@ button:focus-visible, input:focus-visible {
 }
 .surface-icon.blue { background: var(--blue-soft); color: var(--blue); }
 .surface-icon.violet { background: var(--violet-soft); color: var(--violet); }
+.surface-icon.warning { background: rgba(255, 236, 205, 0.82); color: #b66a12; }
 .surface-label { display: block; margin-bottom: 4px; color: var(--text-faint); font-size: 12px; font-weight: 700; }
 .status-primary strong { font-size: 20px; letter-spacing: -0.02em; }
 
@@ -273,10 +276,10 @@ button:focus-visible, input:focus-visible {
 .status-facts strong { font-size: 14px; }
 
 .overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 16px; margin-top: 16px; }
-.network-panel, .disk-panel, .settings-surface, .preset-surface, .activity-card, .tier-surface, .device-map-surface, .monitoring-surface, .daemon-surface, .diagnostics-surface { padding: 20px 22px; }
+.network-panel, .disk-panel, .settings-surface, .preset-surface, .activity-card, .tier-surface, .device-map-surface, .monitoring-surface, .update-surface, .daemon-surface, .diagnostics-surface, .lab-intro-surface, .lab-session-surface { padding: 20px 22px; }
 
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
-.section-heading h2, .activity-card h2, .tier-surface h2, .monitoring-surface h2, .daemon-surface h2 { margin: 0; font-size: 17px; letter-spacing: -0.02em; }
+.section-heading h2, .activity-card h2, .tier-surface h2, .monitoring-surface h2, .update-surface h2, .daemon-surface h2, .lab-session-surface h2 { margin: 0; font-size: 17px; letter-spacing: -0.02em; }
 
 .text-button { padding: 7px 0; background: transparent; color: var(--blue); font-size: 12px; font-weight: 750; }
 .text-button:hover { transform: translateX(2px); }
@@ -387,6 +390,65 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
 .monitoring-field-copy strong { color: var(--text); font-size: 13px; }
 .monitoring-field-copy small { color: var(--text-faint); font-size: 11px; font-weight: 550; }
 .monitoring-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+.update-surface { grid-column: 1 / -1; }
+.update-content { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 12px; }
+.update-copy { min-width: 0; }
+.update-version { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; color: var(--text-faint); font-size: 11px; font-weight: 700; }
+.update-version strong { color: var(--blue); font-size: 13px; }
+.update-copy h3 { margin: 0; font-size: 15px; letter-spacing: -0.015em; }
+.update-copy .surface-help { margin-bottom: 7px; }
+.update-copy small { color: var(--text-faint); font-size: 11px; }
+.update-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.update-actions a { text-decoration: none; }
+.lab-route .mode-dock { display: none; }
+.lab-warning { display: flex; align-items: flex-start; gap: 16px; padding: 18px 20px; border-color: rgba(232, 145, 36, 0.25); background: rgba(255, 248, 236, 0.76); }
+.lab-warning-title { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-bottom: 4px; }
+.lab-warning-title strong { font-size: 15px; }
+.lab-warning p { max-width: 860px; margin: 0; color: #775d3b; font-size: 12px; line-height: 1.55; }
+.warning-badge { display: inline-flex; align-items: center; min-height: 25px; padding: 0 9px; border-radius: 999px; background: rgba(217, 75, 89, 0.11); color: #b62f40; font-size: 10px; font-weight: 800; }
+.lab-layout { display: grid; gap: 16px; margin-top: 16px; }
+.lab-intro-surface, .lab-session-surface { min-width: 0; }
+.lab-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0 0; padding: 0; list-style: none; }
+.lab-steps li { display: flex; align-items: flex-start; gap: 11px; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 255, 255, 0.43); }
+.lab-steps li > span { display: inline-grid; width: 27px; height: 27px; flex: 0 0 auto; place-items: center; border-radius: 10px; background: var(--blue-soft); color: var(--blue); font-size: 11px; font-weight: 850; }
+.lab-steps strong, .lab-steps small { display: block; }
+.lab-steps strong { margin-bottom: 4px; font-size: 12px; }
+.lab-steps small { color: var(--text-faint); font-size: 10px; line-height: 1.45; }
+.lab-current-summary { margin-top: 14px; padding: 11px 13px; border-radius: 13px; background: rgba(235, 242, 251, 0.58); color: var(--text-soft); font-size: 11px; line-height: 1.5; }
+.lab-intro-actions, .lab-session-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.lab-intro-actions button, .lab-session-actions button, .lab-session-toolbar button, .lab-slot-row button { min-height: 44px; }
+.lab-session-head, .lab-session-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.lab-session-head { align-items: flex-start; }
+.session-live { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 12px; border-radius: 999px; background: var(--green-soft); color: #13764d; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.lab-session-toolbar { margin: 14px 0; padding: 12px 14px; border: 1px solid rgba(22, 119, 255, 0.13); border-radius: 16px; background: rgba(225, 239, 255, 0.52); }
+.lab-progress strong, .lab-progress span { display: block; }
+.lab-progress strong { margin-bottom: 3px; font-size: 13px; }
+.lab-progress span { color: var(--text-soft); font-size: 10px; }
+.lab-mapping-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr); gap: 14px; align-items: start; }
+.lab-slot-panel, .lab-inventory-panel { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255, 255, 255, 0.38); }
+.lab-panel-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.lab-panel-heading strong { font-size: 13px; }
+.lab-panel-heading span { color: var(--text-faint); font-size: 10px; text-align: right; }
+.lab-slot-list, .lab-disk-inventory { display: flex; flex-direction: column; gap: 8px; }
+.lab-slot-row { display: grid; grid-template-columns: minmax(112px, 0.55fr) minmax(220px, 1.45fr) auto; align-items: center; gap: 10px; min-height: 66px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 15px; background: rgba(255, 255, 255, 0.62); }
+.lab-slot-row.identifying { border-color: rgba(22, 119, 255, 0.42); box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.08); }
+.lab-slot-label strong, .lab-slot-label small { display: block; }
+.lab-slot-label strong { font-size: 13px; }
+.lab-slot-label small { margin-top: 3px; color: var(--text-faint); font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; }
+.lab-disk-select { width: 100%; min-height: 44px; padding: 0 36px 0 12px; border: 1px solid var(--line-strong); border-radius: 12px; background: rgba(255, 255, 255, 0.84); color: var(--text); cursor: pointer; font-size: 12px; }
+.lab-slot-row .secondary-button { padding: 0 12px; white-space: nowrap; }
+.lab-disk-card { padding: 11px 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, 0.62); }
+.lab-disk-card.bound { border-color: rgba(32, 167, 107, 0.28); background: rgba(221, 247, 235, 0.48); }
+.lab-disk-card.unsupported { opacity: 0.68; }
+.lab-disk-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.lab-disk-card strong { min-width: 0; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.lab-disk-card .state-chip { flex: 0 0 auto; }
+.lab-disk-card p { margin: 6px 0 0; color: var(--text-soft); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.lab-disk-card code { color: var(--text-faint); font-family: "SFMono-Regular", Consolas, monospace; }
+.lab-empty { padding: 18px; color: var(--text-faint); font-size: 11px; text-align: center; }
+.lab-validation { min-height: 20px; margin-top: 10px; color: #b62f40; font-size: 11px; font-weight: 650; }
+.lab-validation.ok { color: #13764d; }
+.primary-button:disabled, .secondary-button:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
 .daemon-surface { display: flex; flex-direction: column; justify-content: space-between; }
 .daemon-actions { display: flex; gap: 10px; margin-top: 16px; }
 .diagnostics-surface { grid-column: 2; padding: 0; overflow: hidden; }
@@ -429,7 +491,7 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   .app-shell { grid-template-columns: 86px minmax(0, 1fr); }
   .app-rail { padding: 20px 12px; }
   .brand-block { justify-content: center; padding-bottom: 24px; }
-  .brand-copy, .nav-item span, .rail-state span:last-child { display: none; }
+  .brand-copy, .nav-item span, .nav-item small, .rail-state span:last-child { display: none; }
   .nav-item { justify-content: center; padding: 0; }
   .nav-item:hover { transform: translateY(-1px); }
   .rail-footer { align-items: center; }
@@ -444,7 +506,7 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   .page-header h1 { font-size: 29px; }
   .page-description { margin-top: 2px; }
   .status-strip { min-height: 88px; padding-top: 16px; padding-bottom: 16px; }
-  .network-panel, .disk-panel, .settings-surface, .preset-surface, .activity-card, .tier-surface, .device-map-surface, .monitoring-surface, .daemon-surface { padding-top: 17px; padding-bottom: 17px; }
+  .network-panel, .disk-panel, .settings-surface, .preset-surface, .activity-card, .tier-surface, .device-map-surface, .monitoring-surface, .update-surface, .daemon-surface, .lab-intro-surface, .lab-session-surface { padding-top: 17px; padding-bottom: 17px; }
   .speed-metrics { min-height: 106px; }
   .mode-dock { bottom: 10px; }
 }
@@ -469,6 +531,9 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   .settings-tabs { display: flex; width: 100%; }
   .settings-tab { flex: 1; padding: 0 8px; }
   .settings-layout, .activity-layout, .device-layout { grid-template-columns: 1fr; }
+  .lab-mapping-layout { grid-template-columns: 1fr; }
+  .update-content { align-items: flex-start; flex-direction: column; }
+  .update-actions { justify-content: flex-start; }
   .monitoring-fields { grid-template-columns: 1fr; gap: 0; }
   #overviewDiskTable { min-width: 560px; table-layout: auto; }
   .preset-surface, .tier-surface { grid-column: auto; align-items: flex-start; flex-direction: column; }
@@ -493,6 +558,12 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   .activity-card-head { grid-template-columns: auto 1fr; }
   .activity-card-head .native-check { grid-column: 1 / -1; justify-self: flex-start; }
   .color-row { grid-template-columns: minmax(84px, 1fr) 64px 66px; }
+  .lab-steps { grid-template-columns: 1fr; }
+  .lab-session-head, .lab-session-toolbar, .lab-panel-heading { align-items: flex-start; flex-direction: column; }
+  .lab-slot-row { grid-template-columns: 1fr; }
+  .lab-slot-row .secondary-button { width: 100%; }
+  .lab-intro-actions, .lab-session-actions { align-items: stretch; flex-direction: column-reverse; }
+  .lab-intro-actions button, .lab-session-actions button { width: 100%; }
   input[type="color"] { width: 58px; }
   .mode-button span { display: none; }
   .mode-button { min-height: 44px; font-size: 18px; }

@@ -128,13 +128,21 @@ led_set_off() {
 
 led_set_blink() {
     local led="$1" r="$2" g="$3" b="$4" period_ms="$5" on_ms="$6" brightness="${7:-64}"
+    local off_ms
     ensure_cli || return 1
-    local key="blink,${r},${g},${b},${period_ms},${on_ms},${brightness}"
+    (( period_ms < 2 )) && period_ms=2
+    (( on_ms < 1 )) && on_ms=1
+    (( on_ms >= period_ms )) && on_ms=$((period_ms / 2))
+    off_ms=$((period_ms - on_ms))
+    (( off_ms < 1 )) && off_ms=1
+
+    local key="blink,${r},${g},${b},${on_ms},${off_ms},${brightness}"
     if [[ "$(led_read_cached_state "$led")" == "$key" ]]; then
         return 0
     fi
     led_ensure_on "$led" || return 1
-    if timeout 5 "$UGREEN_CLI" "$led" -color "$r" "$g" "$b" -blink "$period_ms" "$on_ms" -brightness "$brightness" -on >/dev/null 2>&1; then
+    # -blink 接收亮灯/灭灯时长；末尾不能追加 -on，否则会把 blink 模式覆盖为常亮。
+    if timeout 5 "$UGREEN_CLI" "$led" -color "$r" "$g" "$b" -blink "$on_ms" "$off_ms" -brightness "$brightness" >/dev/null 2>&1; then
         led_write_cached_state "$led" "$key"
         return 0
     fi

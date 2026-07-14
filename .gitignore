@@ -1,10 +1,13 @@
 # 构建产物
 *.fpk
+*.fpk.sha256
 
 # 测试 / 诊断脚本与临时输出（保留远程打包脚本）
 /scripts/*
+!/scripts/build_fpk.py
 !/scripts/build_fpk_remote.py
 !/scripts/preview_web.py
+/dist/
 *_diag.txt
 *_result.txt
 apps_manifests.txt

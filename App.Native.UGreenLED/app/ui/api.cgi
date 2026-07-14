@@ -17,6 +17,11 @@ SETTINGS_FILE="${VAR_DIR}/settings.conf"
 PID_FILE="${RUNTIME_DIR}/led_daemon.pid"
 DISK_STATUS_FILE="${RUNTIME_DIR}/disk_status.tsv"
 NET_STATUS_FILE="${RUNTIME_DIR}/net_status.tsv"
+UPDATE_CACHE_FILE="${RUNTIME_DIR}/update_check.cache"
+UPDATE_REPOSITORY="BearHero520/LLLED_FPK"
+UPDATE_LATEST_URL="https://github.com/${UPDATE_REPOSITORY}/releases/latest"
+UPDATE_API_URL="https://api.github.com/repos/${UPDATE_REPOSITORY}/releases/latest"
+UPDATE_CACHE_TTL=21600
 UGREEN_CLI=""
 for c in "${SERVER_DIR}/bin/ugreen_leds_cli" "${APP_ROOT}/target/server/bin/ugreen_leds_cli" /usr/bin/ugreen_leds_cli; do
     [[ -x "$c" ]] && UGREEN_CLI="$c" && break
@@ -79,6 +84,133 @@ query_value() {
     echo "$QUERY_STRING" | sed -n "s/.*${key}=\([^&]*\).*/\1/p"
 }
 
+current_app_version() {
+    local manifest_file version
+    for manifest_file in \
+        "${APP_ROOT}/manifest" \
+        "${APP_ROOT}/target/manifest" \
+        "${APP_ROOT}/../manifest" \
+        "/var/apps/@appcenter/${APP_NAME}/manifest"; do
+        [[ -f "$manifest_file" ]] || continue
+        version=$(sed -n 's/^version[[:space:]]*=[[:space:]]*//p' "$manifest_file" | head -n 1)
+        version="${version//[[:space:]]/}"
+        [[ -n "$version" ]] && { printf '%s' "$version"; return; }
+    done
+    printf '%s' "unknown"
+}
+
+fetch_latest_release_tag() {
+    local response="" tag="" effective_url="" location=""
+    if command -v curl >/dev/null 2>&1; then
+        response=$(curl -fsSL --retry 2 --connect-timeout 5 --max-time 20 \
+            -H 'Accept: application/vnd.github+json' -H 'User-Agent: UGreenLED-fnOS' \
+            "$UPDATE_API_URL" 2>/dev/null || true)
+        tag=$(printf '%s\n' "$response" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+        if [[ -z "$tag" ]]; then
+            effective_url=$(curl -fsSL --retry 1 --connect-timeout 5 --max-time 20 -o /dev/null \
+                -w '%{url_effective}' "$UPDATE_LATEST_URL" 2>/dev/null || true)
+            tag="${effective_url##*/}"
+        fi
+    elif command -v wget >/dev/null 2>&1; then
+        response=$(wget -qO- --timeout=20 --header='Accept: application/vnd.github+json' \
+            --header='User-Agent: UGreenLED-fnOS' "$UPDATE_API_URL" 2>/dev/null || true)
+        tag=$(printf '%s\n' "$response" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+        if [[ -z "$tag" ]]; then
+            location=$(wget --spider --server-response --max-redirect=10 --timeout=20 "$UPDATE_LATEST_URL" 2>&1 | \
+                sed -n 's/^[[:space:]]*[Ll]ocation:[[:space:]]*\([^[:space:]]*\).*/\1/p' | tail -n 1)
+            effective_url="${location//$'\r'/}"
+            tag="${effective_url##*/}"
+        fi
+    else
+        return 1
+    fi
+
+    [[ "$tag" =~ ^v?[0-9]+([.][0-9]+){1,3}([._-][0-9A-Za-z.-]+)?$ ]] || return 1
+    printf '%s' "$tag"
+}
+
+update_check_json() {
+    local force="$1" current latest_tag="" latest_version="" now cached_tag="" cached_at=0
+    local release_url download_url cache_age
+    current=$(current_app_version)
+    now=$(date +%s)
+
+    if [[ "$force" != "1" && -f "$UPDATE_CACHE_FILE" ]]; then
+        IFS='|' read -r cached_tag cached_at < "$UPDATE_CACHE_FILE"
+        cached_at="${cached_at:-0}"
+        if [[ "$cached_at" =~ ^[0-9]+$ ]]; then
+            cache_age=$((now - cached_at))
+            if (( cache_age >= 0 && cache_age <= UPDATE_CACHE_TTL )); then
+                latest_tag="$cached_tag"
+            fi
+        fi
+    fi
+
+    if [[ -z "$latest_tag" ]]; then
+        latest_tag=$(fetch_latest_release_tag 2>/dev/null || true)
+        if [[ -n "$latest_tag" ]]; then
+            printf '%s|%s\n' "$latest_tag" "$now" > "${UPDATE_CACHE_FILE}.tmp" 2>/dev/null && \
+                mv "${UPDATE_CACHE_FILE}.tmp" "$UPDATE_CACHE_FILE" 2>/dev/null || true
+        fi
+    fi
+
+    if [[ -z "$latest_tag" ]]; then
+        printf '{"ok":true,"reachable":false,"current_version":"%s","checked_at":%s,"error":"无法连接 GitHub Release"}' \
+            "$(json_str "$current")" "$now"
+        return
+    fi
+
+    latest_version="${latest_tag#v}"
+    release_url="https://github.com/${UPDATE_REPOSITORY}/releases/tag/${latest_tag}"
+    download_url="https://github.com/${UPDATE_REPOSITORY}/releases/download/${latest_tag}/App.Native.UGreenLED.fpk"
+    printf '{"ok":true,"reachable":true,"current_version":"%s","latest_version":"%s","latest_tag":"%s","release_url":"%s","download_url":"%s","checked_at":%s}' \
+        "$(json_str "$current")" "$(json_str "$latest_version")" "$(json_str "$latest_tag")" \
+        "$(json_str "$release_url")" "$(json_str "$download_url")" "$now"
+}
+
+lab_mapping_resume_control() {
+    lab_mapping_session_end
+    led_clear_cache 2>/dev/null
+    rm -f "$DISK_STATUS_FILE"
+    if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        kill -HUP "$(cat "$PID_FILE")" 2>/dev/null || true
+    else
+        bash "${SERVER_DIR}/led_daemon.sh" once >/dev/null 2>&1 || true
+    fi
+}
+
+lab_mapping_status_json() {
+    local message="${1:-}" active=false mode slot first dev hctl serial model size transport led supported
+    lab_mapping_session_active && active=true
+    mode=$(disk_mapping_mode "$SETTINGS_FILE")
+    disk_load_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || DISK_LED_MAP=()
+
+    printf '{"ok":true,"active":%s,"mode":"%s","session_ttl":%s,"slots":[' "$active" "$(json_str "$mode")" "$LAB_MAPPING_SESSION_TTL"
+    first=1
+    while IFS= read -r slot; do
+        [[ -n "$slot" ]] || continue
+        [[ $first -eq 0 ]] && printf ','
+        first=0
+        printf '{"led":"%s","position":%s}' "$(json_str "$slot")" "${slot#disk}"
+    done < <(disk_available_slots)
+    printf '],"disks":['
+    first=1
+    while IFS='|' read -r dev hctl serial model size transport; do
+        [[ -n "$dev" ]] || continue
+        [[ $first -eq 0 ]] && printf ','
+        first=0
+        led="${DISK_LED_MAP[$dev]:-}"
+        supported=false
+        [[ "$hctl" =~ ^[0-9]+:[0-9]+:[0-9]+:[0-9]+$ ]] && supported=true
+        printf '{"device":"%s","hctl":"%s","serial":"%s","model":"%s","size":"%s","transport":"%s","led":"%s","supported":%s}' \
+            "$(json_str "$dev")" "$(json_str "$hctl")" "$(json_str "$serial")" "$(json_str "$model")" \
+            "$(json_str "$size")" "$(json_str "$transport")" "$(json_str "$led")" "$supported"
+    done < <(disk_inventory_rows)
+    printf ']'
+    [[ -n "$message" ]] && printf ',"message":"%s"' "$(json_str "$message")"
+    printf '}'
+}
+
 runtime_file_fresh() {
     local f="$1" max_age="${2:-30}" modified now
     [[ -f "$f" ]] || return 1
@@ -99,13 +231,15 @@ case "$API_PATH" in
         [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null && d="running"
         mode=$(settings_get "$SETTINGS_FILE" mode global "smart")
         st=$(led_all_status 2>/dev/null || echo "")
+        lab_active=false
+        lab_mapping_session_active && lab_active=true
 
         net="disconnected" nlabel="断网" nd=0 no=0 rx=0 tx=0 total=0 updated=0
         if [[ -f "$NET_STATUS_FILE" ]]; then
             IFS='|' read -r net nlabel nd no rx tx total updated < "$NET_STATUS_FILE"
         fi
-        printf '{"ok":true,"daemon":"%s","mode":"%s","network":"%s","network_label":"%s","net_domestic":%s,"net_overseas":%s,"net_rx_kbps":%s,"net_tx_kbps":%s,"net_total_kbps":%s,"updated_at":%s,"led_status":"%s"}' \
-            "$d" "$mode" "$net" "$(json_str "$nlabel")" "${nd:-0}" "${no:-0}" "${rx:-0}" "${tx:-0}" "${total:-0}" "${updated:-0}" "$(json_str "$st")"
+        printf '{"ok":true,"daemon":"%s","mode":"%s","network":"%s","network_label":"%s","net_domestic":%s,"net_overseas":%s,"net_rx_kbps":%s,"net_tx_kbps":%s,"net_total_kbps":%s,"updated_at":%s,"lab_mapping_active":%s,"led_status":"%s"}' \
+            "$d" "$mode" "$net" "$(json_str "$nlabel")" "${nd:-0}" "${no:-0}" "${rx:-0}" "${tx:-0}" "${total:-0}" "${updated:-0}" "$lab_active" "$(json_str "$st")"
         ;;
     /mapping)
         disk_load_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || DISK_LED_MAP=()
@@ -146,6 +280,75 @@ case "$API_PATH" in
             echo '"}'
         fi
         ;;
+    /update/check)
+        force=$(query_value force)
+        update_check_json "$force"
+        ;;
+    /lab/mapping/status)
+        lab_mapping_status_json
+        ;;
+    /lab/mapping/start)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif ! ensure_cli; then
+            echo '{"ok":false,"error":"LED 控制程序不可用，无法进入检测模式"}'
+        elif lab_mapping_show_all; then
+            lab_mapping_status_json "检测模式已启动，全部硬盘灯已点亮"
+        else
+            lab_mapping_resume_control
+            echo '{"ok":false,"error":"部分硬盘灯点亮失败，已退出检测模式"}'
+        fi
+        ;;
+    /lab/mapping/highlight)
+        led=$(query_value led)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif ! lab_mapping_session_active; then
+            echo '{"ok":false,"error":"检测会话已结束，请重新开始"}'
+        elif lab_mapping_highlight_slot "$led"; then
+            lab_mapping_status_json "${led} 正在闪烁"
+        else
+            echo '{"ok":false,"error":"无法点亮指定盘位"}'
+        fi
+        ;;
+    /lab/mapping/save)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif ! lab_mapping_session_active; then
+            echo '{"ok":false,"error":"检测会话已结束，请重新开始"}'
+        elif disk_save_manual_mapping "$SETTINGS_FILE" <<< "$POST_DATA"; then
+            lab_mapping_resume_control
+            lab_mapping_status_json "自定义硬盘位置已保存"
+        else
+            result=$?
+            case "$result" in
+                3) error="包含不存在的 LED 盘位" ;;
+                4) error="硬盘设备或 HCTL 已变化，请重新开始检测" ;;
+                5) error="同一硬盘或盘位不能重复绑定" ;;
+                6) error="请至少绑定一个硬盘盘位" ;;
+                *) error="映射数据无效，未保存任何更改" ;;
+            esac
+            printf '{"ok":false,"error":"%s"}' "$(json_str "$error")"
+        fi
+        ;;
+    /lab/mapping/cancel)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        else
+            lab_mapping_resume_control
+            lab_mapping_status_json "已退出检测模式，原映射保持不变"
+        fi
+        ;;
+    /lab/mapping/reset)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif disk_reset_auto_mapping "$SETTINGS_FILE"; then
+            lab_mapping_resume_control
+            lab_mapping_status_json "已恢复自动 HCTL 映射"
+        else
+            echo '{"ok":false,"error":"恢复自动映射失败"}'
+        fi
+        ;;
     /mode)
         m=$(query_value mode)
         case "$m" in
@@ -161,6 +364,7 @@ case "$API_PATH" in
         esac
         ;;
     /remap)
+        settings_set "$SETTINGS_FILE" behavior disk_map_mode auto
         if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
             kill -HUP "$(cat "$PID_FILE")" 2>/dev/null
             sleep 0.2

@@ -21,9 +21,20 @@ ROOT = Path(__file__).resolve().parent.parent
 APP_ROOT = ROOT / "App.Native.UGreenLED" / "app"
 WWW_ROOT = APP_ROOT / "www"
 DEFAULT_SETTINGS = APP_ROOT / "server" / "default_settings.conf"
+MANIFEST = ROOT / "App.Native.UGreenLED" / "manifest"
 APP_BASE = "/cgi/ThirdParty/App.Native.UGreenLED"
 STATIC_BASE = f"{APP_BASE}/index.cgi/"
 API_BASE = f"{APP_BASE}/api.cgi"
+
+
+def manifest_version() -> str:
+    for line in MANIFEST.read_text(encoding="utf-8").splitlines():
+        if line.startswith("version") and "=" in line:
+            return line.split("=", 1)[1].strip()
+    return "unknown"
+
+
+CURRENT_VERSION = manifest_version()
 
 
 def parse_ini(raw: str) -> OrderedDict[str, OrderedDict[str, str]]:
@@ -58,6 +69,18 @@ class PreviewState:
         self.settings = parse_ini(DEFAULT_SETTINGS.read_text(encoding="utf-8"))
         self.daemon = "running"
         self.remap_count = 0
+        self.lab_active = False
+        self.lab_highlight = ""
+        self.lab_slots = [f"disk{index}" for index in range(1, 7)]
+        self.lab_disks = [
+            {"device": "/dev/sda", "hctl": "0:0:0:0", "serial": "ZHZ4A001", "model": "ST8000VN004", "size": "7.3T", "transport": "sata", "supported": True},
+            {"device": "/dev/sdb", "hctl": "1:0:0:0", "serial": "ZHZ4A002", "model": "ST8000VN004", "size": "7.3T", "transport": "sata", "supported": True},
+            {"device": "/dev/sdc", "hctl": "2:0:0:0", "serial": "WX42D003", "model": "WDC WD120EFBX", "size": "10.9T", "transport": "sata", "supported": True},
+            {"device": "/dev/sdd", "hctl": "3:0:0:0", "serial": "WX42D004", "model": "WDC WD120EFBX", "size": "10.9T", "transport": "sata", "supported": True},
+            {"device": "/dev/sde", "hctl": "4:0:0:0", "serial": "ZA20E005", "model": "TOSHIBA MG08ACA16TE", "size": "14.6T", "transport": "sata", "supported": True},
+            {"device": "/dev/sdf", "hctl": "5:0:0:0", "serial": "ZA20E006", "model": "TOSHIBA MG08ACA16TE", "size": "14.6T", "transport": "sata", "supported": True},
+        ]
+        self.disk_led_map = {disk["device"]: self.lab_slots[index] for index, disk in enumerate(self.lab_disks)}
 
     @property
     def mode(self) -> str:
@@ -77,6 +100,48 @@ class PreviewState:
         if mode in {"off", "on", "smart"}:
             with self.lock:
                 self.settings.setdefault("mode", OrderedDict())["global"] = mode
+
+    def lab_payload(self, message: str = "") -> dict:
+        with self.lock:
+            payload = {
+                "ok": True,
+                "active": self.lab_active,
+                "mode": self.settings.setdefault("behavior", OrderedDict()).get("disk_map_mode", "auto"),
+                "session_ttl": 1200,
+                "slots": [{"led": slot, "position": index} for index, slot in enumerate(self.lab_slots, 1)],
+                "disks": [dict(disk, led=self.disk_led_map.get(disk["device"], "")) for disk in self.lab_disks],
+            }
+        if message:
+            payload["message"] = message
+        return payload
+
+    def save_lab_mapping(self, body: str) -> None:
+        mapping: dict[str, str] = {}
+        used_leds: set[str] = set()
+        hctl_devices = {disk["hctl"]: disk["device"] for disk in self.lab_disks}
+        for source_line in body.splitlines():
+            line = source_line.strip()
+            if not line:
+                continue
+            led, device, hctl = line.split("|", 2)
+            if led not in self.lab_slots or hctl_devices.get(hctl) != device or device in mapping or led in used_leds:
+                raise ValueError("映射数据无效")
+            mapping[device] = led
+            used_leds.add(led)
+        if not mapping:
+            raise ValueError("请至少绑定一个硬盘盘位")
+        with self.lock:
+            self.disk_led_map = mapping
+            self.settings.setdefault("behavior", OrderedDict())["disk_map_mode"] = "manual"
+            self.lab_active = False
+            self.lab_highlight = ""
+
+    def reset_lab_mapping(self) -> None:
+        with self.lock:
+            self.disk_led_map = {disk["device"]: self.lab_slots[index] for index, disk in enumerate(self.lab_disks)}
+            self.settings.setdefault("behavior", OrderedDict())["disk_map_mode"] = "auto"
+            self.lab_active = False
+            self.lab_highlight = ""
 
 
 STATE = PreviewState()
@@ -163,14 +228,18 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 "net_tx_kbps": tx,
                 "net_total_kbps": rx + tx,
                 "updated_at": int(now),
+                "lab_mapping_active": STATE.lab_active,
                 "led_status": "power: on  RGB(100,100,100)  brightness=40\nnetdev: blink  RGB(160,0,255)  brightness=64\ndisk1: on  RGB(0,255,0)  brightness=128\ndisk2: on  RGB(255,255,0)  brightness=64\ndisk3: standby  RGB(0,100,255)  brightness=40",
             })
             return
         if path == "/mapping":
+            states = ["active", "idle", "standby", "idle", "deep_sleep", "active"]
             speeds = [
-                ("/dev/sda", "disk1", "active", int(320 + abs(math.sin(now / 2.5)) * 3500), int(120 + abs(math.cos(now / 3.2)) * 880)),
-                ("/dev/sdb", "disk2", "idle", 0, int(abs(math.sin(now / 6)) * 22)),
-                ("/dev/sdc", "disk3", "standby", 0, 0),
+                (disk["device"], STATE.disk_led_map.get(disk["device"], ""), states[index],
+                 int(abs(math.sin(now / (2.5 + index))) * (3500 if index in {0, 5} else 80)),
+                 int(abs(math.cos(now / (3.2 + index))) * (880 if index in {0, 5} else 35)))
+                for index, disk in enumerate(STATE.lab_disks)
+                if disk["device"] in STATE.disk_led_map
             ]
             self.send_json({"ok": True, "mapping": [
                 {"device": dev, "led": led, "state": state, "read_kbps": read, "write_kbps": write, "total_kbps": read + write, "updated_at": int(now)}
@@ -186,6 +255,60 @@ class PreviewHandler(BaseHTTPRequestHandler):
                     raw = dump_ini(STATE.settings)
                 self.send_json({"ok": True, "raw": raw})
             return
+        if path == "/update/check":
+            parts = CURRENT_VERSION.split(".")
+            latest = ".".join(parts[:-1] + [str(int(parts[-1]) + 1)]) if all(part.isdigit() for part in parts) else "1.4.7"
+            tag = f"v{latest}"
+            self.send_json({
+                "ok": True,
+                "reachable": True,
+                "current_version": CURRENT_VERSION,
+                "latest_version": latest,
+                "latest_tag": tag,
+                "release_url": f"https://github.com/BearHero520/LLLED_FPK/releases/tag/{tag}",
+                "download_url": f"https://github.com/BearHero520/LLLED_FPK/releases/download/{tag}/App.Native.UGreenLED.fpk",
+                "checked_at": int(now),
+            })
+            return
+        if path == "/lab/mapping/status":
+            self.send_json(STATE.lab_payload())
+            return
+        if path == "/lab/mapping/start":
+            with STATE.lock:
+                STATE.lab_active = True
+                STATE.lab_highlight = ""
+            self.send_json(STATE.lab_payload("检测模式已启动，全部硬盘灯已点亮"))
+            return
+        if path == "/lab/mapping/highlight":
+            led = (query.get("led") or [""])[0]
+            if not STATE.lab_active:
+                self.send_json({"ok": False, "error": "检测会话已结束，请重新开始"})
+                return
+            if led not in STATE.lab_slots:
+                self.send_json({"ok": False, "error": "无法点亮指定盘位"})
+                return
+            with STATE.lock:
+                STATE.lab_highlight = led
+            self.send_json(STATE.lab_payload(f"{led} 正在闪烁"))
+            return
+        if path == "/lab/mapping/save":
+            try:
+                STATE.save_lab_mapping(body)
+            except (ValueError, TypeError) as error:
+                self.send_json({"ok": False, "error": str(error)})
+                return
+            self.send_json(STATE.lab_payload("自定义硬盘位置已保存"))
+            return
+        if path == "/lab/mapping/cancel":
+            with STATE.lock:
+                STATE.lab_active = False
+                STATE.lab_highlight = ""
+            self.send_json(STATE.lab_payload("已退出检测模式，原映射保持不变"))
+            return
+        if path == "/lab/mapping/reset":
+            STATE.reset_lab_mapping()
+            self.send_json(STATE.lab_payload("已恢复自动 HCTL 映射"))
+            return
         if path == "/mode":
             mode = (query.get("mode") or [STATE.mode])[0]
             STATE.set_mode(mode)
@@ -193,7 +316,8 @@ class PreviewHandler(BaseHTTPRequestHandler):
             return
         if path == "/remap":
             STATE.remap_count += 1
-            self.send_json({"ok": True, "message": "已重新检测 3 块硬盘", "disk_count": 3})
+            STATE.reset_lab_mapping()
+            self.send_json({"ok": True, "message": "已重新检测 6 块硬盘", "disk_count": 6})
             return
         if path == "/daemon/start":
             STATE.daemon = "running"
