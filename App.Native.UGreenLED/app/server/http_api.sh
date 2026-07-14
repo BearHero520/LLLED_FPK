@@ -5,7 +5,6 @@ APP_NAME="App.Native.UGreenLED"
 APP_ROOT="${TRIM_APPDEST:-${APP_ROOT:-/var/apps/${APP_NAME}}}"
 VAR_DIR="${TRIM_PKGVAR:-${VAR_DIR:-${APP_ROOT}/var}}"
 PORT="${PORT:-5088}"
-PID_FILE="${VAR_DIR}/http_api.pid"
 LOG_FILE="${VAR_DIR}/log/api.log"
 
 SERVER_DIR=""
@@ -14,13 +13,19 @@ for d in "${APP_ROOT}/server" "${APP_ROOT}/target/server"; do
 done
 SERVER_DIR="${SERVER_DIR:-${APP_ROOT}/server}"
 LIB_DIR="${SERVER_DIR}/lib"
+source "${LIB_DIR}/app_paths.sh"
+ugreen_resolve_runtime || exit 1
+PID_FILE="${RUNTIME_DIR}/http_api.pid"
+LEGACY_PID_FILE="${VAR_DIR}/http_api.pid"
+DAEMON_PID_FILE="${RUNTIME_DIR}/led_daemon.pid"
+DISK_STATUS_FILE="${RUNTIME_DIR}/disk_status.tsv"
 SETTINGS_FILE="${VAR_DIR}/settings.conf"
 UGREEN_CLI=""
 for c in "${SERVER_DIR}/bin/ugreen_leds_cli" "${APP_ROOT}/target/server/bin/ugreen_leds_cli" /usr/bin/ugreen_leds_cli; do
     [[ -x "$c" ]] && UGREEN_CLI="$c" && break
 done
 export TARGET="${APP_ROOT}"
-export UGREEN_CLI LED_API_CACHE_DIR="${VAR_DIR}/led_cache"
+export UGREEN_CLI LED_API_CACHE_DIR="${RUNTIME_DIR}/led_cache"
 
 source "${LIB_DIR}/led_api.sh"
 source "${LIB_DIR}/settings.sh"
@@ -80,7 +85,7 @@ handle_request() {
     case "$path" in
         /api/status)
             local daemon="stopped" st=""
-            if [[ -f "${VAR_DIR}/led_daemon.pid" ]] && kill -0 "$(cat "${VAR_DIR}/led_daemon.pid")" 2>/dev/null; then
+            if [[ -f "$DAEMON_PID_FILE" ]] && kill -0 "$(cat "$DAEMON_PID_FILE")" 2>/dev/null; then
                 daemon="running"
             fi
             st=$(led_all_status 2>/dev/null || true)
@@ -95,7 +100,15 @@ handle_request() {
             for dev in "${!DISK_LED_MAP[@]}"; do
                 local led="${DISK_LED_MAP[$dev]}"
                 local state
-                state=$(disk_power_state "$dev")
+                state="unknown"
+                if [[ -f "$DISK_STATUS_FILE" ]]; then
+                    while IFS='|' read -r status_dev status_led status_state _; do
+                        if [[ "$status_dev" == "$dev" ]]; then
+                            state="${status_state:-unknown}"
+                            break
+                        fi
+                    done < "$DISK_STATUS_FILE"
+                fi
                 [[ $first -eq 0 ]] && items+=","
                 first=0
                 items+="{\"device\":\"$dev\",\"led\":\"$led\",\"state\":\"$state\"}"
@@ -208,6 +221,10 @@ listen_loop() {
 
 case "${1:-}" in
     start)
+        if [[ -f "$LEGACY_PID_FILE" ]]; then
+            kill "$(cat "$LEGACY_PID_FILE")" 2>/dev/null || true
+            rm -f "$LEGACY_PID_FILE"
+        fi
         if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
             exit 0
         fi
@@ -216,7 +233,9 @@ case "${1:-}" in
         ;;
     stop)
         [[ -f "$PID_FILE" ]] && kill "$(cat "$PID_FILE")" 2>/dev/null
+        [[ -f "$LEGACY_PID_FILE" ]] && kill "$(cat "$LEGACY_PID_FILE")" 2>/dev/null
         rm -f "$PID_FILE"
+        rm -f "$LEGACY_PID_FILE"
         ;;
     *)
         echo "用法: $0 {start|stop}"

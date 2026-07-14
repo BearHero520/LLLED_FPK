@@ -1,12 +1,21 @@
 (function () {
+  'use strict';
+
   const API = '/cgi/ThirdParty/App.Native.UGreenLED/api.cgi';
+
+  const ROUTES = {
+    overview: { title: '概览', description: '查看灯控服务、实时网速与硬盘活动。' },
+    lighting: { title: '灯光设置', description: '配置硬盘、网络和电源灯的状态颜色。' },
+    activity: { title: '活动提示', description: '控制磁盘读写和网络流量的速度闪动。' },
+    devices: { title: '设备与高级', description: '管理盘位映射、监测频率、后台服务与诊断状态。' },
+  };
 
   const DISK_STATES = [
     { key: 'active', label: '活动', def: '0 255 0', br: 128 },
     { key: 'idle', label: '空闲', def: '255 255 0', br: 64 },
     { key: 'standby', label: '休眠', def: '0 100 255', br: 40 },
     { key: 'deep_sleep', label: '深度睡眠', def: '40 0 80', br: 24 },
-    { key: 'offline', label: '离线/拔出', def: 'off', br: 0, isOff: true },
+    { key: 'offline', label: '离线 / 拔出', def: 'off', br: 0, isOff: true },
   ];
 
   const NET_STATES = [
@@ -15,22 +24,34 @@
     { key: 'vpn', label: '外网', def: '160 0 255', br: 64 },
   ];
 
-  const NET_LABELS = { disconnected: '断网', connected: '联网', vpn: '外网' };
+  const POWER_FIELDS = [
+    { key: 'smart_color', label: '智能模式', def: '100 100 100', type: 'color' },
+    { key: 'all_on_color', label: '全部开启', def: '180 180 180', type: 'color' },
+    { key: 'brightness', label: '亮度', def: '40', type: 'number' },
+  ];
+
   const DISK_STATE_LABELS = {
-    active: '活动',
-    idle: '空闲',
-    standby: '休眠',
-    deep_sleep: '深度睡眠',
-    offline: '离线/拔出',
-    unknown: '未知',
-    error: '异常',
-    '?': '未知',
+    active: '活动', idle: '空闲', standby: '休眠', deep_sleep: '深度睡眠',
+    offline: '离线', unknown: '未知', error: '异常', '?': '未知',
+  };
+  const NET_LABELS = { disconnected: '断网', connected: '联网', vpn: '外网' };
+  const MODE_LABELS = { off: '关闭全部', on: '开启全部', smart: '智能模式' };
+
+  const ACTIVITY_DEFAULTS = {
+    disk_blink: false,
+    network_blink: false,
+    disk_threshold_kbps: 128,
+    network_threshold_kbps: 32,
   };
 
-  /** 一键配色方案（套用后需点保存） */
+  const DAEMON_DEFAULTS = {
+    disk_power_probe_interval: 60,
+    hotplug_check_interval: 30,
+  };
+
   const COLOR_PRESETS = {
     classic: {
-      name: '经典（默认）',
+      name: '经典',
       ini: {
         disk_colors: { active: '0 255 0', idle: '255 255 0', standby: '0 100 255', deep_sleep: '40 0 80', offline: 'off' },
         disk_brightness: { active: '128', idle: '64', standby: '40', deep_sleep: '24', offline: '0' },
@@ -70,7 +91,7 @@
       },
     },
     white: {
-      name: '白色系（清爽）',
+      name: '白色系',
       ini: {
         disk_colors: { active: '255 255 255', idle: '220 220 220', standby: '160 160 160', deep_sleep: '90 90 90', offline: 'off' },
         disk_brightness: { active: '72', idle: '48', standby: '32', deep_sleep: '18', offline: '0' },
@@ -81,286 +102,477 @@
     },
   };
 
-  const POWER_FIELDS = [
-    { key: 'smart_color', label: '智能模式', def: '100 100 100' },
-    { key: 'all_on_color', label: '全开模式', def: '180 180 180' },
-    { key: 'brightness', label: '亮度', def: '40', isBright: true },
-  ];
-
   let currentMode = 'smart';
+  let currentRoute = 'overview';
+  let currentLightingPanel = 'disk';
+  let refreshPromise = null;
+  let toastTimer = null;
+  let currentIni = {};
 
-  function showErr(e) {
-    const msg = (e && e.message) ? e.message : String(e);
-    const bar = document.getElementById('statusBar');
-    if (bar) bar.textContent = 'API 请求失败: ' + msg;
-    const am = document.getElementById('actionMsg');
-    if (am) {
-      am.textContent = msg;
-      am.className = 'action-msg err';
-      am.style.display = 'block';
-    }
-    console.error('[UGreenLED]', e);
-  }
-
-  function showOk(msg) {
-    const am = document.getElementById('actionMsg');
-    if (am) {
-      am.textContent = msg;
-      am.className = 'action-msg ok';
-      am.style.display = 'block';
-    }
-  }
-
-  function runAction(btn, label, req) {
-    if (btn) btn.classList.add('busy');
-    showOk(label + '…');
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error(label + '超时，请稍后重试。')), 10000));
-    return Promise.race([req, timeout])
-      .then((d) => {
-        showOk(d.message || label + '完成');
-        return refresh();
-      })
-      .catch(showErr)
-      .finally(() => {
-        if (btn) btn.classList.remove('busy');
-      });
-  }
+  function $(id) { return document.getElementById(id); }
 
   function api(path, opts) {
-    const url = API + path + (opts && opts.query ? '?' + opts.query : '');
+    const options = opts || {};
+    const url = API + path + (options.query ? '?' + options.query : '');
     return fetch(url, {
-      method: (opts && opts.method) || 'GET',
-      headers: opts && opts.body ? { 'Content-Type': 'text/plain' } : {},
-      body: opts && opts.body,
+      method: options.method || 'GET',
+      headers: options.body ? { 'Content-Type': 'text/plain' } : {},
+      body: options.body,
       credentials: 'same-origin',
       cache: 'no-store',
-    }).then(async (r) => {
-      const text = await r.text();
+    }).then(async (response) => {
+      const text = await response.text();
       let data;
-      try {
-        data = JSON.parse(text);
-      } catch (err) {
-        throw new Error(text.slice(0, 120) || 'HTTP ' + r.status);
-      }
-      if (data && data.ok === false) {
-        const hint = data.path ? ` [${data.path}]` : '';
-        throw new Error((data.error || 'unknown') + hint);
-      }
+      try { data = JSON.parse(text); } catch (_) { throw new Error(text.slice(0, 160) || `HTTP ${response.status}`); }
+      if (data && data.ok === false) throw new Error(data.error || '请求失败');
       return data;
     });
   }
 
-  function rgbToHex(r, g, b) {
-    return '#' + [r, g, b].map((x) => Number(x).toString(16).padStart(2, '0')).join('');
+  function showMessage(message, type) {
+    const el = $('actionMsg');
+    clearTimeout(toastTimer);
+    el.textContent = message;
+    el.className = `action-message visible ${type || 'ok'}`;
+    toastTimer = setTimeout(() => { el.className = 'action-message'; }, 3200);
   }
 
-  function hexToRgb(hex) {
-    const m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
-    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [128, 128, 128];
+  function showError(error) {
+    const message = error && error.message ? error.message : String(error);
+    showMessage(message, 'err');
+    console.error('[UGreenLED]', error);
+  }
+
+  function setBusy(button, busy) {
+    if (!button) return;
+    button.classList.toggle('busy', busy);
+    button.disabled = busy;
   }
 
   function parseIni(raw) {
     const data = {};
-    let sec = '';
-    if (!raw) return data;
-    raw.split('\n').forEach((line) => {
-      line = line.trim();
+    let section = '';
+    String(raw || '').split('\n').forEach((sourceLine) => {
+      const line = sourceLine.trim();
       if (!line || line.startsWith('#')) return;
-      const sm = line.match(/^\[([^\]]+)\]/);
-      if (sm) {
-        sec = sm[1];
-        data[sec] = data[sec] || {};
+      const sectionMatch = line.match(/^\[([^\]]+)\]/);
+      if (sectionMatch) {
+        section = sectionMatch[1];
+        data[section] = data[section] || {};
         return;
       }
-      const eq = line.indexOf('=');
-      if (eq > 0 && sec) {
-        data[sec][line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
-      }
+      const index = line.indexOf('=');
+      if (index > 0 && section) data[section][line.slice(0, index).trim()] = line.slice(index + 1).trim();
     });
     return data;
   }
 
-  function buildGrid(containerId, items, sectionColors, sectionBright) {
-    const grid = document.getElementById(containerId);
+  function mergeIni(base, patch) {
+    const result = JSON.parse(JSON.stringify(base || {}));
+    Object.keys(patch || {}).forEach((section) => {
+      result[section] = Object.assign({}, result[section] || {}, patch[section]);
+    });
+    return result;
+  }
+
+  function settingBool(value, fallback) {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return fallback;
+  }
+
+  function positiveInt(value, fallback) {
+    const number = Number.parseInt(value, 10);
+    return Number.isFinite(number) && number > 0 ? number : fallback;
+  }
+
+  function boundedInt(value, min, max, fallback) {
+    const number = Number.parseInt(value, 10);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.max(min, Math.min(max, number));
+  }
+
+  function rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map((value) => Math.max(0, Math.min(255, Number(value) || 0)).toString(16).padStart(2, '0')).join('');
+  }
+
+  function hexToRgb(hex) {
+    const match = String(hex).match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+    return match ? [parseInt(match[1], 16), parseInt(match[2], 16), parseInt(match[3], 16)] : [128, 128, 128];
+  }
+
+  function formatRate(kbps) {
+    const value = Number(kbps) || 0;
+    if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} GB/s`;
+    if (value >= 1024) return `${(value / 1024).toFixed(1)} MB/s`;
+    return `${Math.round(value)} KB/s`;
+  }
+
+  function setRoute(route, updateHash) {
+    const next = ROUTES[route] ? route : 'overview';
+    currentRoute = next;
+    document.querySelectorAll('.app-view').forEach((view) => {
+      const active = view.dataset.view === next;
+      view.hidden = !active;
+      view.classList.toggle('active', active);
+    });
+    document.querySelectorAll('.nav-item').forEach((button) => {
+      const active = button.dataset.route === next;
+      button.classList.toggle('active', active);
+      if (active) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
+    });
+    $('pageTitle').textContent = ROUTES[next].title;
+    $('pageDescription').textContent = ROUTES[next].description;
+    if (updateHash !== false && location.hash !== `#${next}`) history.replaceState(null, '', `#${next}`);
+    $('appMain').scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function setLightingPanel(panel) {
+    const next = ['disk', 'network', 'power'].includes(panel) ? panel : 'disk';
+    currentLightingPanel = next;
+    document.querySelectorAll('[data-lighting-panel]').forEach((surface) => {
+      surface.hidden = surface.dataset.lightingPanel !== next;
+    });
+    document.querySelectorAll('[data-lighting-tab]').forEach((button) => {
+      const active = button.dataset.lightingTab === next;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.tabIndex = active ? 0 : -1;
+    });
+  }
+
+  function buildColorGrid(containerId, items, colorSection, brightnessSection) {
+    const grid = $(containerId);
     grid.innerHTML = '';
-    items.forEach((s) => {
+    items.forEach((item) => {
       const row = document.createElement('div');
       row.className = 'color-row';
-      row.dataset.section = sectionColors.replace('_colors', '');
-      row.dataset.key = s.key;
-      if (s.isOff) {
-        row.innerHTML = `<label>${s.label}</label><span class="off-tag">自动关灯</span>`;
-        grid.appendChild(row);
-        return;
-      }
-      const raw = (sectionColors && window._ini?.[sectionColors]?.[s.key]) || s.def;
-      const rgb = raw === 'off' ? [0, 0, 0] : raw.split(/\s+/).map(Number);
-      const br =
-        (sectionBright && window._ini?.[sectionBright]?.[s.key]) ?? s.br ?? 64;
-      const hex = rgbToHex(rgb[0] || 0, rgb[1] || 0, rgb[2] || 0);
-      if (s.isBright) {
-        row.innerHTML = `<label>${s.label}</label><input type="number" class="c-br" min="0" max="255" value="${br}">`;
+      row.dataset.colorSection = colorSection;
+      row.dataset.brightnessSection = brightnessSection;
+      row.dataset.key = item.key;
+
+      const label = document.createElement('label');
+      label.textContent = item.label;
+      row.appendChild(label);
+
+      if (item.isOff) {
+        const off = document.createElement('span');
+        off.className = 'off-tag';
+        off.textContent = '自动关灯';
+        row.appendChild(off);
       } else {
-        row.innerHTML = `
-          <label>${s.label}</label>
-          <input type="color" class="c-pick" value="${hex}">
-          <input type="number" class="c-br" min="0" max="255" value="${br}">
-        `;
+        const raw = currentIni[colorSection]?.[item.key] || item.def;
+        const rgb = raw === 'off' ? [0, 0, 0] : raw.split(/\s+/).map(Number);
+        const brightness = currentIni[brightnessSection]?.[item.key] ?? item.br ?? 64;
+        const color = document.createElement('input');
+        color.type = 'color';
+        color.className = 'color-input';
+        color.value = rgbToHex(rgb[0], rgb[1], rgb[2]);
+        color.setAttribute('aria-label', `${item.label}颜色`);
+        const number = document.createElement('input');
+        number.type = 'number';
+        number.className = 'brightness-input';
+        number.min = '0';
+        number.max = '255';
+        number.value = brightness;
+        number.setAttribute('aria-label', `${item.label}亮度`);
+        row.append(color, number);
       }
       grid.appendChild(row);
     });
   }
 
-  function mergeIni(base, patch) {
-    const out = JSON.parse(JSON.stringify(base || {}));
-    Object.keys(patch || {}).forEach((sec) => {
-      out[sec] = Object.assign({}, out[sec] || {}, patch[sec]);
+  function buildPowerGrid() {
+    const grid = $('powerGrid');
+    grid.innerHTML = '';
+    POWER_FIELDS.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'color-row';
+      row.dataset.powerKey = item.key;
+      const label = document.createElement('label');
+      label.textContent = item.label;
+      row.appendChild(label);
+      const raw = currentIni.power?.[item.key] || item.def;
+      if (item.type === 'color') {
+        const rgb = raw.split(/\s+/).map(Number);
+        const color = document.createElement('input');
+        color.type = 'color';
+        color.className = 'color-input';
+        color.value = rgbToHex(rgb[0], rgb[1], rgb[2]);
+        color.setAttribute('aria-label', `${item.label}颜色`);
+        row.appendChild(color);
+      } else {
+        const number = document.createElement('input');
+        number.type = 'number';
+        number.className = 'brightness-input';
+        number.min = '0';
+        number.max = '255';
+        number.value = raw;
+        number.setAttribute('aria-label', '电源灯亮度');
+        row.appendChild(number);
+      }
+      grid.appendChild(row);
     });
-    return out;
-  }
-
-  function applyPreset(presetId) {
-    const p = COLOR_PRESETS[presetId];
-    if (!p) return;
-    window._ini = mergeIni(window._ini || parseIni(''), p.ini);
-    loadUiFromSettings(window._ini);
-    showOk('已套用「' + p.name + '」，请点击下方「保存智能配色」写入设备');
   }
 
   function loadUiFromSettings(ini) {
-    window._ini = ini;
-    buildGrid('diskGrid', DISK_STATES, 'disk_colors', 'disk_brightness');
-    buildGrid('netGrid', NET_STATES, 'netdev_colors', 'netdev_brightness');
-    const pg = document.getElementById('powerGrid');
-    pg.innerHTML = '';
-    POWER_FIELDS.forEach((s) => {
-      const row = document.createElement('div');
-      row.className = 'color-row';
-      row.dataset.section = 'power';
-      row.dataset.key = s.key;
-      const raw = ini.power?.[s.key] || s.def;
-      if (s.isBright) {
-        row.innerHTML = `<label>${s.label}</label><input type="number" class="c-br" min="0" max="255" value="${raw}">`;
-      } else {
-        const rgb = raw.split(/\s+/).map(Number);
-        row.innerHTML = `<label>${s.label}</label><input type="color" class="c-pick" value="${rgbToHex(rgb[0], rgb[1], rgb[2])}">`;
-      }
-      pg.appendChild(row);
-    });
-    currentMode = ini.mode?.global || 'smart';
+    currentIni = ini || {};
+    buildColorGrid('diskGrid', DISK_STATES, 'disk_colors', 'disk_brightness');
+    buildColorGrid('netGrid', NET_STATES, 'netdev_colors', 'netdev_brightness');
+    buildPowerGrid();
+    currentMode = currentIni.mode?.global || 'smart';
+    $('diskBlink').checked = settingBool(currentIni.activity?.disk_blink, ACTIVITY_DEFAULTS.disk_blink);
+    $('networkBlink').checked = settingBool(currentIni.activity?.network_blink, ACTIVITY_DEFAULTS.network_blink);
+    $('diskBlinkThreshold').value = positiveInt(currentIni.activity?.disk_threshold_kbps, ACTIVITY_DEFAULTS.disk_threshold_kbps);
+    $('networkBlinkThreshold').value = positiveInt(currentIni.activity?.network_threshold_kbps, ACTIVITY_DEFAULTS.network_threshold_kbps);
+    $('diskPowerProbeInterval').value = boundedInt(currentIni.daemon?.disk_power_probe_interval, 10, 3600, DAEMON_DEFAULTS.disk_power_probe_interval);
+    $('hotplugCheckInterval').value = boundedInt(currentIni.daemon?.hotplug_check_interval, 5, 3600, DAEMON_DEFAULTS.hotplug_check_interval);
+    syncActivityControls();
     updateModeUi();
   }
 
   function updateModeUi() {
-    const labels = { off: '关闭全部灯光', on: '开启全部灯光', smart: '智能模式' };
-    document.querySelectorAll('.mode-btn').forEach((b) => {
-      const on = b.dataset.mode === currentMode;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    document.querySelectorAll('.mode-button').forEach((button) => {
+      const active = button.dataset.mode === currentMode;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
-    document.getElementById('modeHint').textContent =
-      '当前模式：' + (labels[currentMode] || currentMode);
-    document.getElementById('smartPanel').style.display =
-      currentMode === 'smart' ? 'block' : 'none';
+    $('overviewMode').textContent = MODE_LABELS[currentMode] || currentMode;
+  }
+
+  function syncActivityControls() {
+    $('diskBlinkThreshold').disabled = !$('diskBlink').checked;
+    $('networkBlinkThreshold').disabled = !$('networkBlink').checked;
+  }
+
+  function collectLightingLines() {
+    const lines = [];
+    document.querySelectorAll('#diskGrid .color-row, #netGrid .color-row').forEach((row) => {
+      const key = row.dataset.key;
+      if (row.querySelector('.off-tag')) {
+        lines.push(`${row.dataset.colorSection}.${key}=off`);
+        lines.push(`${row.dataset.brightnessSection}.${key}=0`);
+        return;
+      }
+      const color = row.querySelector('.color-input');
+      const brightness = row.querySelector('.brightness-input');
+      const [r, g, b] = hexToRgb(color.value);
+      lines.push(`${row.dataset.colorSection}.${key}=${r} ${g} ${b}`);
+      lines.push(`${row.dataset.brightnessSection}.${key}=${boundedInt(brightness.value, 0, 255, 64)}`);
+    });
+    document.querySelectorAll('#powerGrid .color-row').forEach((row) => {
+      const key = row.dataset.powerKey;
+      const color = row.querySelector('.color-input');
+      const number = row.querySelector('.brightness-input');
+      if (color) {
+        const [r, g, b] = hexToRgb(color.value);
+        lines.push(`power.${key}=${r} ${g} ${b}`);
+      } else if (number) {
+        lines.push(`power.${key}=${boundedInt(number.value, 0, 255, 40)}`);
+      }
+    });
+    return lines;
+  }
+
+  function collectActivityLines() {
+    return [
+      `activity.disk_blink=${$('diskBlink').checked}`,
+      `activity.network_blink=${$('networkBlink').checked}`,
+      `activity.disk_threshold_kbps=${positiveInt($('diskBlinkThreshold').value, ACTIVITY_DEFAULTS.disk_threshold_kbps)}`,
+      `activity.network_threshold_kbps=${positiveInt($('networkBlinkThreshold').value, ACTIVITY_DEFAULTS.network_threshold_kbps)}`,
+    ];
+  }
+
+  function collectMonitoringLines() {
+    return [
+      `daemon.disk_power_probe_interval=${boundedInt($('diskPowerProbeInterval').value, 10, 3600, DAEMON_DEFAULTS.disk_power_probe_interval)}`,
+      `daemon.hotplug_check_interval=${boundedInt($('hotplugCheckInterval').value, 5, 3600, DAEMON_DEFAULTS.hotplug_check_interval)}`,
+    ];
+  }
+
+  function saveSettings(button, lines, successMessage) {
+    setBusy(button, true);
+    return api('/settings', { method: 'POST', body: lines.join('\n') })
+      .then(() => api('/daemon/start'))
+      .then(() => {
+        showMessage(successMessage, 'ok');
+        return loadSettings();
+      })
+      .then(refresh)
+      .catch(showError)
+      .finally(() => setBusy(button, false));
+  }
+
+  function applyPreset(id) {
+    const preset = COLOR_PRESETS[id];
+    if (!preset) return;
+    currentIni = mergeIni(currentIni, preset.ini);
+    loadUiFromSettings(currentIni);
+    showMessage(`已套用“${preset.name}”，保存后生效`, 'ok');
   }
 
   function setMode(mode) {
-    const labels = { off: '关闭全部灯光', on: '开启全部灯光', smart: '智能模式' };
-    showOk('正在切换为「' + (labels[mode] || mode) + '」…');
-    return api('/mode', { query: 'mode=' + mode })
-      .then((d) => {
-        currentMode = d.mode || mode;
+    if (!MODE_LABELS[mode]) return;
+    showMessage(`正在切换到${MODE_LABELS[mode]}…`, 'ok');
+    return api('/mode', { query: `mode=${encodeURIComponent(mode)}` })
+      .then((data) => {
+        currentMode = data.mode || mode;
         updateModeUi();
-        showOk('已切换：' + (labels[currentMode] || currentMode));
+        showMessage(`已切换到${MODE_LABELS[currentMode] || currentMode}`, 'ok');
         return refresh();
       })
-      .catch(showErr);
+      .catch(showError);
   }
 
-  function collectSaveLines() {
-    const lines = ['mode.global=' + currentMode];
-    document.querySelectorAll('#diskGrid .color-row, #netGrid .color-row').forEach((row) => {
-      const sec = row.dataset.section;
-      const key = row.dataset.key;
-      if (row.querySelector('.off-tag')) {
-        lines.push(`${sec}_colors.${key}=off`);
-        lines.push(`${sec}_brightness.${key}=0`);
-        return;
-      }
-      const pick = row.querySelector('.c-pick');
-      const br = row.querySelector('.c-br');
-      if (pick && br) {
-        const [r, g, b] = hexToRgb(pick.value);
-        lines.push(`${sec}_colors.${key}=${r} ${g} ${b}`);
-        lines.push(`${sec}_brightness.${key}=${br.value}`);
-      }
+  function stateChip(state) {
+    const chip = document.createElement('span');
+    chip.className = `state-chip ${state || 'unknown'}`;
+    chip.textContent = DISK_STATE_LABELS[state] || state || '未知';
+    return chip;
+  }
+
+  function fillDiskTable(tableId, mapping) {
+    const tbody = document.querySelector(`#${tableId} tbody`);
+    tbody.innerHTML = '';
+    if (!mapping.length) {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 5;
+      cell.className = 'empty-row';
+      cell.textContent = '暂未检测到硬盘映射';
+      row.appendChild(cell);
+      tbody.appendChild(row);
+      return;
+    }
+    mapping.forEach((item) => {
+      const row = document.createElement('tr');
+      const device = document.createElement('td');
+      const led = document.createElement('td');
+      const state = document.createElement('td');
+      const read = document.createElement('td');
+      const write = document.createElement('td');
+      device.textContent = item.device || '—';
+      led.textContent = item.led || '—';
+      state.appendChild(stateChip(String(item.state || '').trim()));
+      read.textContent = formatRate(item.read_kbps);
+      write.textContent = formatRate(item.write_kbps);
+      row.append(device, led, state, read, write);
+      tbody.appendChild(row);
     });
-    document.querySelectorAll('#powerGrid .color-row').forEach((row) => {
-      const key = row.dataset.key;
-      const pick = row.querySelector('.c-pick');
-      const br = row.querySelector('.c-br');
-      if (pick) {
-        const [r, g, b] = hexToRgb(pick.value);
-        lines.push(`power.${key}=${r} ${g} ${b}`);
-      } else if (br) {
-        lines.push(`power.${key}=${br.value}`);
-      }
+  }
+
+  function renderStatus(data) {
+    const running = data.daemon === 'running';
+    currentMode = data.mode || currentMode;
+    updateModeUi();
+    $('overviewServiceState').textContent = running ? '应用运行中' : '后台已停止';
+    $('overviewNetwork').textContent = data.network_label || NET_LABELS[data.network] || data.network || '未知';
+    $('networkBadge').textContent = data.network_label || NET_LABELS[data.network] || '未知';
+    $('downloadSpeed').textContent = formatRate(data.net_rx_kbps);
+    $('uploadSpeed').textContent = formatRate(data.net_tx_kbps);
+    $('networkDebug').textContent = `国内 ${data.net_domestic ? '可达' : '不可达'} · 海外 ${data.net_overseas ? '可达' : '不可达'}`;
+    $('daemonBadgeText').textContent = running ? '后台运行中' : '后台已停止';
+    $('railStatusText').textContent = running ? '服务在线' : '服务离线';
+    document.querySelectorAll('#daemonBadge .status-dot, #railStatusDot').forEach((dot) => {
+      dot.classList.toggle('online', running);
+      dot.classList.toggle('offline', !running);
     });
-    return lines.join('\n');
+    $('statusBar').textContent = (data.led_status || '暂无 LED 原始状态').slice(0, 1400);
+  }
+
+  function renderMapping(data) {
+    const mapping = Array.isArray(data.mapping) ? data.mapping : [];
+    $('overviewDiskCount').textContent = `${mapping.length} 块`;
+    fillDiskTable('overviewDiskTable', mapping);
+    fillDiskTable('deviceMapTable', mapping);
   }
 
   function refresh() {
-    api('/status').then((d) => {
-      const netLabel = d.network_label || NET_LABELS[d.network] || d.network || '—';
-      let netDbg = '';
-      if (d.net_domestic !== undefined) {
-        netDbg = ` | 国内:${d.net_domestic ? '通' : '×'} 海外:${d.net_overseas ? '通' : '×'}`;
-      }
-      document.getElementById('statusBar').textContent =
-        `后台: ${d.daemon} | 模式: ${d.mode} | 网络: ${netLabel}${netDbg}\n\n${(d.led_status || '').slice(0, 600)}`;
-      if (d.mode) {
-        currentMode = d.mode;
-        updateModeUi();
-      }
-    }).catch(showErr);
-    api('/mapping').then((d) => {
-      const tb = document.querySelector('#mapTable tbody');
-      tb.innerHTML = '';
-      (d.mapping || []).forEach((m) => {
-        const st = (m.state || '').trim();
-        const stZh = DISK_STATE_LABELS[st] || st || '—';
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${m.device}</td><td>${m.led}</td><td>${stZh}</td>`;
-        tb.appendChild(tr);
+    if (refreshPromise) return refreshPromise;
+    const button = $('btnRefresh');
+    setBusy(button, true);
+    const statusRequest = api('/status').then(renderStatus);
+    const mappingRequest = api('/mapping').then(renderMapping);
+    refreshPromise = Promise.all([statusRequest, mappingRequest])
+      .catch(showError)
+      .finally(() => {
+        refreshPromise = null;
+        setBusy(button, false);
       });
-    }).catch(showErr);
+    return refreshPromise;
   }
 
-  document.querySelectorAll('.mode-btn').forEach((btn) => {
-    btn.addEventListener('click', () => setMode(btn.dataset.mode));
-  });
-  document.getElementById('btnSave').onclick = () =>
-    api('/settings', { method: 'POST', body: collectSaveLines() })
-      .then(() => {
-        showOk('已保存，正在应用智能模式…');
-        currentMode = 'smart';
-        updateModeUi();
-        return api('/mode', { query: 'mode=smart' });
+  function loadSettings() {
+    return api('/settings')
+      .then((data) => loadUiFromSettings(parseIni(data.raw || '')))
+      .catch(showError);
+  }
+
+  function runAction(button, promise, successMessage) {
+    setBusy(button, true);
+    return promise
+      .then((data) => {
+        showMessage(data.message || successMessage, 'ok');
+        return refresh();
       })
-      .then(() => api('/daemon/start'))
-      .then(refresh)
-      .catch(showErr);
-  document.getElementById('btnRemap').onclick = function () {
-    runAction(this, '重新检测硬盘', api('/remap'));
-  };
+      .catch(showError)
+      .finally(() => setBusy(button, false));
+  }
 
-  document.querySelectorAll('[data-preset]').forEach((btn) => {
-    btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+  document.querySelectorAll('[data-route]').forEach((button) => {
+    button.addEventListener('click', () => setRoute(button.dataset.route));
+  });
+  document.querySelectorAll('.mode-button').forEach((button) => {
+    button.addEventListener('click', () => setMode(button.dataset.mode));
+  });
+  document.querySelectorAll('[data-preset]').forEach((button) => {
+    button.addEventListener('click', () => applyPreset(button.dataset.preset));
+  });
+  document.querySelectorAll('[data-lighting-tab]').forEach((button) => {
+    button.addEventListener('click', () => setLightingPanel(button.dataset.lightingTab));
+    button.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      event.preventDefault();
+      const tabs = Array.from(document.querySelectorAll('[data-lighting-tab]'));
+      const index = tabs.indexOf(button);
+      const offset = event.key === 'ArrowRight' ? 1 : -1;
+      const next = tabs[(index + offset + tabs.length) % tabs.length];
+      setLightingPanel(next.dataset.lightingTab);
+      next.focus();
+    });
   });
 
-  api('/settings')
-    .then((d) => loadUiFromSettings(parseIni(d.raw || '')))
-    .catch(showErr);
-  refresh();
-  setInterval(refresh, 10000);
+  $('btnRefresh').addEventListener('click', refresh);
+  $('diskBlink').addEventListener('change', syncActivityControls);
+  $('networkBlink').addEventListener('change', syncActivityControls);
+  $('btnSaveLighting').addEventListener('click', function () {
+    saveSettings(this, collectLightingLines(), '灯光设置已保存');
+  });
+  $('btnSaveActivity').addEventListener('click', function () {
+    saveSettings(this, collectActivityLines(), '活动提示已保存');
+  });
+  $('btnSaveMonitoring').addEventListener('click', function () {
+    saveSettings(this, collectMonitoringLines(), '监测频率已保存');
+  });
+  $('btnRemap').addEventListener('click', function () {
+    runAction(this, api('/remap'), '硬盘映射已更新');
+  });
+  $('btnDaemonStart').addEventListener('click', function () {
+    runAction(this, api('/daemon/start'), '后台服务已启动');
+  });
+  $('btnDaemonStop').addEventListener('click', function () {
+    runAction(this, api('/daemon/stop'), '后台服务已停止');
+  });
+
+  window.addEventListener('hashchange', () => setRoute(location.hash.slice(1), false));
+
+  setLightingPanel(currentLightingPanel);
+  setRoute(location.hash.slice(1) || 'overview', false);
+  Promise.all([loadSettings(), refresh()]);
+  setInterval(() => {
+    if (!document.hidden) refresh();
+  }, 10000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refresh();
+  });
 })();

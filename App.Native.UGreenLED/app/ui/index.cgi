@@ -38,6 +38,8 @@ case "$ext" in
     css) mime="text/css; charset=utf-8" ;;
     js) mime="application/javascript; charset=utf-8" ;;
     png) mime="image/png" ;;
+    woff) mime="font/woff" ;;
+    woff2) mime="font/woff2" ;;
     json) mime="application/json; charset=utf-8" ;;
     *) mime="application/octet-stream" ;;
 esac

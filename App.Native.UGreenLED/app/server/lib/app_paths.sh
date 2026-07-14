@@ -1,6 +1,21 @@
 #!/bin/bash
 # fnOS 安装后 server 可能在 $APP_ROOT/server 或 $APP_ROOT/target/server
 
+ugreen_resolve_runtime() {
+    APP_NAME="${APP_NAME:-App.Native.UGreenLED}"
+    local primary="${UGREEN_RUNTIME_DIR:-${RUNTIME_DIR:-/run/${APP_NAME}}}"
+    local fallback="${TMPDIR:-/tmp}/${APP_NAME}"
+
+    if mkdir -p "$primary" 2>/dev/null; then
+        RUNTIME_DIR="$primary"
+    else
+        mkdir -p "$fallback" 2>/dev/null || return 1
+        RUNTIME_DIR="$fallback"
+    fi
+    chmod 0755 "$RUNTIME_DIR" 2>/dev/null || true
+    export RUNTIME_DIR
+}
+
 ugreen_resolve_paths() {
     APP_NAME="${APP_NAME:-App.Native.UGreenLED}"
     APP_ROOT="${TRIM_APPDEST:-${APP_ROOT:-/var/apps/${APP_NAME}}}"
@@ -37,6 +52,7 @@ ugreen_resolve_paths() {
     done
 
     LIB_DIR="${SERVER_DIR}/lib"
-    export APP_NAME APP_ROOT VAR_DIR SERVER_DIR WWW_DIR UGREEN_CLI LIB_DIR
+    ugreen_resolve_runtime || return 1
+    export APP_NAME APP_ROOT VAR_DIR RUNTIME_DIR SERVER_DIR WWW_DIR UGREEN_CLI LIB_DIR
     export TARGET="${APP_ROOT}"
 }

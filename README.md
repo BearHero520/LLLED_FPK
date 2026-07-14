@@ -20,7 +20,7 @@ LLLED_FPK/
 └── README.md
 ```
 
-应用 ID：`App.Native.UGreenLED` · 当前版本：**1.2.5**
+应用 ID：`App.Native.UGreenLED` · 当前版本：**1.4.5**
 
 ## 功能概览
 
@@ -30,6 +30,7 @@ LLLED_FPK/
 | 硬盘灯 | 活动、空闲、休眠、深度睡眠、离线（拔出自动关灯） |
 | 盘位映射 | 按 **HCTL** 动态映射到 disk1–disk4，支持热插拔重映射 |
 | 网络灯 | **外网**（海外检测点通）、**联网**（仅国内通）、**断网** |
+| 速度闪动 | 磁盘读写、网络上传下载超过阈值后闪动，速度越高闪动越快，两项可独立开关 |
 | 电源灯 | 智能 / 全开模式下可单独配色 |
 | Web 配置 | 飞牛桌面 iframe 内配色预设、保存后自动进入智能模式 |
 
@@ -61,7 +62,19 @@ fnpack build
 python scripts/build_fpk_remote.py
 ```
 
+脚本会交互询问 NAS 地址、用户名和密码，也可通过 `FNOS_HOST`、`FNOS_USER`、`FNOS_PASSWORD` 环境变量传入；密码不会写入源码或打印到终端。
+
 安装包输出：`App.Native.UGreenLED.fpk`（不纳入 Git，可从 [Releases](https://github.com/BearHero520/LLLED_FPK/releases) 下载）。
+
+### 本地预览 Web 界面
+
+无需安装到 fnOS，运行内置模拟 API 预览服务器：
+
+```bash
+python scripts/preview_web.py
+```
+
+浏览器会打开 `http://127.0.0.1:8080/cgi/ThirdParty/App.Native.UGreenLED/index.cgi/`。预览模式使用模拟网速、硬盘和守护进程数据，不会控制真实 LED。
 
 ### 更换应用图标
 
@@ -81,9 +94,13 @@ python App.Native.UGreenLED/scripts/process_logo.py
 | **开启全部** | 全部常亮（可配电源灯颜色） |
 | **智能模式** | 按硬盘与网络状态自动变色 |
 
+智能模式的“速度闪动提示”中可分别启用磁盘和网络闪动，并设置触发阈值（KB/s）。新安装和升级后默认关闭，以保持原有灯效；启用后低、中、高三档速度会使用不同闪动频率。
+
 智能模式下盘位示例：`0:0:0:0→disk1`，`2:0:0:0→disk3`（以实际 HCTL 为准）。
 
-运行时配置：`/var/apps/App.Native.UGreenLED/var/settings.conf`（Web 保存后写入）。
+运行时配置：`/var/apps/App.Native.UGreenLED/var/settings.conf`（Web 保存后写入）。高频状态、速度采样、LED 缓存和 PID 存放在 `/run/App.Native.UGreenLED`，重启后自动重建，避免持续写入应用所在存储池。
+
+硬盘活动仍按 `check_interval`（默认 5 秒）从内核 `/proc/diskstats` 读取；`hdparm -C` 电源状态查询由 `disk_power_probe_interval` 控制（默认 60 秒，可在“设备与高级”设置 10–3600 秒），热插拔扫描由 `hotplug_check_interval` 控制（默认 30 秒，可设置 5–3600 秒）。
 
 ## HTTP API（CGI）
 
@@ -98,6 +115,9 @@ python App.Native.UGreenLED/scripts/process_logo.py
 | `/daemon/start` · `/daemon/stop` | 启停守护进程 |
 | `/remap` | 重新 HCTL 映射 |
 | `/led/set?led=disk1&r=255&g=0&b=0` | 手动设色 |
+| `/led/off?led=disk1` | 手动关闭单个灯 |
+
+Web 管理页使用 fnOS CGI，不再自动启动旧版 5088 端口服务，减少无鉴权端口暴露和无效后台进程。
 
 ## 常见问题
 
@@ -112,4 +132,6 @@ python App.Native.UGreenLED/scripts/process_logo.py
 
 ## 许可证
 
-MIT
+本项目自有代码采用 [GNU Affero General Public License v3.0 only](LICENSE)（`AGPL-3.0-only`）授权。
+
+如果修改后的版本通过网络向用户提供服务，需要按 AGPL-3.0 第 13 条向这些用户提供对应源代码。`ugreen_leds_cli`、Bootstrap Icons 以及其他第三方组件继续适用各自的上游许可证，不因本项目采用 AGPL-3.0 而被重新授权。

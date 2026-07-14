@@ -73,14 +73,13 @@ disk_refresh_mapping() {
         [[ -n "$dev" && -n "$led" ]] && lines+=("${dev}=${led}")
     done < <(disk_build_mapping)
 
-    if [[ -f "$settings" ]]; then
-        awk '
-            /^\[disk_map\]/ { skip=1; next }
-            /^\[/ && skip { skip=0 }
-            skip && /^\/dev\// { next }
-            { print }
-        ' "$settings" > "${settings}.tmp" && mv "${settings}.tmp" "$settings"
-    fi
+    settings_init "$settings"
+    # 完整替换旧 section，避免重复 remap 时残留空行和注释持续累积。
+    awk '
+        /^\[disk_map\]/ { skip=1; next }
+        /^\[/ && skip { skip=0 }
+        !skip { print }
+    ' "$settings" > "${settings}.tmp.$$" && mv "${settings}.tmp.$$" "$settings"
 
     {
         echo ""

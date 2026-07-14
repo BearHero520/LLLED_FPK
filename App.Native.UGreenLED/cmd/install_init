@@ -1,5 +1,7 @@
 #!/bin/bash
 APP_ROOT="${TRIM_APPDEST:-/var/apps/App.Native.UGreenLED}"
 VAR_DIR="${TRIM_PKGVAR:-${APP_ROOT}/var}"
-mkdir -p "${VAR_DIR}/log" "${VAR_DIR}/led_cache" "${VAR_DIR}/disk_io"
+RUNTIME_DIR="${UGREEN_RUNTIME_DIR:-/run/App.Native.UGreenLED}"
+mkdir -p "${VAR_DIR}/log" "$RUNTIME_DIR"
+chmod 0755 "$RUNTIME_DIR" 2>/dev/null || true
 exit 0

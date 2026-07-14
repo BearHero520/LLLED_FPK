@@ -116,6 +116,9 @@ led_set_color() {
 led_set_off() {
     local led="$1"
     ensure_cli || return 1
+    if [[ "$(led_read_cached_state "$led")" == "off" ]]; then
+        return 0
+    fi
     if timeout 5 "$UGREEN_CLI" "$led" -off >/dev/null 2>&1; then
         led_write_cached_state "$led" "off"
         return 0
@@ -126,8 +129,16 @@ led_set_off() {
 led_set_blink() {
     local led="$1" r="$2" g="$3" b="$4" period_ms="$5" on_ms="$6" brightness="${7:-64}"
     ensure_cli || return 1
+    local key="blink,${r},${g},${b},${period_ms},${on_ms},${brightness}"
+    if [[ "$(led_read_cached_state "$led")" == "$key" ]]; then
+        return 0
+    fi
     led_ensure_on "$led" || return 1
-    timeout 5 "$UGREEN_CLI" "$led" -color "$r" "$g" "$b" -blink "$period_ms" "$on_ms" -brightness "$brightness" >/dev/null 2>&1
+    if timeout 5 "$UGREEN_CLI" "$led" -color "$r" "$g" "$b" -blink "$period_ms" "$on_ms" -brightness "$brightness" -on >/dev/null 2>&1; then
+        led_write_cached_state "$led" "$key"
+        return 0
+    fi
+    return 1
 }
 
 led_all_status() {

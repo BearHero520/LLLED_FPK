@@ -1,40 +1,75 @@
 #!/bin/bash
 APP_ROOT="${TRIM_APPDEST:-/var/apps/App.Native.UGreenLED}"
 VAR_DIR="${TRIM_PKGVAR:-${APP_ROOT}/var}"
+RUNTIME_DIR="${UGREEN_RUNTIME_DIR:-/run/App.Native.UGreenLED}"
 CLI_URL="https://github.com/miskcoo/ugreen_leds_controller/releases/download/v0.1-debian12/ugreen_leds_cli"
+CLI_SHA256="d7e1fbbb969932dbb24edb66cce9f9bdbdc21715ea803cace54ec5f319e9a404"
 
 SERVER_DIR=""
 for d in "${APP_ROOT}/server" "${APP_ROOT}/target/server"; do
     [[ -f "${d}/led_daemon.sh" ]] && SERVER_DIR="$d" && break
 done
 SERVER_DIR="${SERVER_DIR:-${APP_ROOT}/server}"
+CLI_DEST="${SERVER_DIR}/bin/ugreen_leds_cli"
 
-mkdir -p "${VAR_DIR}/log" "${VAR_DIR}/led_cache" "${VAR_DIR}/disk_io"
-for BIN_DIR in "${SERVER_DIR}/bin" "${APP_ROOT}/target/server/bin"; do
-    mkdir -p "$BIN_DIR"
-    if [[ ! -x "${BIN_DIR}/ugreen_leds_cli" ]]; then
-        wget -q -O "${BIN_DIR}/ugreen_leds_cli" "$CLI_URL" 2>/dev/null || \
-        curl -fsSL -o "${BIN_DIR}/ugreen_leds_cli" "$CLI_URL" 2>/dev/null || true
-        chmod +x "${BIN_DIR}/ugreen_leds_cli" 2>/dev/null || true
-    fi
-done
+mkdir -p "${VAR_DIR}/log" "$RUNTIME_DIR" "$(dirname "$CLI_DEST")"
+chmod 0755 "$RUNTIME_DIR" 2>/dev/null || true
 
-if command -v apt-get >/dev/null 2>&1; then
-    apt-get install -y -qq i2c-tools hdparm iproute2 2>/dev/null || true
+MISSING_PACKAGES=()
+command -v i2cdetect >/dev/null 2>&1 || MISSING_PACKAGES+=(i2c-tools)
+command -v hdparm >/dev/null 2>&1 || MISSING_PACKAGES+=(hdparm)
+command -v ip >/dev/null 2>&1 || MISSING_PACKAGES+=(iproute2)
+if [[ ${#MISSING_PACKAGES[@]} -gt 0 ]] && command -v apt-get >/dev/null 2>&1; then
+    apt-get install -y -qq "${MISSING_PACKAGES[@]}" 2>/dev/null || \
+        echo "WARN: 部分系统依赖安装失败，请检查 apt 软件源" >&2
 fi
 modprobe i2c-dev 2>/dev/null || true
 
+cli_checksum_ok() {
+    local f="$1" actual
+    [[ -f "$f" ]] || return 1
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual=$(sha256sum "$f" | awk '{print $1}')
+    elif command -v openssl >/dev/null 2>&1; then
+        actual=$(openssl dgst -sha256 "$f" | awk '{print $NF}')
+    else
+        echo "ERROR: 系统缺少 sha256sum/openssl，无法校验灯控程序" >&2
+        return 1
+    fi
+    [[ "${actual,,}" == "$CLI_SHA256" ]]
+}
+
+# 升级时优先复用系统已安装且校验通过的 CLI，避免在回调阶段重复联网写入 target。
+CLI_READY=""
+for candidate in "$CLI_DEST" /usr/bin/ugreen_leds_cli /opt/ugreen-led-controller/ugreen_leds_cli; do
+    if cli_checksum_ok "$candidate"; then
+        CLI_READY="$candidate"
+        break
+    fi
+done
+
+if [[ -z "$CLI_READY" ]]; then
+    CLI_TMP="${CLI_DEST}.download.$$"
+    rm -f "$CLI_TMP"
+    wget -q -O "$CLI_TMP" "$CLI_URL" 2>/dev/null || \
+        curl -fsSL -o "$CLI_TMP" "$CLI_URL" 2>/dev/null || true
+    if ! cli_checksum_ok "$CLI_TMP"; then
+        rm -f "$CLI_TMP"
+        echo "ERROR: ugreen_leds_cli 下载失败或 SHA256 校验不通过" >&2
+        exit 1
+    fi
+    mv "$CLI_TMP" "$CLI_DEST"
+    CLI_READY="$CLI_DEST"
+fi
+chmod +x "$CLI_READY" 2>/dev/null || true
+
 if [[ ! -f "${VAR_DIR}/settings.conf" && -f "${SERVER_DIR}/default_settings.conf" ]]; then
     cp "${SERVER_DIR}/default_settings.conf" "${VAR_DIR}/settings.conf"
-fi
-
-if [[ -f "${SERVER_DIR}/led_daemon.sh" ]]; then
-    bash "${SERVER_DIR}/led_daemon.sh" remap 2>/dev/null || true
 fi
 
 chmod +x "${SERVER_DIR}/"*.sh "${SERVER_DIR}/lib/"*.sh 2>/dev/null || true
 chmod +x "${APP_ROOT}/ui/"*.cgi 2>/dev/null || true
 chmod +x "${APP_ROOT}/cmd/"* 2>/dev/null || true
 
-"${APP_ROOT}/cmd/main" start 2>/dev/null || true
+# 安装/升级回调只准备依赖与配置。服务启动由 fnOS 应用中心在文件切换完成后调用 cmd/main。
 exit 0

@@ -1,3 +1,3 @@
 #!/bin/bash
-/var/apps/App.Native.UGreenLED/cmd/install_callback
+# fnOS 升级流程已经执行新包的 install_callback，此处不重复安装依赖或启动服务。
 exit 0

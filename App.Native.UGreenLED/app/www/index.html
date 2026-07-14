@@ -3,67 +3,256 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#eef4fb">
   <title>绿联 LED 灯控</title>
   <base href="/cgi/ThirdParty/App.Native.UGreenLED/index.cgi/">
-  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./vendor/bootstrap-icons/font/bootstrap-icons.min.css?v=1.11.3">
+  <link rel="stylesheet" href="./css/style.css?v=1.4.5">
 </head>
 <body>
-  <header class="app-header">
-    <img src="./images/logo.png" alt="" class="app-logo" width="48" height="48">
-    <div>
-    <h1>绿联 LED 灯控</h1>
-    <p class="sub">盘位映射自动检测 · 支持电源灯与网络灯</p>
-    </div>
-  </header>
+  <div class="app-shell">
+    <aside class="app-rail" aria-label="主导航">
+      <div class="brand-block">
+        <img src="./images/logo.png" alt="绿联 LED 灯控" class="brand-logo" width="48" height="48">
+        <div class="brand-copy">
+          <strong>LED 灯控</strong>
+          <span>UGREEN NAS</span>
+        </div>
+      </div>
 
-  <section class="card">
-    <h2>快捷模式</h2>
-    <div class="mode-btns">
-      <button type="button" class="mode-btn" data-mode="off">关闭全部灯光</button>
-      <button type="button" class="mode-btn" data-mode="on">开启全部灯光</button>
-      <button type="button" class="mode-btn primary" data-mode="smart">智能模式</button>
-    </div>
-    <p class="hint" id="modeHint">当前：—</p>
-    <p class="action-msg" id="actionMsg" aria-live="polite"></p>
-    <div class="row-actions">
-      <button type="button" id="btnRemap" class="secondary">重新检测硬盘</button>
-    </div>
-  </section>
+      <nav class="rail-nav">
+        <button type="button" class="nav-item active" data-route="overview" aria-current="page">
+          <i class="bi bi-grid-1x2" aria-hidden="true"></i><span>概览</span>
+        </button>
+        <button type="button" class="nav-item" data-route="lighting">
+          <i class="bi bi-lightbulb" aria-hidden="true"></i><span>灯光设置</span>
+        </button>
+        <button type="button" class="nav-item" data-route="activity">
+          <i class="bi bi-activity" aria-hidden="true"></i><span>活动提示</span>
+        </button>
+        <button type="button" class="nav-item" data-route="devices">
+          <i class="bi bi-hdd-rack" aria-hidden="true"></i><span>设备与高级</span>
+        </button>
+      </nav>
 
-  <section class="card" id="smartPanel">
-    <h2>智能模式 · 硬盘灯</h2>
-    <p class="hint">启动时按 HCTL 自动生成盘位映射。离线/拔出 = 关灯。</p>
-    <div class="color-grid" id="diskGrid"></div>
+      <div class="rail-footer">
+        <span class="rail-state"><span class="status-dot" id="railStatusDot"></span><span id="railStatusText">正在连接</span></span>
+        <small>v1.4.5 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
+      </div>
+    </aside>
 
-    <h2 class="sub-h">网络灯</h2>
-    <p class="hint">外网：能 ping 通海外检测点。联网：仅国内通。断网：均不通。（223.5.5.5 / 8.8.8.8 等）</p>
-    <div class="color-grid" id="netGrid"></div>
+    <main class="app-main" id="appMain">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow" id="pageEyebrow">NAS LIGHTING CONTROL</p>
+          <h1 id="pageTitle">概览</h1>
+          <p class="page-description" id="pageDescription">查看灯控服务、实时网速与硬盘活动。</p>
+        </div>
+        <div class="header-actions">
+          <button type="button" class="icon-button" id="btnRefresh" title="刷新状态" aria-label="刷新状态">
+            <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+          </button>
+          <span class="status-pill" id="daemonBadge"><span class="status-dot"></span><span id="daemonBadgeText">连接中</span></span>
+        </div>
+      </header>
 
-    <h2 class="sub-h">电源灯（智能模式下）</h2>
-    <div class="color-grid" id="powerGrid"></div>
+      <div class="action-message" id="actionMsg" aria-live="polite"></div>
 
-    <h2 class="sub-h">配色方案</h2>
-    <p class="hint">套用后可微调，记得点保存。</p>
-    <div class="preset-btns">
-      <button type="button" class="secondary" data-preset="classic">经典</button>
-      <button type="button" class="secondary" data-preset="minimal">极简蓝灰</button>
-      <button type="button" class="secondary" data-preset="vivid">醒目警示</button>
-      <button type="button" class="secondary" data-preset="soft">柔和护眼</button>
-      <button type="button" class="secondary" data-preset="white">白色系</button>
-    </div>
+      <section class="app-view active" id="view-overview" data-view="overview">
+        <div class="status-strip glass-surface">
+          <div class="status-primary">
+            <span class="surface-icon"><i class="bi bi-stars" aria-hidden="true"></i></span>
+            <div>
+              <span class="surface-label">灯控状态</span>
+              <strong id="overviewServiceState">正在读取</strong>
+            </div>
+          </div>
+          <div class="status-facts">
+            <div><span>当前模式</span><strong id="overviewMode">—</strong></div>
+            <div><span>网络状态</span><strong id="overviewNetwork">—</strong></div>
+            <div><span>已映射硬盘</span><strong id="overviewDiskCount">0 块</strong></div>
+          </div>
+        </div>
 
-    <button type="button" id="btnSave" class="save-btn">保存智能配色</button>
-  </section>
+        <div class="overview-grid">
+          <article class="glass-surface network-panel">
+            <div class="section-heading">
+              <div><span class="section-kicker">NETWORK</span><h2>实时网速</h2></div>
+              <span class="soft-badge" id="networkBadge">检测中</span>
+            </div>
+            <div class="speed-metrics">
+              <div class="speed-metric download">
+                <span class="metric-icon"><i class="bi bi-arrow-down" aria-hidden="true"></i></span>
+                <div><span>下载</span><strong id="downloadSpeed">0 KB/s</strong></div>
+              </div>
+              <div class="speed-divider"></div>
+              <div class="speed-metric upload">
+                <span class="metric-icon"><i class="bi bi-arrow-up" aria-hidden="true"></i></span>
+                <div><span>上传</span><strong id="uploadSpeed">0 KB/s</strong></div>
+              </div>
+            </div>
+            <div class="network-footnote" id="networkDebug">等待网络探测结果</div>
+          </article>
 
-  <section class="card">
-    <h2>硬盘映射</h2>
-    <table id="mapTable">
-      <thead><tr><th>设备</th><th>LED</th><th>状态</th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <pre class="status-bar" id="statusBar"></pre>
-  </section>
+          <article class="glass-surface disk-panel">
+            <div class="section-heading">
+              <div><span class="section-kicker">STORAGE</span><h2>硬盘活动</h2></div>
+              <button type="button" class="text-button" data-route="devices">查看映射 <i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+            </div>
+            <div class="table-scroll">
+              <table class="data-table" id="overviewDiskTable">
+                <thead><tr><th>设备</th><th>盘位</th><th>状态</th><th>读取</th><th>写入</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
 
-  <script src="./js/app.js?v=1.2.7"></script>
+      <section class="app-view" id="view-lighting" data-view="lighting" hidden>
+        <div class="settings-tabs glass-surface" role="tablist" aria-label="灯光设置分类">
+          <button type="button" class="settings-tab active" data-lighting-tab="disk" role="tab" aria-selected="true" aria-controls="lighting-panel-disk">
+            <i class="bi bi-device-hdd" aria-hidden="true"></i><span>硬盘灯</span>
+          </button>
+          <button type="button" class="settings-tab" data-lighting-tab="network" role="tab" aria-selected="false" aria-controls="lighting-panel-network">
+            <i class="bi bi-wifi" aria-hidden="true"></i><span>网络灯</span>
+          </button>
+          <button type="button" class="settings-tab" data-lighting-tab="power" role="tab" aria-selected="false" aria-controls="lighting-panel-power">
+            <i class="bi bi-power" aria-hidden="true"></i><span>电源灯</span>
+          </button>
+        </div>
+        <div class="settings-layout">
+          <article class="glass-surface settings-surface" id="lighting-panel-disk" data-lighting-panel="disk" role="tabpanel">
+            <div class="section-heading">
+              <div><span class="section-kicker">DISK LED</span><h2>硬盘状态颜色</h2></div>
+              <span class="soft-badge">智能模式</span>
+            </div>
+            <p class="surface-help">为活动、空闲、休眠和离线状态设置颜色与亮度。</p>
+            <div class="color-grid" id="diskGrid"></div>
+          </article>
+
+          <article class="glass-surface settings-surface" id="lighting-panel-network" data-lighting-panel="network" role="tabpanel" hidden>
+            <div class="section-heading"><div><span class="section-kicker">NETWORK LED</span><h2>网络状态颜色</h2></div></div>
+            <p class="surface-help">外网、联网和断网状态分别使用独立颜色。</p>
+            <div class="color-grid" id="netGrid"></div>
+          </article>
+
+          <article class="glass-surface settings-surface" id="lighting-panel-power" data-lighting-panel="power" role="tabpanel" hidden>
+            <div class="section-heading"><div><span class="section-kicker">POWER LED</span><h2>电源灯</h2></div></div>
+            <p class="surface-help">设置智能模式和全部开启时的电源灯表现。</p>
+            <div class="color-grid" id="powerGrid"></div>
+          </article>
+
+          <article class="glass-surface preset-surface">
+            <div>
+              <span class="section-kicker">PRESETS</span>
+              <h2>配色方案</h2>
+              <p class="surface-help">套用方案后仍可继续微调。</p>
+            </div>
+            <div class="preset-list">
+              <button type="button" class="preset-button" data-preset="classic">经典</button>
+              <button type="button" class="preset-button" data-preset="minimal">极简蓝灰</button>
+              <button type="button" class="preset-button" data-preset="vivid">醒目警示</button>
+              <button type="button" class="preset-button" data-preset="soft">柔和护眼</button>
+              <button type="button" class="preset-button" data-preset="white">白色系</button>
+            </div>
+          </article>
+        </div>
+        <div class="view-actions"><button type="button" class="primary-button" id="btnSaveLighting"><i class="bi bi-floppy" aria-hidden="true"></i>保存灯光设置</button></div>
+      </section>
+
+      <section class="app-view" id="view-activity" data-view="activity" hidden>
+        <div class="activity-layout">
+          <article class="glass-surface activity-card">
+            <div class="activity-card-head">
+              <span class="surface-icon blue"><i class="bi bi-device-hdd" aria-hidden="true"></i></span>
+              <div><span class="section-kicker">DISK ACTIVITY</span><h2>磁盘读写闪动</h2></div>
+              <label class="native-check"><input type="checkbox" id="diskBlink"><span>启用</span></label>
+            </div>
+            <p class="surface-help">读写速度超过阈值时，对应盘位灯会按速度分档闪动。</p>
+            <label class="threshold-field" for="diskBlinkThreshold"><span>触发阈值</span><span class="number-wrap"><input type="number" id="diskBlinkThreshold" min="1" max="1048576" step="1"><em>KB/s</em></span></label>
+          </article>
+
+          <article class="glass-surface activity-card">
+            <div class="activity-card-head">
+              <span class="surface-icon violet"><i class="bi bi-wifi" aria-hidden="true"></i></span>
+              <div><span class="section-kicker">NETWORK ACTIVITY</span><h2>网络速度闪动</h2></div>
+              <label class="native-check"><input type="checkbox" id="networkBlink"><span>启用</span></label>
+            </div>
+            <p class="surface-help">上传和下载总速度超过阈值时，网络灯会提示当前流量。</p>
+            <label class="threshold-field" for="networkBlinkThreshold"><span>触发阈值</span><span class="number-wrap"><input type="number" id="networkBlinkThreshold" min="1" max="1048576" step="1"><em>KB/s</em></span></label>
+          </article>
+
+          <article class="glass-surface tier-surface">
+            <div><span class="section-kicker">BLINK SPEED</span><h2>闪动频率</h2><p class="surface-help">系统会根据实时速度自动选择低、中、高三档频率。</p></div>
+            <div class="tier-list">
+              <span><i class="bi bi-circle-fill tier-low" aria-hidden="true"></i>刚刚超过阈值</span>
+              <span><i class="bi bi-circle-fill tier-mid" aria-hidden="true"></i>达到阈值 4 倍</span>
+              <span><i class="bi bi-circle-fill tier-high" aria-hidden="true"></i>达到阈值 16 倍</span>
+            </div>
+          </article>
+        </div>
+        <div class="view-actions"><button type="button" class="primary-button" id="btnSaveActivity"><i class="bi bi-floppy" aria-hidden="true"></i>保存活动设置</button></div>
+      </section>
+
+      <section class="app-view" id="view-devices" data-view="devices" hidden>
+        <div class="device-layout">
+          <article class="glass-surface device-map-surface">
+            <div class="section-heading">
+              <div><span class="section-kicker">HCTL MAPPING</span><h2>硬盘与 LED 映射</h2></div>
+              <button type="button" class="secondary-button" id="btnRemap"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>重新检测</button>
+            </div>
+            <div class="table-scroll">
+              <table class="data-table" id="deviceMapTable">
+                <thead><tr><th>设备</th><th>LED</th><th>状态</th><th>读取</th><th>写入</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="glass-surface monitoring-surface">
+            <div class="section-heading">
+              <div><span class="section-kicker">LOW WAKE</span><h2>监测频率</h2></div>
+              <span class="soft-badge">单位：秒</span>
+            </div>
+            <p class="surface-help">控制硬盘电源状态与热插拔的后台检查频率。数值越低，状态更新越快，但可能增加硬盘或控制器被查询的频率。</p>
+            <div class="monitoring-fields">
+              <label class="threshold-field" for="diskPowerProbeInterval">
+                <span class="monitoring-field-copy"><strong>硬盘电源状态</strong><small>建议 60 秒，可设置 10–3600 秒</small></span>
+                <span class="number-wrap"><input type="number" id="diskPowerProbeInterval" min="10" max="3600" step="1"><em>秒</em></span>
+              </label>
+              <label class="threshold-field" for="hotplugCheckInterval">
+                <span class="monitoring-field-copy"><strong>热插拔扫描</strong><small>建议 30 秒，可设置 5–3600 秒</small></span>
+                <span class="number-wrap"><input type="number" id="hotplugCheckInterval" min="5" max="3600" step="1"><em>秒</em></span>
+              </label>
+            </div>
+            <div class="monitoring-actions"><button type="button" class="primary-button" id="btnSaveMonitoring"><i class="bi bi-floppy" aria-hidden="true"></i>保存监测频率</button></div>
+          </article>
+
+          <article class="glass-surface daemon-surface">
+            <div><span class="section-kicker">SERVICE</span><h2>后台服务</h2><p class="surface-help">控制 LED 守护进程。停止后灯光不再自动更新。</p></div>
+            <div class="daemon-actions">
+              <button type="button" class="secondary-button" id="btnDaemonStart"><i class="bi bi-play-fill" aria-hidden="true"></i>启动</button>
+              <button type="button" class="danger-button" id="btnDaemonStop"><i class="bi bi-stop-fill" aria-hidden="true"></i>停止</button>
+            </div>
+          </article>
+
+          <details class="glass-surface diagnostics-surface">
+            <summary class="diagnostics-summary"><span><span class="section-kicker">DIAGNOSTICS</span><strong>LED 原始状态</strong></span><i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
+            <pre class="status-console" id="statusBar">正在读取状态…</pre>
+          </details>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="mode-dock" aria-label="灯光模式">
+    <span class="dock-label">模式</span>
+    <button type="button" class="mode-button" data-mode="off"><i class="bi bi-power" aria-hidden="true"></i><span>关闭全部</span></button>
+    <button type="button" class="mode-button" data-mode="on"><i class="bi bi-brightness-high" aria-hidden="true"></i><span>开启全部</span></button>
+    <button type="button" class="mode-button primary" data-mode="smart"><i class="bi bi-stars" aria-hidden="true"></i><span>智能模式</span></button>
+  </div>
+
+  <script src="./js/app.js?v=1.4.5"></script>
 </body>
 </html>

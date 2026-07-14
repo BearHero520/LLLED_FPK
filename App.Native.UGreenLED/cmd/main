@@ -12,13 +12,15 @@ for d in "${APP_ROOT}/server" "${APP_ROOT}/target/server"; do
     fi
 done
 SERVER_DIR="${SERVER_DIR:-${APP_ROOT}/server}"
+source "${SERVER_DIR}/lib/app_paths.sh"
+ugreen_resolve_runtime || exit 1
 
-export APP_ROOT VAR_DIR SERVER_DIR TARGET="${APP_ROOT}"
+export APP_ROOT VAR_DIR RUNTIME_DIR SERVER_DIR TARGET="${APP_ROOT}"
 
 case "$1" in
 start)
     modprobe i2c-dev 2>/dev/null || true
-    mkdir -p "${VAR_DIR}/log" "${VAR_DIR}/led_cache"
+    mkdir -p "${VAR_DIR}/log" "$RUNTIME_DIR"
     CLI=""
     for c in "${SERVER_DIR}/bin/ugreen_leds_cli" "${APP_ROOT}/target/server/bin/ugreen_leds_cli" /usr/bin/ugreen_leds_cli; do
         [[ -x "$c" ]] && CLI="$c" && break
@@ -28,23 +30,17 @@ start)
         exit 1
     fi
     bash "${SERVER_DIR}/led_daemon.sh" start
-    bash "${SERVER_DIR}/http_api.sh" start
     exit 0
     ;;
 stop)
     bash "${SERVER_DIR}/led_daemon.sh" stop 2>/dev/null
+    # 清理由旧版本自动启动的独立 5088 API；Web 管理页实际使用 fnOS CGI。
     bash "${SERVER_DIR}/http_api.sh" stop 2>/dev/null
     exit 0
     ;;
 status)
-    d=3
-    bash "${SERVER_DIR}/led_daemon.sh" status 2>/dev/null && d=0
-    h=3
-    [[ -f "${VAR_DIR}/http_api.pid" ]] && kill -0 "$(cat "${VAR_DIR}/http_api.pid")" 2>/dev/null && h=0
-    if [[ $d -eq 0 || $h -eq 0 ]]; then
-        exit 0
-    fi
-    exit 3
+    bash "${SERVER_DIR}/led_daemon.sh" status 2>/dev/null
+    exit $?
     ;;
 *)
     exit 1
