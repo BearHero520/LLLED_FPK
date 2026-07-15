@@ -8,7 +8,7 @@
     lighting: { title: '灯光设置', description: '配置硬盘、网络和电源灯的状态颜色。' },
     activity: { title: '活动提示', description: '控制磁盘读写和网络流量的速度闪动。' },
     devices: { title: '设备与高级', description: '管理盘位映射、监测频率、后台服务与诊断状态。' },
-    lab: { title: '实验室功能', description: '未经验证的高级硬件功能，请确认风险后谨慎使用。' },
+    lab: { title: '实验室', description: '未经验证的高级硬件功能，请确认风险后谨慎使用。' },
   };
 
   const DISK_STATES = [
@@ -110,6 +110,7 @@
   let toastTimer = null;
   let currentIni = {};
   let labState = { active: false, mode: 'auto', slots: [], disks: [] };
+  let labMethod = 'position';
   let labDraft = {};
   let labIdentifying = '';
   let labStatusPromise = null;
@@ -299,41 +300,89 @@
     return `${disk.device}${details ? ` · ${details}` : ''}`;
   }
 
-  function resetLabDraft(data) {
-    labDraft = {};
-    (data.slots || []).forEach((slot) => { labDraft[slot.led] = ''; });
-    (data.disks || []).forEach((disk) => {
-      if (disk.led && Object.prototype.hasOwnProperty.call(labDraft, disk.led)) labDraft[disk.led] = disk.device;
+  function updateLabMethodUi() {
+    document.querySelectorAll('[data-lab-method]').forEach((button) => {
+      const active = button.dataset.labMethod === labMethod;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.disabled = labState.active;
     });
+    const positionMode = labMethod === 'position';
+    $('labMethodHelp').textContent = positionMode
+      ? '将 HCTL 代表的硬盘位置绑定到实际 LED 通道，适合 6/8 盘位灯光乱序的机型。换硬盘后规则仍然有效。'
+      : '将具体硬盘的序列号绑定到 LED 通道。硬盘移动或设备名变化后，映射仍会跟随这块硬盘。';
+    $('labStep2Title').textContent = positionMode ? '逐位置选择 LED' : '逐灯选择硬盘';
+    $('labStep2Copy').textContent = positionMode
+      ? '为每个硬盘位置选择 LED 通道并闪烁验证'
+      : '让一个 LED 通道闪烁，再选择要跟随的硬盘';
+    $('labSessionHelp').textContent = positionMode
+      ? '先确认全部硬盘灯已亮，再为每个硬盘位置选择对应的 LED 通道。当前硬盘信息仅用于帮助识别位置。'
+      : '先确认全部硬盘灯已亮，再为每个 LED 通道选择要绑定的具体硬盘。此方式依赖硬盘序列号。';
+    $('labProgressHint').textContent = positionMode
+      ? '请选择每个硬盘位置对应的 LED 通道'
+      : '请选择每个 LED 通道对应的具体硬盘';
+    $('labPrimaryTitle').textContent = positionMode ? '硬盘位置与 LED' : 'LED 与硬盘';
+    $('labPrimaryHint').textContent = positionMode ? '选择后点击“闪烁所选灯”验证' : '点击“闪烁此灯”确认 LED 通道';
+    $('labInventoryTitle').textContent = positionMode ? 'LED 通道分配' : '检测到的硬盘';
+    $('labSecondaryHint').textContent = positionMode ? '每个 LED 只能分配一次' : '通过型号、容量或序列号核对';
+    $('btnSaveLabMapping').innerHTML = positionMode
+      ? '<i class="bi bi-floppy" aria-hidden="true"></i>保存位置绑定'
+      : '<i class="bi bi-floppy" aria-hidden="true"></i>保存硬盘绑定';
+  }
+
+  function buildLabDraft(data, previousDraft, preserveDraft) {
+    const next = {};
+    if (labMethod === 'position') {
+      const validLeds = new Set((data.slots || []).map((slot) => slot.led));
+      (data.disks || []).filter((disk) => disk.position_supported).forEach((disk) => {
+        const hasPrevious = preserveDraft && Object.prototype.hasOwnProperty.call(previousDraft, disk.hctl);
+        const previous = hasPrevious ? previousDraft[disk.hctl] : disk.position_led;
+        next[disk.hctl] = validLeds.has(previous) ? previous : '';
+      });
+    } else {
+      const validDevices = new Set((data.disks || []).filter((disk) => disk.identity_supported).map((disk) => disk.device));
+      (data.slots || []).forEach((slot) => {
+        const savedDisk = (data.disks || []).find((disk) => disk.identity_led === slot.led);
+        const hasPrevious = preserveDraft && Object.prototype.hasOwnProperty.call(previousDraft, slot.led);
+        const previous = hasPrevious ? previousDraft[slot.led] : savedDisk?.device;
+        next[slot.led] = validDevices.has(previous) ? previous : '';
+      });
+    }
+    return next;
   }
 
   function updateLabValidation() {
     const disks = Array.isArray(labState.disks) ? labState.disks : [];
-    const supported = disks.filter((disk) => disk.supported);
-    const assignedDevices = Object.values(labDraft).filter(Boolean);
-    const uniqueDevices = new Set(assignedDevices);
+    const positionMode = labMethod === 'position';
+    const supported = disks.filter((disk) => positionMode ? disk.position_supported : disk.identity_supported);
+    const assigned = Object.values(labDraft).filter(Boolean);
+    const unique = new Set(assigned);
     const validation = $('labValidation');
     const save = $('btnSaveLabMapping');
-    const valid = assignedDevices.length > 0 && assignedDevices.length === uniqueDevices.size;
+    const valid = assigned.length > 0 && assigned.length === unique.size;
     save.disabled = !labState.active || !valid;
-    $('labProgressText').textContent = `已绑定 ${uniqueDevices.size} 个盘位`;
+    $('labProgressText').textContent = positionMode ? `已绑定 ${unique.size} 个位置` : `已绑定 ${unique.size} 块硬盘`;
 
     if (!disks.length) {
       validation.textContent = '未检测到硬盘，请确认硬盘已被系统识别。';
       validation.className = 'lab-validation';
     } else if (!supported.length) {
-      validation.textContent = '检测到的设备没有可用于持久绑定的 HCTL，暂时无法保存。';
+      validation.textContent = positionMode
+        ? '检测到的设备没有可用于位置绑定的 HCTL，暂时无法保存。'
+        : '检测到的硬盘没有序列号，暂时无法按硬盘绑定。';
       validation.className = 'lab-validation';
-    } else if (!assignedDevices.length) {
-      validation.textContent = '请至少为一个物理盘位选择硬盘。';
+    } else if (!assigned.length) {
+      validation.textContent = positionMode ? '请至少为一个硬盘位置选择 LED。' : '请至少为一个 LED 选择硬盘。';
       validation.className = 'lab-validation';
-    } else if (assignedDevices.length !== uniqueDevices.size) {
-      validation.textContent = '同一块硬盘不能绑定到多个盘位。';
+    } else if (assigned.length !== unique.size) {
+      validation.textContent = positionMode ? '同一个 LED 不能绑定到多个位置。' : '同一块硬盘不能绑定到多个 LED。';
       validation.className = 'lab-validation';
     } else {
-      const remaining = supported.length - uniqueDevices.size;
+      const remaining = supported.length - unique.size;
       validation.textContent = remaining > 0
-        ? `映射有效；另有 ${remaining} 块带 HCTL 的设备未绑定，保存后这些设备不会控制硬盘灯。`
+        ? positionMode
+          ? `映射有效；另有 ${remaining} 个硬盘位置未绑定，保存后对应 LED 将保持未分配。`
+          : `映射有效；另有 ${remaining} 块带序列号的硬盘未绑定。`
         : '映射检查通过，可以保存。';
       validation.className = 'lab-validation ok';
     }
@@ -342,9 +391,41 @@
   function renderLabInventory() {
     const container = $('labDiskInventory');
     const disks = Array.isArray(labState.disks) ? labState.disks : [];
+    container.innerHTML = '';
+    if (labMethod === 'position') {
+      const positionByLed = {};
+      Object.entries(labDraft).forEach(([hctl, led]) => {
+        const disk = disks.find((item) => item.hctl === hctl);
+        if (led && disk) positionByLed[led] = disk.position;
+      });
+      (labState.slots || []).forEach((slot) => {
+        const card = document.createElement('div');
+        const position = positionByLed[slot.led];
+        card.className = `lab-disk-card${position ? ' bound' : ''}`;
+        const head = document.createElement('div');
+        head.className = 'lab-disk-card-head';
+        const title = document.createElement('strong');
+        title.textContent = slot.led;
+        const chip = document.createElement('span');
+        chip.className = `state-chip ${position ? 'active' : 'unknown'}`;
+        chip.textContent = position ? `位置 ${position}` : '未分配';
+        head.append(title, chip);
+        const details = document.createElement('p');
+        details.textContent = `硬盘灯通道 ${slot.position}`;
+        card.append(head, details);
+        container.appendChild(card);
+      });
+      if (!(labState.slots || []).length) {
+        const empty = document.createElement('div');
+        empty.className = 'lab-empty';
+        empty.textContent = '未读取到 LED 通道';
+        container.appendChild(empty);
+      }
+      return;
+    }
+
     const slotByDevice = {};
     Object.entries(labDraft).forEach(([slot, device]) => { if (device) slotByDevice[device] = slot; });
-    container.innerHTML = '';
     if (!disks.length) {
       const empty = document.createElement('div');
       empty.className = 'lab-empty';
@@ -356,7 +437,7 @@
     disks.forEach((disk) => {
       const card = document.createElement('div');
       const boundSlot = slotByDevice[disk.device];
-      card.className = `lab-disk-card${boundSlot ? ' bound' : ''}${disk.supported ? '' : ' unsupported'}`;
+      card.className = `lab-disk-card${boundSlot ? ' bound' : ''}${disk.identity_supported ? '' : ' unsupported'}`;
       const head = document.createElement('div');
       head.className = 'lab-disk-card-head';
       const title = document.createElement('strong');
@@ -364,7 +445,7 @@
       title.title = disk.device || '';
       const chip = document.createElement('span');
       chip.className = `state-chip ${boundSlot ? 'active' : 'unknown'}`;
-      chip.textContent = !disk.supported ? '不可绑定' : boundSlot ? `盘位 ${String(boundSlot).replace('disk', '')}` : '未绑定';
+      chip.textContent = !disk.identity_supported ? '无序列号' : boundSlot ? `LED ${boundSlot.replace('disk', '')}` : '未绑定';
       head.append(title, chip);
       const details = document.createElement('p');
       const identity = [disk.model || '未知型号', disk.size || '未知容量', disk.serial ? `S/N ${disk.serial}` : '无序列号'].join(' · ');
@@ -380,10 +461,80 @@
   function renderLabWorkspace() {
     const container = $('labSlotList');
     const slots = Array.isArray(labState.slots) ? labState.slots : [];
-    const disks = Array.isArray(labState.disks) ? labState.disks.filter((disk) => disk.supported) : [];
-    const selectedDevices = new Set(Object.values(labDraft).filter(Boolean));
+    const disks = Array.isArray(labState.disks) ? labState.disks : [];
+    const selected = new Set(Object.values(labDraft).filter(Boolean));
     container.innerHTML = '';
 
+    if (labMethod === 'position') {
+      const positions = disks.filter((disk) => disk.position_supported);
+      if (!positions.length) {
+        const empty = document.createElement('div');
+        empty.className = 'lab-empty';
+        empty.textContent = '未读取到带 HCTL 的硬盘位置';
+        container.appendChild(empty);
+      }
+      positions.forEach((disk) => {
+        const assignedLed = labDraft[disk.hctl] || '';
+        const row = document.createElement('div');
+        row.className = `lab-slot-row${labIdentifying === assignedLed ? ' identifying' : ''}`;
+        const label = document.createElement('div');
+        label.className = 'lab-slot-label';
+        const title = document.createElement('strong');
+        title.textContent = `硬盘位置 ${disk.position}`;
+        const code = document.createElement('small');
+        code.textContent = `HCTL ${disk.hctl}`;
+        const occupant = document.createElement('span');
+        occupant.className = 'lab-position-occupant';
+        occupant.textContent = [disk.device, disk.size, disk.model].filter(Boolean).join(' · ');
+        label.append(title, code, occupant);
+
+        const select = document.createElement('select');
+        select.className = 'lab-disk-select';
+        select.setAttribute('aria-label', `硬盘位置 ${disk.position} 对应 LED 通道`);
+        const emptyOption = document.createElement('option');
+        emptyOption.value = '';
+        emptyOption.textContent = '未绑定 LED';
+        select.appendChild(emptyOption);
+        slots.forEach((slot) => {
+          const option = document.createElement('option');
+          option.value = slot.led;
+          option.textContent = `${slot.led} · LED 通道 ${slot.position}`;
+          option.disabled = selected.has(slot.led) && assignedLed !== slot.led;
+          select.appendChild(option);
+        });
+        select.value = assignedLed;
+        select.addEventListener('change', () => {
+          labDraft[disk.hctl] = select.value;
+          renderLabWorkspace();
+        });
+
+        const identify = document.createElement('button');
+        identify.type = 'button';
+        identify.className = 'secondary-button';
+        identify.disabled = !assignedLed;
+        identify.innerHTML = '<i class="bi bi-lightning-charge" aria-hidden="true"></i>闪烁所选灯';
+        identify.addEventListener('click', () => {
+          const led = labDraft[disk.hctl];
+          if (!led) return;
+          setBusy(identify, true);
+          api('/lab/mapping/highlight', { method: 'POST', query: `led=${encodeURIComponent(led)}` })
+            .then((data) => {
+              labIdentifying = led;
+              renderLabStatus(data, true);
+              showMessage(`硬盘位置 ${disk.position} 选择的 ${led} 正在闪烁`, 'ok');
+            })
+            .catch(showError)
+            .finally(() => setBusy(identify, false));
+        });
+        row.append(label, select, identify);
+        container.appendChild(row);
+      });
+      renderLabInventory();
+      updateLabValidation();
+      return;
+    }
+
+    const identityDisks = disks.filter((disk) => disk.identity_supported);
     if (!slots.length) {
       const empty = document.createElement('div');
       empty.className = 'lab-empty';
@@ -397,23 +548,23 @@
       const label = document.createElement('div');
       label.className = 'lab-slot-label';
       const title = document.createElement('strong');
-      title.textContent = `物理盘位 ${slot.position}`;
+      title.textContent = `LED 通道 ${slot.position}`;
       const code = document.createElement('small');
       code.textContent = slot.led;
       label.append(title, code);
 
       const select = document.createElement('select');
       select.className = 'lab-disk-select';
-      select.setAttribute('aria-label', `物理盘位 ${slot.position} 对应硬盘`);
+      select.setAttribute('aria-label', `LED 通道 ${slot.position} 对应硬盘`);
       const emptyOption = document.createElement('option');
       emptyOption.value = '';
       emptyOption.textContent = '未绑定 / 空盘位';
       select.appendChild(emptyOption);
-      disks.forEach((disk) => {
+      identityDisks.forEach((disk) => {
         const option = document.createElement('option');
         option.value = disk.device;
         option.textContent = labDiskLabel(disk);
-        option.disabled = selectedDevices.has(disk.device) && labDraft[slot.led] !== disk.device;
+        option.disabled = selected.has(disk.device) && labDraft[slot.led] !== disk.device;
         select.appendChild(option);
       });
       select.value = labDraft[slot.led] || '';
@@ -432,7 +583,7 @@
           .then((data) => {
             labIdentifying = slot.led;
             renderLabStatus(data, true);
-            showMessage(`物理盘位 ${slot.position} 的灯正在闪烁`, 'ok');
+            showMessage(`${slot.led} 正在闪烁`, 'ok');
           })
           .catch(showError)
           .finally(() => setBusy(identify, false));
@@ -446,34 +597,32 @@
 
   function renderLabStatus(data, preserveDraft) {
     const previousDraft = labDraft;
+    const mode = ['position', 'disk'].includes(data.mode) ? data.mode : 'auto';
     labState = {
       active: Boolean(data.active),
-      mode: data.mode === 'manual' ? 'manual' : 'auto',
+      mode,
       slots: Array.isArray(data.slots) ? data.slots : [],
       disks: Array.isArray(data.disks) ? data.disks : [],
     };
+    if (!labState.active && ['position', 'disk'].includes(labState.mode)) labMethod = labState.mode;
     document.body.classList.toggle('lab-session-active', labState.active);
-    $('labModeBadge').textContent = labState.mode === 'manual' ? '当前：自定义映射' : '当前：自动映射';
-    $('labSummary').textContent = labState.mode === 'manual'
-      ? '当前按已保存的 HCTL 自定义规则绑定。恢复自动映射后，将重新按控制器顺序生成盘位。'
-      : '当前按 HCTL 顺序自动生成盘位；如果实际机箱灯位乱序，可进入检测模式手动修正。';
+    $('labModeBadge').textContent = labState.mode === 'position'
+      ? '当前：位置绑定'
+      : labState.mode === 'disk' ? '当前：硬盘绑定' : '当前：自动映射';
+    $('labSummary').textContent = labState.mode === 'position'
+      ? '当前使用 HCTL 位置规则：更换硬盘不会改变 LED 对应关系。'
+      : labState.mode === 'disk'
+        ? '当前使用硬盘序列号规则：设备名变化后，LED 映射仍会跟随具体硬盘。'
+        : '当前按 HCTL 顺序自动生成映射；如果实际机箱灯位乱序，可选择位置绑定手动修正。';
     $('labSession').hidden = !labState.active;
     $('btnStartLabMapping').disabled = labState.active;
     $('btnStartLabMapping').innerHTML = labState.active
       ? '<i class="bi bi-check2-circle" aria-hidden="true"></i>检测模式已启动'
       : '<i class="bi bi-lightbulb" aria-hidden="true"></i>开始检测并点亮全部硬盘灯';
 
+    updateLabMethodUi();
     if (labState.active) {
-      if (preserveDraft) {
-        const validDevices = new Set(labState.disks.map((disk) => disk.device));
-        labDraft = {};
-        labState.slots.forEach((slot) => {
-          const value = previousDraft[slot.led] || '';
-          labDraft[slot.led] = validDevices.has(value) ? value : '';
-        });
-      } else {
-        resetLabDraft(labState);
-      }
+      labDraft = buildLabDraft(labState, previousDraft, Boolean(preserveDraft));
       renderLabWorkspace();
     } else {
       labDraft = {};
@@ -880,6 +1029,14 @@
   $('btnCheckUpdate').addEventListener('click', function () {
     checkForUpdates(true, this);
   });
+  document.querySelectorAll('[data-lab-method]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (labState.active) return;
+      labMethod = button.dataset.labMethod === 'disk' ? 'disk' : 'position';
+      labDraft = {};
+      updateLabMethodUi();
+    });
+  });
   $('btnStartLabMapping').addEventListener('click', function () {
     startLabMapping(this, false);
   });
@@ -895,17 +1052,31 @@
     finishLabMapping('/lab/mapping/reset', this, '', '已恢复自动映射');
   });
   $('btnSaveLabMapping').addEventListener('click', function () {
-    const diskByDevice = new Map(labState.disks.map((disk) => [disk.device, disk]));
-    const lines = labState.slots.map((slot) => {
-      const device = labDraft[slot.led];
-      const disk = diskByDevice.get(device);
-      return device && disk && disk.hctl ? `${slot.led}|${device}|${disk.hctl}` : '';
-    }).filter(Boolean);
+    let path;
+    let message;
+    let lines;
+    if (labMethod === 'position') {
+      path = '/lab/position/save';
+      message = '灯光与硬盘位置绑定已保存';
+      lines = labState.disks.map((disk) => {
+        const led = labDraft[disk.hctl];
+        return led && disk.position_supported ? `${led}|${disk.device}|${disk.hctl}` : '';
+      }).filter(Boolean);
+    } else {
+      path = '/lab/mapping/save';
+      message = '按硬盘绑定已保存';
+      const diskByDevice = new Map(labState.disks.map((disk) => [disk.device, disk]));
+      lines = labState.slots.map((slot) => {
+        const device = labDraft[slot.led];
+        const disk = diskByDevice.get(device);
+        return device && disk && disk.identity_supported ? `${slot.led}|${device}|${disk.serial}` : '';
+      }).filter(Boolean);
+    }
     if (!lines.length) {
       updateLabValidation();
       return;
     }
-    finishLabMapping('/lab/mapping/save', this, lines.join('\n'), '自定义硬盘位置已保存');
+    finishLabMapping(path, this, lines.join('\n'), message);
   });
 
   window.addEventListener('hashchange', () => setRoute(location.hash.slice(1), false));

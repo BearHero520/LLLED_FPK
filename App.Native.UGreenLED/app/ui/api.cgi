@@ -180,9 +180,18 @@ lab_mapping_resume_control() {
 }
 
 lab_mapping_status_json() {
-    local message="${1:-}" active=false mode slot first dev hctl serial model size transport led supported
+    local message="${1:-}" active=false mode slot first dev hctl serial model size transport led
+    local position=0 position_supported identity_supported position_led identity_led
+    declare -A position_led_map=() identity_led_map=()
     lab_mapping_session_active && active=true
     mode=$(disk_mapping_mode "$SETTINGS_FILE")
+
+    DISK_LED_MAP=()
+    disk_load_position_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || true
+    for dev in "${!DISK_LED_MAP[@]}"; do position_led_map["$dev"]="${DISK_LED_MAP[$dev]}"; done
+    DISK_LED_MAP=()
+    disk_load_identity_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || true
+    for dev in "${!DISK_LED_MAP[@]}"; do identity_led_map["$dev"]="${DISK_LED_MAP[$dev]}"; done
     disk_load_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || DISK_LED_MAP=()
 
     printf '{"ok":true,"active":%s,"mode":"%s","session_ttl":%s,"slots":[' "$active" "$(json_str "$mode")" "$LAB_MAPPING_SESSION_TTL"
@@ -197,15 +206,23 @@ lab_mapping_status_json() {
     first=1
     while IFS='|' read -r dev hctl serial model size transport; do
         [[ -n "$dev" ]] || continue
+        position=$((position + 1))
         [[ $first -eq 0 ]] && printf ','
         first=0
         led="${DISK_LED_MAP[$dev]:-}"
-        supported=false
-        [[ "$hctl" =~ ^[0-9]+:[0-9]+:[0-9]+:[0-9]+$ ]] && supported=true
-        printf '{"device":"%s","hctl":"%s","serial":"%s","model":"%s","size":"%s","transport":"%s","led":"%s","supported":%s}' \
+        position_led="${position_led_map[$dev]:-}"
+        identity_led="${identity_led_map[$dev]:-}"
+        position_supported=false
+        identity_supported=false
+        [[ "$hctl" =~ ^[0-9]+:[0-9]+:[0-9]+:[0-9]+$ ]] && position_supported=true
+        [[ -n "$serial" ]] && identity_supported=true
+        printf '{"position":%s,"device":"%s","hctl":"%s","serial":"%s","model":"%s","size":"%s","transport":"%s","led":"%s","position_led":"%s","identity_led":"%s","supported":%s,"position_supported":%s,"identity_supported":%s}' \
+            "$position" \
             "$(json_str "$dev")" "$(json_str "$hctl")" "$(json_str "$serial")" "$(json_str "$model")" \
-            "$(json_str "$size")" "$(json_str "$transport")" "$(json_str "$led")" "$supported"
-    done < <(disk_inventory_rows)
+            "$(json_str "$size")" "$(json_str "$transport")" "$(json_str "$led")" \
+            "$(json_str "$position_led")" "$(json_str "$identity_led")" \
+            "$position_supported" "$position_supported" "$identity_supported"
+    done < <(disk_inventory_rows | sort -t'|' -k2,2V)
     printf ']'
     [[ -n "$message" ]] && printf ',"message":"%s"' "$(json_str "$message")"
     printf '}'
@@ -316,17 +333,37 @@ case "$API_PATH" in
             echo '{"ok":false,"error":"method not allowed"}'
         elif ! lab_mapping_session_active; then
             echo '{"ok":false,"error":"检测会话已结束，请重新开始"}'
-        elif disk_save_manual_mapping "$SETTINGS_FILE" <<< "$POST_DATA"; then
+        elif disk_save_identity_mapping "$SETTINGS_FILE" <<< "$POST_DATA"; then
             lab_mapping_resume_control
-            lab_mapping_status_json "自定义硬盘位置已保存"
+            lab_mapping_status_json "按硬盘绑定已保存"
         else
             result=$?
             case "$result" in
                 3) error="包含不存在的 LED 盘位" ;;
-                4) error="硬盘设备或 HCTL 已变化，请重新开始检测" ;;
-                5) error="同一硬盘或盘位不能重复绑定" ;;
-                6) error="请至少绑定一个硬盘盘位" ;;
+                4) error="硬盘设备或序列号已变化，请重新开始检测" ;;
+                5) error="同一硬盘或 LED 不能重复绑定" ;;
+                6) error="请至少绑定一块硬盘" ;;
                 *) error="映射数据无效，未保存任何更改" ;;
+            esac
+            printf '{"ok":false,"error":"%s"}' "$(json_str "$error")"
+        fi
+        ;;
+    /lab/position/save)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif ! lab_mapping_session_active; then
+            echo '{"ok":false,"error":"检测会话已结束，请重新开始"}'
+        elif disk_save_position_mapping "$SETTINGS_FILE" <<< "$POST_DATA"; then
+            lab_mapping_resume_control
+            lab_mapping_status_json "灯光与硬盘位置绑定已保存"
+        else
+            result=$?
+            case "$result" in
+                3) error="包含不存在的 LED 盘位" ;;
+                4) error="硬盘位置或 HCTL 已变化，请重新开始检测" ;;
+                5) error="同一位置或 LED 不能重复绑定" ;;
+                6) error="请至少绑定一个硬盘位置" ;;
+                *) error="位置映射数据无效，未保存任何更改" ;;
             esac
             printf '{"ok":false,"error":"%s"}' "$(json_str "$error")"
         fi

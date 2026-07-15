@@ -1,7 +1,7 @@
 appname               = App.Native.UGreenLED
-version               = 1.5.0
+version               = 1.5.1
 display_name          = 绿联LED灯控
-desc                  = 绿联 DXP4800 Plus / DX4600 系列机箱 LED 控制。支持智能灯效与实验室硬盘盘位自定义绑定。
+desc                  = 绿联 DXP4800 Plus / DX4600 系列机箱 LED 控制。支持智能灯效与实验室硬盘灯自定义绑定。
 platform              = x86
 source                = thirdparty
 maintainer            = BearHero520
@@ -14,4 +14,4 @@ desktop_uidir         = ui
 desktop_applaunchname = App.Native.UGreenLED.Web
 service_port          = 5088
 checkport             = false
-changelog             = v1.5.0 新增实验室硬盘位置自定义绑定，支持 6/8 盘位 HCTL 与 LED 手动映射
+changelog             = v1.5.1 实验室新增按位置与按硬盘两种 LED 绑定方式，并优化侧边栏名称

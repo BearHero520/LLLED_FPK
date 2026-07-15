@@ -80,7 +80,9 @@ class PreviewState:
             {"device": "/dev/sde", "hctl": "4:0:0:0", "serial": "ZA20E005", "model": "TOSHIBA MG08ACA16TE", "size": "14.6T", "transport": "sata", "supported": True},
             {"device": "/dev/sdf", "hctl": "5:0:0:0", "serial": "ZA20E006", "model": "TOSHIBA MG08ACA16TE", "size": "14.6T", "transport": "sata", "supported": True},
         ]
-        self.disk_led_map = {disk["device"]: self.lab_slots[index] for index, disk in enumerate(self.lab_disks)}
+        self.auto_led_map = {disk["device"]: self.lab_slots[index] for index, disk in enumerate(self.lab_disks)}
+        self.position_led_map = dict(self.auto_led_map)
+        self.identity_led_map = dict(self.auto_led_map)
 
     @property
     def mode(self) -> str:
@@ -101,6 +103,14 @@ class PreviewState:
             with self.lock:
                 self.settings.setdefault("mode", OrderedDict())["global"] = mode
 
+    def active_led_map(self) -> dict[str, str]:
+        mode = self.settings.setdefault("behavior", OrderedDict()).get("disk_map_mode", "auto")
+        if mode == "position":
+            return self.position_led_map
+        if mode == "disk":
+            return self.identity_led_map
+        return self.auto_led_map
+
     def lab_payload(self, message: str = "") -> dict:
         with self.lock:
             payload = {
@@ -109,13 +119,45 @@ class PreviewState:
                 "mode": self.settings.setdefault("behavior", OrderedDict()).get("disk_map_mode", "auto"),
                 "session_ttl": 1200,
                 "slots": [{"led": slot, "position": index} for index, slot in enumerate(self.lab_slots, 1)],
-                "disks": [dict(disk, led=self.disk_led_map.get(disk["device"], "")) for disk in self.lab_disks],
+                "disks": [
+                    dict(
+                        disk,
+                        position=index,
+                        led=self.active_led_map().get(disk["device"], ""),
+                        position_led=self.position_led_map.get(disk["device"], ""),
+                        identity_led=self.identity_led_map.get(disk["device"], ""),
+                        position_supported=bool(disk["hctl"]),
+                        identity_supported=bool(disk["serial"]),
+                    )
+                    for index, disk in enumerate(self.lab_disks, 1)
+                ],
             }
         if message:
             payload["message"] = message
         return payload
 
-    def save_lab_mapping(self, body: str) -> None:
+    def save_identity_mapping(self, body: str) -> None:
+        mapping: dict[str, str] = {}
+        used_leds: set[str] = set()
+        serial_devices = {disk["serial"]: disk["device"] for disk in self.lab_disks}
+        for source_line in body.splitlines():
+            line = source_line.strip()
+            if not line:
+                continue
+            led, device, serial = line.split("|", 2)
+            if led not in self.lab_slots or serial_devices.get(serial) != device or device in mapping or led in used_leds:
+                raise ValueError("映射数据无效")
+            mapping[device] = led
+            used_leds.add(led)
+        if not mapping:
+            raise ValueError("请至少绑定一块硬盘")
+        with self.lock:
+            self.identity_led_map = mapping
+            self.settings.setdefault("behavior", OrderedDict())["disk_map_mode"] = "disk"
+            self.lab_active = False
+            self.lab_highlight = ""
+
+    def save_position_mapping(self, body: str) -> None:
         mapping: dict[str, str] = {}
         used_leds: set[str] = set()
         hctl_devices = {disk["hctl"]: disk["device"] for disk in self.lab_disks}
@@ -125,20 +167,19 @@ class PreviewState:
                 continue
             led, device, hctl = line.split("|", 2)
             if led not in self.lab_slots or hctl_devices.get(hctl) != device or device in mapping or led in used_leds:
-                raise ValueError("映射数据无效")
+                raise ValueError("位置映射数据无效")
             mapping[device] = led
             used_leds.add(led)
         if not mapping:
-            raise ValueError("请至少绑定一个硬盘盘位")
+            raise ValueError("请至少绑定一个硬盘位置")
         with self.lock:
-            self.disk_led_map = mapping
-            self.settings.setdefault("behavior", OrderedDict())["disk_map_mode"] = "manual"
+            self.position_led_map = mapping
+            self.settings.setdefault("behavior", OrderedDict())["disk_map_mode"] = "position"
             self.lab_active = False
             self.lab_highlight = ""
 
     def reset_lab_mapping(self) -> None:
         with self.lock:
-            self.disk_led_map = {disk["device"]: self.lab_slots[index] for index, disk in enumerate(self.lab_disks)}
             self.settings.setdefault("behavior", OrderedDict())["disk_map_mode"] = "auto"
             self.lab_active = False
             self.lab_highlight = ""
@@ -235,11 +276,11 @@ class PreviewHandler(BaseHTTPRequestHandler):
         if path == "/mapping":
             states = ["active", "idle", "standby", "idle", "deep_sleep", "active"]
             speeds = [
-                (disk["device"], STATE.disk_led_map.get(disk["device"], ""), states[index],
+                (disk["device"], STATE.active_led_map().get(disk["device"], ""), states[index],
                  int(abs(math.sin(now / (2.5 + index))) * (3500 if index in {0, 5} else 80)),
                  int(abs(math.cos(now / (3.2 + index))) * (880 if index in {0, 5} else 35)))
                 for index, disk in enumerate(STATE.lab_disks)
-                if disk["device"] in STATE.disk_led_map
+                if disk["device"] in STATE.active_led_map()
             ]
             self.send_json({"ok": True, "mapping": [
                 {"device": dev, "led": led, "state": state, "read_kbps": read, "write_kbps": write, "total_kbps": read + write, "updated_at": int(now)}
@@ -293,11 +334,19 @@ class PreviewHandler(BaseHTTPRequestHandler):
             return
         if path == "/lab/mapping/save":
             try:
-                STATE.save_lab_mapping(body)
+                STATE.save_identity_mapping(body)
             except (ValueError, TypeError) as error:
                 self.send_json({"ok": False, "error": str(error)})
                 return
-            self.send_json(STATE.lab_payload("自定义硬盘位置已保存"))
+            self.send_json(STATE.lab_payload("按硬盘绑定已保存"))
+            return
+        if path == "/lab/position/save":
+            try:
+                STATE.save_position_mapping(body)
+            except (ValueError, TypeError) as error:
+                self.send_json({"ok": False, "error": str(error)})
+                return
+            self.send_json(STATE.lab_payload("灯光与硬盘位置绑定已保存"))
             return
         if path == "/lab/mapping/cancel":
             with STATE.lock:

@@ -7,7 +7,7 @@
   <title>绿联 LED 灯控</title>
   <base href="/cgi/ThirdParty/App.Native.UGreenLED/index.cgi/">
   <link rel="stylesheet" href="./vendor/bootstrap-icons/font/bootstrap-icons.min.css?v=1.11.3">
-  <link rel="stylesheet" href="./css/style.css?v=1.5.0">
+  <link rel="stylesheet" href="./css/style.css?v=1.5.1">
 </head>
 <body>
   <div class="app-shell">
@@ -34,13 +34,13 @@
           <i class="bi bi-hdd-rack" aria-hidden="true"></i><span>设备与高级</span>
         </button>
         <button type="button" class="nav-item lab-nav-item" data-route="lab">
-          <i class="bi bi-eyedropper" aria-hidden="true"></i><span>实验室功能</span><small>未经验证</small>
+          <i class="bi bi-eyedropper" aria-hidden="true"></i><span>实验室</span><small>未经验证</small>
         </button>
       </nav>
 
       <div class="rail-footer">
         <span class="rail-state"><span class="status-dot" id="railStatusDot"></span><span id="railStatusText">正在连接</span></span>
-        <small>v1.5.0 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
+        <small>v1.5.1 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
       </div>
     </aside>
 
@@ -239,7 +239,7 @@
             </div>
             <div class="update-content">
               <div class="update-copy">
-                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.4.6</strong></div>
+                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.5.1</strong></div>
                 <h3 id="updateTitle">检查 GitHub Release 获取新版本</h3>
                 <p class="surface-help" id="updateDescription">发现新版本后，可下载安装包并在 fnOS 应用中心手动升级。</p>
                 <small id="updateCheckedAt">不会自动安装，也不会在后台静默升级。</small>
@@ -271,22 +271,31 @@
         <div class="lab-warning glass-surface" role="note">
           <span class="surface-icon warning"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span>
           <div>
-            <div class="lab-warning-title"><strong>实验室功能</strong><span class="warning-badge">未经验证 · 谨慎使用</span></div>
-            <p>此功能会临时接管硬盘灯，并改写硬盘与物理盘位的对应关系。请确认机箱旁无人进行维护，再开始检测。</p>
+            <div class="lab-warning-title"><strong>实验室</strong><span class="warning-badge">未经验证 · 谨慎使用</span></div>
+            <p>这里提供按硬盘和按位置两种 LED 绑定方式。检测时会临时接管硬盘灯，请确认机箱旁无人进行维护，再开始操作。</p>
           </div>
         </div>
 
         <div class="lab-layout">
           <article class="glass-surface lab-intro-surface">
             <div class="section-heading">
-              <div><span class="section-kicker">DISK POSITION BINDING</span><h2>硬盘位置自定义绑定</h2></div>
+              <div><span class="section-kicker">LED MAPPING LAB</span><h2>硬盘灯绑定</h2></div>
               <span class="soft-badge" id="labModeBadge">读取中</span>
             </div>
-            <p class="surface-help">适用于 6 盘位、8 盘位等硬盘灯顺序与系统 HCTL 顺序不一致的机型。网络灯和电源灯不会参与绑定。</p>
+
+            <div class="lab-method-tabs" role="tablist" aria-label="硬盘灯绑定方式">
+              <button type="button" class="lab-method-tab active" data-lab-method="position" role="tab" aria-selected="true">
+                <i class="bi bi-hdd-rack" aria-hidden="true"></i><span><strong>按位置绑定</strong><small>换硬盘不受影响 · 推荐</small></span>
+              </button>
+              <button type="button" class="lab-method-tab" data-lab-method="disk" role="tab" aria-selected="false">
+                <i class="bi bi-device-hdd" aria-hidden="true"></i><span><strong>按硬盘绑定</strong><small>映射跟随硬盘序列号</small></span>
+              </button>
+            </div>
+            <p class="surface-help" id="labMethodHelp">将 HCTL 代表的硬盘位置绑定到实际 LED 通道，适合 6/8 盘位灯光乱序的机型。</p>
 
             <ol class="lab-steps" aria-label="绑定流程">
               <li><span>1</span><div><strong>点亮全部硬盘灯</strong><small>确认所有盘位灯均可见并进入检测模式</small></div></li>
-              <li><span>2</span><div><strong>逐盘位闪烁识别</strong><small>让一个盘位灯闪烁，再选择对应硬盘</small></div></li>
+              <li><span>2</span><div><strong id="labStep2Title">逐位置选择 LED</strong><small id="labStep2Copy">为每个硬盘位置选择 LED 通道并闪烁验证</small></div></li>
               <li><span>3</span><div><strong>检查并保存</strong><small>重复绑定会被拦截，保存后立即生效</small></div></li>
             </ol>
 
@@ -302,23 +311,23 @@
               <div>
                 <span class="section-kicker">DETECTION MODE</span>
                 <h2>检测模式进行中</h2>
-                <p class="surface-help">先确认全部硬盘灯已亮，再从盘位 1 开始逐个闪烁识别。未安装硬盘的盘位可以保持“未绑定”。</p>
+                <p class="surface-help" id="labSessionHelp">先确认全部硬盘灯已亮，再为每个硬盘位置选择对应的 LED 通道。</p>
               </div>
               <span class="session-live"><span class="status-dot online"></span>临时接管中</span>
             </div>
 
             <div class="lab-session-toolbar">
-              <div class="lab-progress"><strong id="labProgressText">已绑定 0 个盘位</strong><span id="labProgressHint">请选择每个物理盘位对应的硬盘</span></div>
+              <div class="lab-progress"><strong id="labProgressText">已绑定 0 个位置</strong><span id="labProgressHint">请选择每个硬盘位置对应的 LED 通道</span></div>
               <button type="button" class="secondary-button" id="btnShowAllLabLeds"><i class="bi bi-brightness-high" aria-hidden="true"></i>重新点亮全部</button>
             </div>
 
             <div class="lab-mapping-layout">
               <div class="lab-slot-panel">
-                <div class="lab-panel-heading"><strong>物理盘位与硬盘</strong><span>点击“闪烁此灯”确认机箱位置</span></div>
+                <div class="lab-panel-heading"><strong id="labPrimaryTitle">硬盘位置与 LED</strong><span id="labPrimaryHint">选择后点击“闪烁所选灯”验证</span></div>
                 <div class="lab-slot-list" id="labSlotList"></div>
               </div>
               <aside class="lab-inventory-panel" aria-labelledby="labInventoryTitle">
-                <div class="lab-panel-heading"><strong id="labInventoryTitle">检测到的硬盘</strong><span>通过型号、容量或序列号核对</span></div>
+                <div class="lab-panel-heading"><strong id="labInventoryTitle">LED 通道分配</strong><span id="labSecondaryHint">每个 LED 只能分配一次</span></div>
                 <div class="lab-disk-inventory" id="labDiskInventory"></div>
               </aside>
             </div>
@@ -341,6 +350,6 @@
     <button type="button" class="mode-button primary" data-mode="smart"><i class="bi bi-stars" aria-hidden="true"></i><span>智能模式</span></button>
   </div>
 
-  <script src="./js/app.js?v=1.5.0"></script>
+  <script src="./js/app.js?v=1.5.1"></script>
 </body>
 </html>

@@ -87,7 +87,7 @@ MAPPING_READY=false
 ensure_mapping() {
     local mapping_mode
     mapping_mode=$(disk_mapping_mode "$SETTINGS_FILE")
-    if [[ "$mapping_mode" == "manual" ]]; then
+    if [[ "$mapping_mode" == "position" || "$mapping_mode" == "disk" ]]; then
         DISK_LED_MAP=()
         disk_load_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || true
     else

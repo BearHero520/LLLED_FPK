@@ -20,7 +20,7 @@ LLLED_FPK/
 └── README.md
 ```
 
-应用 ID：`App.Native.UGreenLED` · 当前版本：**1.5.0**
+应用 ID：`App.Native.UGreenLED` · 当前版本：**1.5.1**
 
 ## 功能概览
 
@@ -28,7 +28,7 @@ LLLED_FPK/
 |------|------|
 | 三档模式 | 关闭全部 / 开启全部 / 智能模式 |
 | 硬盘灯 | 活动、空闲、休眠、深度睡眠、离线（拔出自动关灯） |
-| 盘位映射 | 按 **HCTL** 动态映射到 disk1–disk8，支持热插拔重映射；实验室功能可手动绑定物理盘位 |
+| 盘位映射 | 自动 HCTL 映射；实验室支持按硬盘位置或按硬盘序列号绑定 LED |
 | 网络灯 | **外网**（海外检测点通）、**联网**（仅国内通）、**断网** |
 | 速度闪动 | 磁盘读写、网络上传下载超过阈值后闪动，速度越高闪动越快，两项可独立开关 |
 | 电源灯 | 智能 / 全开模式下可单独配色 |
@@ -87,8 +87,8 @@ python scripts/build_fpk.py
 `.github/workflows/release.yml` 会在推送 `v*.*.*` 标签时自动构建并发布 Release。标签版本必须与 `App.Native.UGreenLED/manifest` 中的 `version` 一致：
 
 ```bash
-git tag v1.5.0
-git push origin v1.5.0
+git tag v1.5.1
+git push origin v1.5.1
 ```
 
 也可以在 GitHub Actions 页面手动运行工作流，只生成可下载的构建产物而不创建 Release。Release 会同时上传带版本文件名、固定文件名以及 SHA256 校验文件。
@@ -125,9 +125,14 @@ python App.Native.UGreenLED/scripts/process_logo.py
 
 智能模式下盘位示例：`0:0:0:0→disk1`，`2:0:0:0→disk3`（以实际 HCTL 为准）。
 
-### 实验室：硬盘位置自定义绑定
+### 实验室：两种硬盘灯绑定方式
 
-当 6 盘位或 8 盘位机型的硬盘灯顺序与 HCTL 顺序不一致时，可在侧边栏进入“实验室功能”。检测模式会先点亮全部硬盘灯，再允许逐个盘位闪烁；用户根据硬盘型号、容量、序列号和 HCTL 选择对应设备并保存。自定义规则按 HCTL 持久化，不依赖可能变化的 `/dev/sdX` 名称。
+当 6 盘位或 8 盘位机型的硬盘灯顺序与系统顺序不一致时，可在侧边栏进入“实验室”。检测模式会先点亮全部硬盘灯，再提供两种互相独立的绑定方式：
+
+- **按位置绑定（推荐）**：将 HCTL 代表的硬盘位置绑定到 LED 通道。更换硬盘后对应关系不变，适合固定机箱盘位。
+- **按硬盘绑定**：将硬盘序列号绑定到 LED 通道。设备名变化或硬盘移动后，映射仍跟随这块具体硬盘。
+
+两套规则会同时保留，最后保存的方式成为当前生效模式；“恢复自动映射”只切回自动 HCTL 模式，不会删除已保存的两套规则。
 
 > 此功能未经完整机型验证。检测期间会临时接管硬盘灯，保存、取消或会话超时后恢复后台灯效；网络灯和电源灯不参与绑定。页面提供“恢复自动映射”用于随时回退。
 
@@ -149,8 +154,10 @@ python App.Native.UGreenLED/scripts/process_logo.py
 | `/daemon/start` · `/daemon/stop` | 启停守护进程 |
 | `/remap` | 重新 HCTL 映射 |
 | `/lab/mapping/status` | 查询实验室检测状态、盘位和硬盘清单 |
-| `/lab/mapping/start` · `/lab/mapping/highlight` | 开始检测并逐盘位闪烁识别 |
-| `/lab/mapping/save` · `/lab/mapping/cancel` | 保存自定义 HCTL 映射或放弃检测 |
+| `/lab/mapping/start` · `/lab/mapping/highlight` | 开始检测并逐 LED 通道闪烁识别 |
+| `/lab/mapping/save` | 保存按硬盘序列号绑定 |
+| `/lab/position/save` | 保存按 HCTL 位置绑定 |
+| `/lab/mapping/cancel` | 放弃当前检测 |
 | `/lab/mapping/reset` | 恢复自动 HCTL 映射 |
 | `/led/set?led=disk1&r=255&g=0&b=0` | 手动设色 |
 | `/led/off?led=disk1` | 手动关闭单个灯 |

@@ -71,8 +71,13 @@ disk_build_mapping() {
 declare -gA DISK_LED_MAP
 
 disk_mapping_mode() {
-    local settings="$1"
-    settings_get "$settings" behavior disk_map_mode "auto"
+    local settings="$1" mode
+    mode=$(settings_get "$settings" behavior disk_map_mode "auto")
+    case "$mode" in
+        manual|position) echo "position" ;;
+        disk) echo "disk" ;;
+        *) echo "auto" ;;
+    esac
 }
 
 disk_load_auto_mapping_from_settings() {
@@ -98,7 +103,7 @@ disk_load_auto_mapping_from_settings() {
     [[ ${#DISK_LED_MAP[@]} -gt 0 ]]
 }
 
-disk_load_manual_mapping_from_settings() {
+disk_load_position_mapping_from_settings() {
     local settings="$1" in_maps=0 line key val hctl
     local dev serial model size transport led
     declare -A hctl_led=()
@@ -130,16 +135,48 @@ disk_load_manual_mapping_from_settings() {
     [[ ${#DISK_LED_MAP[@]} -gt 0 ]]
 }
 
+disk_load_identity_mapping_from_settings() {
+    local settings="$1" in_maps=0 line led serial
+    local dev hctl inv_serial model size transport mapped_led
+    declare -A serial_led=()
+    [[ -f "$settings" ]] || return 1
+
+    while IFS= read -r line; do
+        line="${line#"${line%%[![:space:]]*}"}"
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+        if [[ "$line" == "[manual_disk_identity_map]" ]]; then
+            in_maps=1
+            continue
+        fi
+        if [[ "$line" =~ ^\[ ]]; then
+            in_maps=0
+            continue
+        fi
+        if [[ $in_maps -eq 1 && "$line" =~ ^(disk[1-9][0-9]*)=(.+)$ ]]; then
+            led="${BASH_REMATCH[1]}"
+            serial="${BASH_REMATCH[2]}"
+            [[ -n "$serial" ]] && serial_led["$serial"]="$led"
+        fi
+    done < "$settings"
+
+    [[ ${#serial_led[@]} -gt 0 ]] || return 1
+    while IFS='|' read -r dev hctl inv_serial model size transport; do
+        mapped_led="${serial_led[$inv_serial]:-}"
+        [[ -n "$dev" && -n "$inv_serial" && -n "$mapped_led" ]] && DISK_LED_MAP["$dev"]="$mapped_led"
+    done < <(disk_inventory_rows)
+    [[ ${#DISK_LED_MAP[@]} -gt 0 ]]
+}
+
 disk_load_mapping_from_settings() {
     local settings="$1" mode
     DISK_LED_MAP=()
     [[ -f "$settings" ]] || return 1
     mode=$(disk_mapping_mode "$settings")
-    if [[ "$mode" == "manual" ]]; then
-        disk_load_manual_mapping_from_settings "$settings"
-    else
-        disk_load_auto_mapping_from_settings "$settings"
-    fi
+    case "$mode" in
+        position) disk_load_position_mapping_from_settings "$settings" ;;
+        disk) disk_load_identity_mapping_from_settings "$settings" ;;
+        *) disk_load_auto_mapping_from_settings "$settings" ;;
+    esac
 }
 
 disk_remove_section() {
@@ -187,8 +224,8 @@ disk_available_slots() {
     fi
 }
 
-# 输入每行：diskN|/dev/sdX|H:C:T:L。保存为稳定的 HCTL -> LED 规则。
-disk_save_manual_mapping() {
+# 位置绑定输入每行：diskN|/dev/sdX|H:C:T:L。保存为稳定的 HCTL -> LED 规则。
+disk_save_position_mapping() {
     local settings="$1" line led dev hctl extra tmp key
     local inv_dev inv_hctl serial model size transport
     local -a entries=()
@@ -228,9 +265,59 @@ disk_save_manual_mapping() {
         printf '%s\n' "${entries[@]}" | sort -t= -k2,2V
     } > "${tmp}.next" || { rm -f "$tmp" "${tmp}.next"; return 1; }
     mv "${tmp}.next" "$tmp"
-    settings_set "$tmp" behavior disk_map_mode manual || { rm -f "$tmp"; return 1; }
+    settings_set "$tmp" behavior disk_map_mode position || { rm -f "$tmp"; return 1; }
     mv "$tmp" "$settings"
     disk_load_mapping_from_settings "$settings"
+}
+
+# 硬盘绑定输入每行：diskN|/dev/sdX|SERIAL。保存为序列号 -> LED 规则。
+disk_save_identity_mapping() {
+    local settings="$1" line led dev serial extra tmp
+    local inv_dev hctl inv_serial model size transport
+    local -a entries=()
+    declare -A valid_led=() serial_dev=() dev_serial=() used_led=() used_serial=()
+
+    while IFS= read -r led; do
+        [[ -n "$led" ]] && valid_led["$led"]=1
+    done < <(disk_available_slots)
+    while IFS='|' read -r inv_dev hctl inv_serial model size transport; do
+        [[ -n "$inv_serial" && "$inv_serial" != *"|"* ]] || continue
+        serial_dev["$inv_serial"]="$inv_dev"
+        dev_serial["$inv_dev"]="$inv_serial"
+    done < <(disk_inventory_rows)
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
+        [[ -n "$line" ]] || continue
+        IFS='|' read -r led dev serial extra <<< "$line"
+        [[ -z "$extra" && "$led" =~ ^disk[1-9][0-9]*$ && "$dev" =~ ^/dev/[a-zA-Z0-9._/-]+$ && -n "$serial" ]] || return 2
+        [[ -n "${valid_led[$led]:-}" ]] || return 3
+        [[ "${serial_dev[$serial]:-}" == "$dev" && "${dev_serial[$dev]:-}" == "$serial" ]] || return 4
+        [[ -z "${used_led[$led]:-}" && -z "${used_serial[$serial]:-}" ]] || return 5
+        used_led["$led"]=1
+        used_serial["$serial"]=1
+        entries+=("${led}=${serial}")
+    done
+    [[ ${#entries[@]} -gt 0 ]] || return 6
+
+    settings_init "$settings"
+    tmp="${settings}.identity.$$"
+    disk_remove_section "$settings" manual_disk_identity_map "$tmp" || return 1
+    {
+        cat "$tmp"
+        echo ""
+        echo "[manual_disk_identity_map]"
+        printf '%s\n' "${entries[@]}" | sort -t= -k1,1V
+    } > "${tmp}.next" || { rm -f "$tmp" "${tmp}.next"; return 1; }
+    mv "${tmp}.next" "$tmp"
+    settings_set "$tmp" behavior disk_map_mode disk || { rm -f "$tmp"; return 1; }
+    mv "$tmp" "$settings"
+    disk_load_mapping_from_settings "$settings"
+}
+
+# 兼容 1.5.0 名称：旧“手动映射”实际保存的就是位置规则。
+disk_save_manual_mapping() {
+    disk_save_position_mapping "$@"
 }
 
 disk_reset_auto_mapping() {
