@@ -27,8 +27,10 @@ done
 export TARGET="${APP_ROOT}"
 export UGREEN_CLI LED_API_CACHE_DIR="${RUNTIME_DIR}/led_cache"
 
-source "${LIB_DIR}/led_api.sh"
 source "${LIB_DIR}/settings.sh"
+source "${LIB_DIR}/hardware_profile.sh"
+source "${LIB_DIR}/driver_manager.sh"
+source "${LIB_DIR}/led_api.sh"
 source "${LIB_DIR}/disk_map.sh"
 
 mkdir -p "${VAR_DIR}/log"

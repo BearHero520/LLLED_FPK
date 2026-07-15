@@ -21,6 +21,10 @@ global=smart
 enabled=true
 check_interval=5
 io_idle_seconds=8
+[hardware]
+backend=auto
+profile=auto
+write_protocol=auto
 [activity]
 disk_blink=false
 network_blink=false

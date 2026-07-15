@@ -32,8 +32,10 @@ export DISK_IO_CACHE_DIR="${RUNTIME_DIR}/disk_io"
 export NET_SPEED_CACHE_FILE="${RUNTIME_DIR}/net_speed.cache"
 export NET_STATE_CACHE_FILE="${RUNTIME_DIR}/net_state.cache"
 
-source "${LIB_DIR}/led_api.sh"
 source "${LIB_DIR}/settings.sh"
+source "${LIB_DIR}/hardware_profile.sh"
+source "${LIB_DIR}/driver_manager.sh"
+source "${LIB_DIR}/led_api.sh"
 source "${LIB_DIR}/disk_map.sh"
 source "${LIB_DIR}/disk_state.sh"
 source "${LIB_DIR}/net_state.sh"
@@ -85,7 +87,7 @@ DAEMON_RUN=true
 MAPPING_READY=false
 
 ensure_mapping() {
-    local mapping_mode
+    local mapping_mode profile product
     mapping_mode=$(disk_mapping_mode "$SETTINGS_FILE")
     if [[ "$mapping_mode" == "position" || "$mapping_mode" == "disk" ]]; then
         DISK_LED_MAP=()
@@ -95,7 +97,15 @@ ensure_mapping() {
     fi
     rm -f "${DISK_IO_CACHE_DIR}/"*.io "${DISK_IO_CACHE_DIR}/"*.power 2>/dev/null
     MAPPING_READY=true
-    log "${mapping_mode} 映射 ${#DISK_LED_MAP[@]} 项 -> $(printf '%s ' "${DISK_LED_MAP[@]}")"
+    profile=$(hardware_profile_key)
+    product=$(hardware_detected_product_name)
+    log "${mapping_mode} 映射 ${#DISK_LED_MAP[@]} 项，机型=${product:-unknown}，档案=$profile -> $(printf '%s ' "${DISK_LED_MAP[@]}")"
+}
+
+reload_runtime() {
+    led_clear_cache
+    MAPPING_READY=false
+    ensure_mapping
 }
 
 check_hotplug() {
@@ -110,7 +120,7 @@ check_hotplug() {
     hash=$(disk_snapshot_devices | sort | md5sum 2>/dev/null | awk '{print $1}')
     [[ -z "$hash" ]] && return
     if [[ -n "$LAST_DEVICE_HASH" && "$hash" != "$LAST_DEVICE_HASH" ]]; then
-        log "检测到硬盘热插拔，重新生成映射"
+        log "检测到硬盘拓扑或身份变化，重新生成映射"
         DISK_STATE_CACHE=()
         led_clear_cache
         ensure_mapping
@@ -148,7 +158,7 @@ tick_mode_smart() {
     local dev led state cached idle_sec sample read_kbps write_kbps total_kbps
     local manage_power manage_netdev disk_blink net_blink disk_threshold net_threshold
     local disk_tmp now net_sample rx_kbps tx_kbps net_total probe_sample ns domestic overseas probe_ttl
-    local disk_power_probe_interval hotplug_check_interval
+    local disk_power_probe_interval hotplug_check_interval net_led
 
     idle_sec=$(positive_int "$(settings_get "$SETTINGS_FILE" daemon io_idle_seconds "8")" 8)
     manage_power=$(settings_get "$SETTINGS_FILE" behavior manage_power "true")
@@ -212,11 +222,14 @@ tick_mode_smart() {
             NET_STATE_CACHE[main]="$ns"
             log "网络: $ns"
         fi
-        if [[ "$net_blink" == "true" && "$ns" != "disconnected" && "$net_total" -ge "$net_threshold" ]]; then
-            apply_netdev_activity "$ns" "$SETTINGS_FILE" "$net_total" "$net_threshold"
-        else
-            apply_netdev_state "$ns" "$SETTINGS_FILE"
-        fi
+        while IFS= read -r net_led; do
+            [[ -n "$net_led" ]] || continue
+            if [[ "$net_blink" == "true" && "$ns" != "disconnected" && "$net_total" -ge "$net_threshold" ]]; then
+                apply_netdev_activity "$ns" "$SETTINGS_FILE" "$net_total" "$net_threshold" "$net_led"
+            else
+                apply_netdev_state "$ns" "$SETTINGS_FILE" "$net_led"
+            fi
+        done < <(led_list_network_slots)
         write_net_runtime_status "$ns" "${domestic:-0}" "${overseas:-0}" "$rx_kbps" "$tx_kbps" "$net_total"
     fi
 
@@ -228,8 +241,8 @@ tick_mode_smart() {
 daemon_loop() {
     local interval mode enabled
     trap 'DAEMON_RUN=false' TERM INT
-    trap 'ensure_mapping' HUP
-    log "启动 mode=$(settings_get "$SETTINGS_FILE" mode global smart) cli=$UGREEN_CLI runtime=$RUNTIME_DIR"
+    trap 'reload_runtime' HUP
+    log "启动 mode=$(settings_get "$SETTINGS_FILE" mode global smart) backend=$(led_backend_name) cli=$UGREEN_CLI runtime=$RUNTIME_DIR"
     ensure_mapping
 
     while $DAEMON_RUN; do
@@ -241,8 +254,8 @@ daemon_loop() {
             sleep "$interval"
             continue
         fi
-        if ! ensure_cli; then
-            log_limited "cli" 60 "ERROR CLI 不可用"
+        if ! ensure_led_backend; then
+            log_limited "backend" 60 "ERROR LED 控制后端不可用或发生冲突"
             sleep "$interval"
             continue
         fi

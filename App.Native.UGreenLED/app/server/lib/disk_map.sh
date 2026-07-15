@@ -44,28 +44,39 @@ disk_detect_by_hctl() {
 }
 
 disk_guess_led_by_hctl() {
-    local hctl="$1"
-    case "$hctl" in
-        0:0:0:0) echo "disk1" ;;
-        1:0:0:0) echo "disk2" ;;
-        2:0:0:0) echo "disk3" ;;
-        3:0:0:0) echo "disk4" ;;
-        4:0:0:0) echo "disk5" ;;
-        5:0:0:0) echo "disk6" ;;
-        6:0:0:0) echo "disk7" ;;
-        7:0:0:0) echo "disk8" ;;
-        *) echo "" ;;
-    esac
+    local hctl="$1" profile
+    profile=$(hardware_hctl_profile)
+    if [[ "$profile" == "dxp6800" ]]; then
+        case "$hctl" in
+            0:0:0:0) echo "disk5" ;;
+            1:0:0:0) echo "disk6" ;;
+            2:0:0:0) echo "disk1" ;;
+            3:0:0:0) echo "disk2" ;;
+            4:0:0:0) echo "disk3" ;;
+            5:0:0:0) echo "disk4" ;;
+            *) echo "" ;;
+        esac
+    elif [[ "$hctl" =~ ^([0-7]):0:0:0$ ]]; then
+        printf 'disk%s\n' "$((BASH_REMATCH[1] + 1))"
+    else
+        echo ""
+    fi
 }
 
 # 自动生成映射行：device|hctl|led|serial
 disk_build_mapping() {
-    local dev hctl serial model size transport led
+    local dev hctl serial model size transport led slot
+    declare -A valid_led=() used_led=()
+    while IFS= read -r slot; do
+        [[ -n "$slot" ]] && valid_led["$slot"]=1
+    done < <(disk_available_slots)
     while IFS='|' read -r dev hctl serial model size transport; do
         [[ -n "$dev" && -n "$hctl" ]] || continue
         led=$(disk_guess_led_by_hctl "$hctl")
-        [[ -n "$led" ]] && printf '%s|%s|%s|%s\n' "$dev" "$hctl" "$led" "$serial"
-    done < <(disk_inventory_rows)
+        [[ -n "$led" && -n "${valid_led[$led]:-}" && -z "${used_led[$led]:-}" ]] || continue
+        used_led["$led"]=1
+        printf '%s|%s|%s|%s\n' "$dev" "$hctl" "$led" "$serial"
+    done < <(disk_inventory_rows | sort -t'|' -k2,2V -k1,1)
 }
 
 declare -gA DISK_LED_MAP
@@ -100,6 +111,14 @@ disk_load_auto_mapping_from_settings() {
             DISK_LED_MAP["$key"]="$val"
         fi
     done < "$settings"
+    [[ ${#DISK_LED_MAP[@]} -gt 0 ]]
+}
+
+disk_load_auto_mapping_live() {
+    local dev hctl led serial
+    while IFS='|' read -r dev hctl led serial; do
+        [[ -n "$dev" && -n "$led" ]] && DISK_LED_MAP["$dev"]="$led"
+    done < <(disk_build_mapping)
     [[ ${#DISK_LED_MAP[@]} -gt 0 ]]
 }
 
@@ -175,7 +194,7 @@ disk_load_mapping_from_settings() {
     case "$mode" in
         position) disk_load_position_mapping_from_settings "$settings" ;;
         disk) disk_load_identity_mapping_from_settings "$settings" ;;
-        *) disk_load_auto_mapping_from_settings "$settings" ;;
+        *) disk_load_auto_mapping_live ;;
     esac
 }
 
@@ -190,11 +209,13 @@ disk_remove_section() {
 
 # 重写 settings 中的自动 [disk_map]。
 disk_refresh_mapping() {
-    local settings="$1" tmp
+    local settings="$1" tmp product profile
     local -a lines=()
     while IFS='|' read -r dev hctl led serial; do
         [[ -n "$dev" && -n "$led" ]] && lines+=("${dev}=${led}")
     done < <(disk_build_mapping)
+    product=$(hardware_detected_product_name)
+    profile=$(hardware_profile_key)
 
     settings_init "$settings"
     tmp="${settings}.auto.$$"
@@ -203,6 +224,9 @@ disk_refresh_mapping() {
         cat "$tmp"
         echo ""
         echo "[disk_map]"
+        echo "# product_name=${product:-unknown}"
+        echo "# hardware_profile=$profile"
+        echo "# hctl_profile=$(hardware_hctl_profile "$profile")"
         if [[ ${#lines[@]} -eq 0 ]]; then
             echo "# 未检测到可自动映射的硬盘"
         else
@@ -215,12 +239,17 @@ disk_refresh_mapping() {
 }
 
 disk_available_slots() {
-    local slots
+    local slots count i
     slots=$(led_list_disk_slots 2>/dev/null | sed -n '/^disk[1-9][0-9]*$/p' | sort -V -u)
     if [[ -n "$slots" ]]; then
         printf '%s\n' "$slots"
     else
-        printf '%s\n' disk1 disk2 disk3 disk4
+        count=$(hardware_disk_count)
+        if [[ "$count" =~ ^[0-9]+$ ]]; then
+            for ((i = 1; i <= count; i++)); do echo "disk${i}"; done
+        else
+            printf '%s\n' disk1 disk2 disk3 disk4
+        fi
     fi
 }
 
@@ -342,8 +371,8 @@ disk_unmapped_slots() {
 disk_snapshot_devices() {
     local dev hctl serial model size transport
     while IFS='|' read -r dev hctl serial model size transport; do
-        [[ -n "$dev" ]] && echo "$dev"
-    done < <(disk_inventory_rows)
+        [[ -n "$dev" ]] && printf '%s|%s|%s|%s|%s|%s\n' "$dev" "$hctl" "$serial" "$model" "$size" "$transport"
+    done < <(disk_inventory_rows | sort -t'|' -k2,2V -k1,1)
 }
 
 lab_mapping_lock_file() {

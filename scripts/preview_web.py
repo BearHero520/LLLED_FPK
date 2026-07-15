@@ -71,6 +71,7 @@ class PreviewState:
         self.remap_count = 0
         self.lab_active = False
         self.lab_highlight = ""
+        self.driver_loaded = False
         self.lab_slots = [f"disk{index}" for index in range(1, 7)]
         self.lab_disks = [
             {"device": "/dev/sda", "hctl": "0:0:0:0", "serial": "ZHZ4A001", "model": "ST8000VN004", "size": "7.3T", "transport": "sata", "supported": True},
@@ -117,6 +118,8 @@ class PreviewState:
                 "ok": True,
                 "active": self.lab_active,
                 "mode": self.settings.setdefault("behavior", OrderedDict()).get("disk_map_mode", "auto"),
+                "product_name": "DXP6800 Pro（预览）",
+                "profile": "dxp6800",
                 "session_ttl": 1200,
                 "slots": [{"led": slot, "position": index} for index, slot in enumerate(self.lab_slots, 1)],
                 "disks": [
@@ -189,7 +192,7 @@ STATE = PreviewState()
 
 
 class PreviewHandler(BaseHTTPRequestHandler):
-    server_version = "UGreenLEDPreview/1.4"
+    server_version = "UGreenLEDPreview/1.6.8"
 
     def log_message(self, fmt: str, *args: object) -> None:
         print(f"[{self.log_date_time_string()}] {fmt % args}")
@@ -296,6 +299,66 @@ class PreviewHandler(BaseHTTPRequestHandler):
                     raw = dump_ini(STATE.settings)
                 self.send_json({"ok": True, "raw": raw})
             return
+        if path == "/hardware/status":
+            with STATE.lock:
+                hardware = STATE.settings.setdefault("hardware", OrderedDict())
+                configured = hardware.get("backend", "auto")
+                profile = hardware.get("profile", "auto")
+                protocol = hardware.get("write_protocol", "auto")
+                selected_profile = "dxp6800" if profile == "auto" else profile
+                profile_meta = {
+                    "dx4600": ("UGREEN DX4600 Pro", "stable", 4, 1, True),
+                    "dx4700": ("UGREEN DX4700+", "stable", 4, 1, True),
+                    "dxp2800": ("UGREEN DXP2800", "stable", 2, 1, True),
+                    "dxp2800_gt": ("UGREEN DXP2800 GT", "unverified", 2, 1, True),
+                    "dxp4800": ("UGREEN DXP4800", "stable", 4, 1, True),
+                    "dxp4800_plus": ("UGREEN DXP4800 Plus", "stable", 4, 1, True),
+                    "dxp4800_pro": ("UGREEN DXP4800 Pro", "unverified", 4, 1, True),
+                    "dxp4800_gt": ("UGREEN DXP4800 GT", "experimental", 4, 1, True),
+                    "dxp6800": ("UGREEN DXP6800 Pro", "stable", 6, 1, True),
+                    "dxp8800": ("UGREEN DXP8800 Plus", "stable", 8, 1, True),
+                    "dxp480t_plus": ("UGREEN DXP480T / DXP480T Plus", "limited", 0, 0, False),
+                    "idx6011": ("UGREEN iDX6011", "experimental", 6, 1, True),
+                    "idx6011_pro": ("UGREEN iDX6011 Pro", "experimental", 6, 2, True),
+                }
+                profile_name, support, disk_count, netdev_count, driver_supported = profile_meta.get(
+                    selected_profile, ("未知机型", "unknown", 0, 1, True)
+                )
+                effective_protocol = (
+                    "smbus-block"
+                    if protocol == "auto" and selected_profile in {"dxp4800_gt", "idx6011", "idx6011_pro"}
+                    else "legacy" if protocol == "auto" else protocol
+                )
+                if selected_profile == "dxp480t_plus" and configured != "sysfs":
+                    active = "power-0x26"
+                else:
+                    active = "sysfs" if STATE.driver_loaded and configured != "cli" else "cli"
+            self.send_json({
+                "ok": True,
+                "product_name": "DXP6800 Pro（预览）",
+                "profile": selected_profile,
+                "profile_name": profile_name,
+                "support": support,
+                "cli_version": "v0.4-beta",
+                "write_protocol": effective_protocol,
+                "write_protocol_configured": protocol,
+                "disk_count": disk_count,
+                "netdev_count": netdev_count,
+                "backend_configured": configured,
+                "backend_active": active,
+                "cli_ready": True,
+                "driver_loaded": STATE.driver_loaded,
+                "sysfs_ready": STATE.driver_loaded,
+                "dkms_ready": True,
+                "headers_ready": True,
+                "driver_conflict": False,
+                "dkms_installed": STATE.driver_loaded,
+                "dkms_registered": STATE.driver_loaded,
+                "driver_managed": STATE.driver_loaded,
+                "driver_supported": driver_supported,
+                "kernel": "6.12.0-preview",
+            })
+            return
         if path == "/update/check":
             parts = CURRENT_VERSION.split(".")
             latest = ".".join(parts[:-1] + [str(int(parts[-1]) + 1)]) if all(part.isdigit() for part in parts) else "1.4.7"
@@ -313,6 +376,18 @@ class PreviewHandler(BaseHTTPRequestHandler):
             return
         if path == "/lab/mapping/status":
             self.send_json(STATE.lab_payload())
+            return
+        if path == "/driver/install":
+            with STATE.lock:
+                STATE.driver_loaded = True
+                STATE.settings.setdefault("hardware", OrderedDict())["backend"] = "sysfs"
+            self.send_json({"ok": True, "message": "内核驱动已安装并切换到 sysfs 后端"})
+            return
+        if path == "/driver/unload":
+            with STATE.lock:
+                STATE.driver_loaded = False
+                STATE.settings.setdefault("hardware", OrderedDict())["backend"] = "cli"
+            self.send_json({"ok": True, "message": "内核驱动已卸载，已切换到 CLI 后端"})
             return
         if path == "/lab/mapping/start":
             with STATE.lock:

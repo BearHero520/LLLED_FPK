@@ -31,8 +31,10 @@ export TARGET="$APP_ROOT" SERVER_DIR
 export UGREEN_CLI LED_API_CACHE_DIR="${RUNTIME_DIR}/led_cache" DISK_IO_CACHE_DIR="${RUNTIME_DIR}/disk_io"
 export NET_SPEED_CACHE_FILE="${RUNTIME_DIR}/net_speed.cache" NET_STATE_CACHE_FILE="${RUNTIME_DIR}/net_state.cache"
 
-source "${LIB_DIR}/led_api.sh" 2>/dev/null
 source "${LIB_DIR}/settings.sh" 2>/dev/null
+source "${LIB_DIR}/hardware_profile.sh" 2>/dev/null
+source "${LIB_DIR}/driver_manager.sh" 2>/dev/null
+source "${LIB_DIR}/led_api.sh" 2>/dev/null
 source "${LIB_DIR}/disk_map.sh" 2>/dev/null
 source "${LIB_DIR}/disk_state.sh" 2>/dev/null
 source "${LIB_DIR}/net_state.sh" 2>/dev/null
@@ -181,10 +183,12 @@ lab_mapping_resume_control() {
 
 lab_mapping_status_json() {
     local message="${1:-}" active=false mode slot first dev hctl serial model size transport led
-    local position=0 position_supported identity_supported position_led identity_led
+    local position=0 position_supported identity_supported position_led identity_led product profile auto_led physical_position
     declare -A position_led_map=() identity_led_map=()
     lab_mapping_session_active && active=true
     mode=$(disk_mapping_mode "$SETTINGS_FILE")
+    product=$(hardware_detected_product_name)
+    profile=$(hardware_profile_key)
 
     DISK_LED_MAP=()
     disk_load_position_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || true
@@ -194,7 +198,8 @@ lab_mapping_status_json() {
     for dev in "${!DISK_LED_MAP[@]}"; do identity_led_map["$dev"]="${DISK_LED_MAP[$dev]}"; done
     disk_load_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || DISK_LED_MAP=()
 
-    printf '{"ok":true,"active":%s,"mode":"%s","session_ttl":%s,"slots":[' "$active" "$(json_str "$mode")" "$LAB_MAPPING_SESSION_TTL"
+    printf '{"ok":true,"active":%s,"mode":"%s","product_name":"%s","profile":"%s","session_ttl":%s,"slots":[' \
+        "$active" "$(json_str "$mode")" "$(json_str "$product")" "$(json_str "$profile")" "$LAB_MAPPING_SESSION_TTL"
     first=1
     while IFS= read -r slot; do
         [[ -n "$slot" ]] || continue
@@ -207,6 +212,9 @@ lab_mapping_status_json() {
     while IFS='|' read -r dev hctl serial model size transport; do
         [[ -n "$dev" ]] || continue
         position=$((position + 1))
+        auto_led=$(disk_guess_led_by_hctl "$hctl")
+        physical_position="$position"
+        [[ "$auto_led" =~ ^disk([1-9][0-9]*)$ ]] && physical_position="${BASH_REMATCH[1]}"
         [[ $first -eq 0 ]] && printf ','
         first=0
         led="${DISK_LED_MAP[$dev]:-}"
@@ -217,7 +225,7 @@ lab_mapping_status_json() {
         [[ "$hctl" =~ ^[0-9]+:[0-9]+:[0-9]+:[0-9]+$ ]] && position_supported=true
         [[ -n "$serial" ]] && identity_supported=true
         printf '{"position":%s,"device":"%s","hctl":"%s","serial":"%s","model":"%s","size":"%s","transport":"%s","led":"%s","position_led":"%s","identity_led":"%s","supported":%s,"position_supported":%s,"identity_supported":%s}' \
-            "$position" \
+            "$physical_position" \
             "$(json_str "$dev")" "$(json_str "$hctl")" "$(json_str "$serial")" "$(json_str "$model")" \
             "$(json_str "$size")" "$(json_str "$transport")" "$(json_str "$led")" \
             "$(json_str "$position_led")" "$(json_str "$identity_led")" \
@@ -234,6 +242,36 @@ runtime_file_fresh() {
     modified=$(stat -c %Y "$f" 2>/dev/null || echo 0)
     now=$(date +%s)
     (( now - modified <= max_age ))
+}
+
+hardware_status_json() {
+    local product profile profile_name support protocol protocol_configured disk_count netdev_count configured active
+    local cli_ready=false driver_loaded=false sysfs_ready=false dkms_ready=false headers_ready=false conflict=false dkms_installed=false dkms_registered=false driver_managed=false driver_supported=true
+    product=$(hardware_detected_product_name)
+    profile=$(hardware_profile_key)
+    profile_name=$(hardware_profile_display_name "$profile")
+    support=$(hardware_support_level "$profile")
+    protocol=$(hardware_write_protocol "$profile")
+    protocol_configured=$(settings_get "$SETTINGS_FILE" hardware write_protocol "auto")
+    disk_count=$(hardware_disk_count "$profile")
+    netdev_count=$(hardware_netdev_count "$profile")
+    configured=$(led_backend_configured)
+    active=$(led_backend_name)
+    led_cli_available && cli_ready=true
+    driver_module_loaded && driver_loaded=true
+    driver_sysfs_ready && sysfs_ready=true
+    driver_dkms_ready && dkms_ready=true
+    driver_headers_ready && headers_ready=true
+    driver_vendor_conflict && conflict=true
+    driver_dkms_installed 2>/dev/null && dkms_installed=true
+    driver_dkms_registered 2>/dev/null && dkms_registered=true
+    driver_managed_by_app && driver_managed=true
+    declare -F hardware_driver_supported >/dev/null && ! hardware_driver_supported "$profile" && driver_supported=false
+    [[ "$disk_count" =~ ^[0-9]+$ ]] || disk_count=0
+    printf '{"ok":true,"product_name":"%s","profile":"%s","profile_name":"%s","support":"%s","cli_version":"%s","write_protocol":"%s","write_protocol_configured":"%s","disk_count":%s,"netdev_count":%s,"backend_configured":"%s","backend_active":"%s","cli_ready":%s,"driver_loaded":%s,"sysfs_ready":%s,"dkms_ready":%s,"headers_ready":%s,"driver_conflict":%s,"dkms_installed":%s,"dkms_registered":%s,"driver_managed":%s,"driver_supported":%s,"kernel":"%s"}' \
+        "$(json_str "$product")" "$(json_str "$profile")" "$(json_str "$profile_name")" "$(json_str "$support")" \
+        "$(json_str "$UGREEN_CLI_RELEASE")" "$(json_str "$protocol")" "$(json_str "$protocol_configured")" "$disk_count" "$netdev_count" "$(json_str "$configured")" "$(json_str "$active")" \
+        "$cli_ready" "$driver_loaded" "$sysfs_ready" "$dkms_ready" "$headers_ready" "$conflict" "$dkms_installed" "$dkms_registered" "$driver_managed" "$driver_supported" "$(json_str "$(driver_kernel_release)")"
 }
 
 echo "Content-Type: application/json; charset=utf-8"
@@ -257,6 +295,9 @@ case "$API_PATH" in
         fi
         printf '{"ok":true,"daemon":"%s","mode":"%s","network":"%s","network_label":"%s","net_domestic":%s,"net_overseas":%s,"net_rx_kbps":%s,"net_tx_kbps":%s,"net_total_kbps":%s,"updated_at":%s,"lab_mapping_active":%s,"led_status":"%s"}' \
             "$d" "$mode" "$net" "$(json_str "$nlabel")" "${nd:-0}" "${no:-0}" "${rx:-0}" "${tx:-0}" "${total:-0}" "${updated:-0}" "$lab_active" "$(json_str "$st")"
+        ;;
+    /hardware/status)
+        hardware_status_json
         ;;
     /mapping)
         disk_load_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || DISK_LED_MAP=()
@@ -287,6 +328,9 @@ case "$API_PATH" in
                 echo '{"ok":false,"error":"settings payload too large"}'
             elif settings_apply_updates "$SETTINGS_FILE" <<< "$POST_DATA"; then
                 led_clear_cache 2>/dev/null
+                if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+                    kill -HUP "$(cat "$PID_FILE")" 2>/dev/null || true
+                fi
                 echo '{"ok":true}'
             else
                 echo '{"ok":false,"error":"invalid settings payload"}'
@@ -307,7 +351,7 @@ case "$API_PATH" in
     /lab/mapping/start)
         if [[ "$REQUEST_METHOD" != "POST" ]]; then
             echo '{"ok":false,"error":"method not allowed"}'
-        elif ! ensure_cli; then
+        elif ! ensure_led_backend; then
             echo '{"ok":false,"error":"LED 控制程序不可用，无法进入检测模式"}'
         elif lab_mapping_show_all; then
             lab_mapping_status_json "检测模式已启动，全部硬盘灯已点亮"
@@ -416,7 +460,7 @@ case "$API_PATH" in
     /led/set)
         led=$(query_value led); r=$(query_value r); g=$(query_value g); b=$(query_value b); br=$(query_value brightness)
         br="${br:-64}"
-        if [[ "$led" =~ ^(power|netdev|disk[1-9][0-9]*)$ && "$r" =~ ^[0-9]+$ && "$g" =~ ^[0-9]+$ && "$b" =~ ^[0-9]+$ && "$br" =~ ^[0-9]+$ ]] && \
+        if [[ "$led" =~ ^(power|netdev[1-9]*|disk[1-9][0-9]*)$ && "$r" =~ ^[0-9]+$ && "$g" =~ ^[0-9]+$ && "$b" =~ ^[0-9]+$ && "$br" =~ ^[0-9]+$ ]] && \
             (( r <= 255 && g <= 255 && b <= 255 && br <= 255 )); then
             if led_set_color "$led" "$r" "$g" "$b" "$br"; then
                 printf '{"ok":true,"led":"%s"}' "$led"
@@ -429,10 +473,61 @@ case "$API_PATH" in
         ;;
     /led/off)
         led=$(query_value led)
-        if [[ "$led" =~ ^(power|netdev|disk[1-9][0-9]*)$ ]]; then
+        if [[ "$led" =~ ^(power|netdev[1-9]*|disk[1-9][0-9]*)$ ]]; then
             led_set_off "$led" && printf '{"ok":true,"led":"%s"}' "$led" || echo '{"ok":false,"error":"led command failed"}'
         else
             echo '{"ok":false,"error":"invalid led"}'
+        fi
+        ;;
+    /driver/install)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif [[ "$(query_value confirm)" != "install-driver" ]]; then
+            echo '{"ok":false,"error":"driver confirmation required"}'
+        else
+            daemon_was_running=false
+            if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+                daemon_was_running=true
+                bash "${SERVER_DIR}/led_daemon.sh" stop >/dev/null 2>&1 || true
+            fi
+            driver_install >> "${VAR_DIR}/log/driver.log" 2>&1
+            rc=$?
+            if [[ $rc -eq 0 ]]; then
+                settings_set "$SETTINGS_FILE" hardware backend sysfs
+                $daemon_was_running && bash "${SERVER_DIR}/led_daemon.sh" start >/dev/null 2>&1 || true
+                echo '{"ok":true,"message":"内核驱动已安装并切换到 sysfs 后端"}'
+            else
+                if driver_module_loaded; then
+                    settings_set "$SETTINGS_FILE" hardware backend auto
+                else
+                    settings_set "$SETTINGS_FILE" hardware backend cli
+                fi
+                $daemon_was_running && bash "${SERVER_DIR}/led_daemon.sh" start >/dev/null 2>&1 || true
+                printf '{"ok":false,"error":"%s"}' "$(json_str "$(driver_error_message "$rc")")"
+            fi
+        fi
+        ;;
+    /driver/unload)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif [[ "$(query_value confirm)" != "unload-driver" ]]; then
+            echo '{"ok":false,"error":"driver confirmation required"}'
+        else
+            daemon_was_running=false
+            if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+                daemon_was_running=true
+                bash "${SERVER_DIR}/led_daemon.sh" stop >/dev/null 2>&1 || true
+            fi
+            if driver_unload >> "${VAR_DIR}/log/driver.log" 2>&1; then
+                settings_set "$SETTINGS_FILE" hardware backend cli
+                $daemon_was_running && bash "${SERVER_DIR}/led_daemon.sh" start >/dev/null 2>&1 || true
+                echo '{"ok":true,"message":"内核驱动已卸载，已切换到 CLI 后端"}'
+            else
+                rc=$?
+                settings_set "$SETTINGS_FILE" hardware backend auto
+                $daemon_was_running && bash "${SERVER_DIR}/led_daemon.sh" start >/dev/null 2>&1 || true
+                printf '{"ok":false,"error":"%s"}' "$(json_str "$(driver_error_message "$rc")")"
+            fi
         fi
         ;;
     /daemon/start)

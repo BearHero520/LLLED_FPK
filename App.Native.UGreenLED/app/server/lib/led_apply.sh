@@ -58,15 +58,15 @@ apply_disk_activity_led() {
 }
 
 apply_netdev_state() {
-    local state="$1" settings="$2"
-    apply_color_from_settings "netdev" "netdev" "$state" "$settings"
+    local state="$1" settings="$2" led="${3:-netdev}"
+    apply_color_from_settings "$led" "netdev" "$state" "$settings"
 }
 
 apply_netdev_activity() {
-    local state="$1" settings="$2" speed="$3" threshold="$4"
+    local state="$1" settings="$2" speed="$3" threshold="$4" led="${5:-netdev}"
     local period
     period=$(activity_blink_period "$speed" "$threshold")
-    apply_color_blink_from_settings "netdev" "netdev" "$state" "$settings" "$period"
+    apply_color_blink_from_settings "$led" "netdev" "$state" "$settings" "$period"
 }
 
 apply_power_smart() {
@@ -87,7 +87,7 @@ apply_power_all_on() {
 
 led_all_off_full() {
     local s
-    for s in power netdev $(led_list_disk_slots 2>/dev/null); do
+    for s in power $(led_list_network_slots 2>/dev/null) $(led_list_disk_slots 2>/dev/null); do
         led_set_off "$s" 2>/dev/null
     done
 }
@@ -100,7 +100,7 @@ led_all_on_full() {
         color=$(settings_get "$settings" power all_on_color "200 200 200")
         brightness=$(settings_get "$settings" disk_brightness active "96")
     fi
-    for s in power netdev $(led_list_disk_slots 2>/dev/null); do
+    for s in power $(led_list_network_slots 2>/dev/null) $(led_list_disk_slots 2>/dev/null); do
         led_set_color "$s" $color "$brightness"
     done
 }

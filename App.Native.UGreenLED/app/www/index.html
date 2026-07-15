@@ -7,7 +7,7 @@
   <title>绿联 LED 灯控</title>
   <base href="/cgi/ThirdParty/App.Native.UGreenLED/index.cgi/">
   <link rel="stylesheet" href="./vendor/bootstrap-icons/font/bootstrap-icons.min.css?v=1.11.3">
-  <link rel="stylesheet" href="./css/style.css?v=1.5.1">
+  <link rel="stylesheet" href="./css/style.css?v=1.6.8">
 </head>
 <body>
   <div class="app-shell">
@@ -40,7 +40,7 @@
 
       <div class="rail-footer">
         <span class="rail-state"><span class="status-dot" id="railStatusDot"></span><span id="railStatusText">正在连接</span></span>
-        <small>v1.5.1 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
+        <small>v1.6.8 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
       </div>
     </aside>
 
@@ -213,6 +213,96 @@
             </div>
           </article>
 
+          <article class="glass-surface hardware-surface">
+            <div class="section-heading">
+              <div><span class="section-kicker">HARDWARE BACKEND</span><h2>机型与控制后端</h2></div>
+              <span class="soft-badge" id="hardwareSupportBadge">检测中</span>
+            </div>
+            <p class="surface-help" id="hardwareDetectedModel">正在读取 DMI 机型、LED 布局与可用控制方式。</p>
+            <div class="hardware-fields">
+              <label class="hardware-field" for="hardwareProfile">
+                <span><strong>机型档案</strong><small>决定灯位数量、编号和硬盘 HCTL 映射；通常保持自动识别</small></span>
+                <select id="hardwareProfile" class="hardware-select">
+                  <option value="auto">自动识别</option>
+                  <option value="dx4600">UGREEN DX4600 Pro</option>
+                  <option value="dx4700">UGREEN DX4700+</option>
+                  <option value="dxp2800">UGREEN DXP2800</option>
+                  <option value="dxp2800_gt">UGREEN DXP2800 GT（待验证）</option>
+                  <option value="dxp4800">UGREEN DXP4800</option>
+                  <option value="dxp4800_plus">UGREEN DXP4800 Plus</option>
+                  <option value="dxp4800_pro">UGREEN DXP4800 Pro（待验证）</option>
+                  <option value="dxp4800_gt">UGREEN DXP4800 GT（实验性）</option>
+                  <option value="dxp6800">UGREEN DXP6800 Pro</option>
+                  <option value="dxp8800">UGREEN DXP8800 Plus</option>
+                  <option value="dxp480t_plus">UGREEN DXP480T / Plus（仅电源灯）</option>
+                  <option value="idx6011">UGREEN iDX6011（实验性）</option>
+                  <option value="idx6011_pro">UGREEN iDX6011 Pro（实验性）</option>
+                </select>
+              </label>
+              <label class="hardware-field" for="hardwareBackend">
+                <span><strong>控制后端</strong><small>决定应用通过哪条路径写入 LED 控制器；推荐自动选择</small></span>
+                <select id="hardwareBackend" class="hardware-select">
+                  <option value="auto">自动选择（推荐）</option>
+                  <option value="cli">内置 CLI</option>
+                  <option value="sysfs">led-ugreen 内核驱动</option>
+                </select>
+              </label>
+              <label class="hardware-field" for="hardwareWriteProtocol">
+                <span><strong>写入协议</strong><small>I²C 数据包格式，不是控制后端；通常保持自动选择</small></span>
+                <select id="hardwareWriteProtocol" class="hardware-select">
+                  <option value="auto">自动选择（推荐）</option>
+                  <option value="legacy">legacy</option>
+                  <option value="smbus-block">smbus-block（实验性）</option>
+                </select>
+              </label>
+            </div>
+            <div class="hardware-facts">
+              <span><small>当前后端</small><strong id="hardwareActiveBackend">—</strong></span>
+              <span><small>写入协议</small><strong id="hardwareProtocol">—</strong></span>
+              <span><small>灯位布局</small><strong id="hardwareLayout">—</strong></span>
+              <span><small>内核环境</small><strong id="hardwareKernelState">—</strong></span>
+            </div>
+            <div class="hardware-message" id="hardwareMessage" role="status" aria-live="polite"></div>
+            <details class="hardware-guide" open>
+              <summary class="hardware-guide-summary">
+                <span class="hardware-guide-title">
+                  <i class="bi bi-info-circle" aria-hidden="true"></i>
+                  <span><strong>CLI、内核驱动和写入协议是什么？</strong><small>展开查看每种控制方式的用途和限制</small></span>
+                </span>
+                <i class="bi bi-chevron-down" aria-hidden="true"></i>
+              </summary>
+              <div class="hardware-guide-body">
+                <div class="hardware-auto-note">
+                  <i class="bi bi-magic" aria-hidden="true"></i>
+                  <div><strong>自动选择（推荐）</strong><p>已安装且可用时选择内核驱动，否则回退到内置 CLI；DXP480T 系列自动使用专用电源灯后端。应用不会让两条路径同时控制同一个 MCU。</p></div>
+                </div>
+                <div class="hardware-guide-grid">
+                  <div class="hardware-guide-item" data-backend-guide="cli">
+                    <div class="hardware-guide-item-head"><span><i class="bi bi-terminal" aria-hidden="true"></i><strong>内置 CLI</strong></span><small class="hardware-current-tag" hidden>当前使用</small></div>
+                    <p>FPK 内置的 v0.4-beta 命令行程序，直接访问 LED MCU，不需要编译内核模块。兼容性最高，也是故障时的默认回退方案。</p>
+                  </div>
+                  <div class="hardware-guide-item" data-backend-guide="sysfs">
+                    <div class="hardware-guide-item-head"><span><i class="bi bi-cpu" aria-hidden="true"></i><strong>内核驱动 / sysfs</strong></span><small class="hardware-current-tag" hidden>当前使用</small></div>
+                    <p>通过 DKMS 为当前 fnOS 内核编译 <code>led-ugreen</code>，再由 sysfs 控制灯光。需要 DKMS 和内核 headers，属于实验功能，必须手动确认安装。</p>
+                  </div>
+                  <div class="hardware-guide-item" data-backend-guide="power-0x26">
+                    <div class="hardware-guide-item-head"><span><i class="bi bi-lightbulb" aria-hidden="true"></i><strong>DXP480T 专用后端</strong></span><small class="hardware-current-tag" hidden>当前使用</small></div>
+                    <p>用于 DXP480T / Plus 的独立 <code>0x26</code> 控制器，只支持红/白电源灯，不控制硬盘灯和网络灯，也不会安装通用内核驱动。</p>
+                  </div>
+                </div>
+                <div class="hardware-protocol-note">
+                  <i class="bi bi-diagram-3" aria-hidden="true"></i>
+                  <div><strong>legacy 与 smbus-block</strong><p>它们是不同机型使用的 I²C 写入格式。自动模式会跟随机型档案；只有未知硬件或特殊批次经过实机验证后才需要手动修改。</p></div>
+                </div>
+              </div>
+            </details>
+            <div class="hardware-actions">
+              <button type="button" class="primary-button" id="btnSaveHardware"><i class="bi bi-floppy" aria-hidden="true"></i>保存硬件设置</button>
+              <button type="button" class="secondary-button" id="btnInstallDriver"><i class="bi bi-cpu" aria-hidden="true"></i>安装 / 重建内核驱动</button>
+              <button type="button" class="danger-button" id="btnUnloadDriver"><i class="bi bi-eject" aria-hidden="true"></i>卸载内核驱动并切回 CLI</button>
+            </div>
+          </article>
+
           <article class="glass-surface monitoring-surface">
             <div class="section-heading">
               <div><span class="section-kicker">LOW WAKE</span><h2>监测频率</h2></div>
@@ -239,7 +329,7 @@
             </div>
             <div class="update-content">
               <div class="update-copy">
-                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.5.1</strong></div>
+                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.6.8</strong></div>
                 <h3 id="updateTitle">检查 GitHub Release 获取新版本</h3>
                 <p class="surface-help" id="updateDescription">发现新版本后，可下载安装包并在 fnOS 应用中心手动升级。</p>
                 <small id="updateCheckedAt">不会自动安装，也不会在后台静默升级。</small>
@@ -350,6 +440,6 @@
     <button type="button" class="mode-button primary" data-mode="smart"><i class="bi bi-stars" aria-hidden="true"></i><span>智能模式</span></button>
   </div>
 
-  <script src="./js/app.js?v=1.5.1"></script>
+  <script src="./js/app.js?v=1.6.8"></script>
 </body>
 </html>

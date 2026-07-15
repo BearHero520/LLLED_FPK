@@ -1,2 +1,16 @@
 #!/bin/bash
+APP_NAME="App.Native.UGreenLED"
+APP_ROOT="${TRIM_APPDEST:-/var/apps/${APP_NAME}}"
+VAR_DIR="${TRIM_PKGVAR:-${APP_ROOT}/var}"
+SERVER_DIR=""
+for d in "${APP_ROOT}/server" "${APP_ROOT}/target/server"; do
+    [[ -f "${d}/lib/driver_manager.sh" ]] && SERVER_DIR="$d" && break
+done
+if [[ -n "$SERVER_DIR" && -f "${VAR_DIR}/driver-managed" ]]; then
+    SETTINGS_FILE="${VAR_DIR}/settings.conf"
+    source "${SERVER_DIR}/lib/settings.sh" 2>/dev/null
+    source "${SERVER_DIR}/lib/hardware_profile.sh" 2>/dev/null
+    source "${SERVER_DIR}/lib/driver_manager.sh" 2>/dev/null
+    driver_remove >> "${VAR_DIR}/log/driver.log" 2>&1 || true
+fi
 exit 0

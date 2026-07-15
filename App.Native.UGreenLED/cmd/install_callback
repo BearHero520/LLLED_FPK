@@ -2,8 +2,8 @@
 APP_ROOT="${TRIM_APPDEST:-/var/apps/App.Native.UGreenLED}"
 VAR_DIR="${TRIM_PKGVAR:-${APP_ROOT}/var}"
 RUNTIME_DIR="${UGREEN_RUNTIME_DIR:-/run/App.Native.UGreenLED}"
-CLI_URL="https://github.com/miskcoo/ugreen_leds_controller/releases/download/v0.1-debian12/ugreen_leds_cli"
-CLI_SHA256="d7e1fbbb969932dbb24edb66cce9f9bdbdc21715ea803cace54ec5f319e9a404"
+CLI_URL="https://github.com/miskcoo/ugreen_leds_controller/releases/download/v0.4-beta/ugreen_leds_cli"
+CLI_SHA256="415ef659b0cf5569184abe7f946dbda90ef7c03db4043fbe84e382127b928723"
 
 SERVER_DIR=""
 for d in "${APP_ROOT}/server" "${APP_ROOT}/target/server"; do
@@ -39,7 +39,7 @@ cli_checksum_ok() {
     [[ "${actual,,}" == "$CLI_SHA256" ]]
 }
 
-# 升级时优先复用系统已安装且校验通过的 CLI，避免在回调阶段重复联网写入 target。
+# FPK 已内置固定版本 CLI；系统路径与网络下载仅作为兼容回退。
 CLI_READY=""
 for candidate in "$CLI_DEST" /usr/bin/ugreen_leds_cli /opt/ugreen-led-controller/ugreen_leds_cli; do
     if cli_checksum_ok "$candidate"; then

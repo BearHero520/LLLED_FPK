@@ -1,6 +1,6 @@
 # 绿联 LED 灯控（飞牛 fnOS 原生应用）
 
-在飞牛 **fnOS** 上控制绿联 **DXP4800 Plus** / **DX4600** 系列机箱 LED（I2C `0x3a`，`ugreen_leds_cli`）。支持关闭全部、开启全部、智能模式，以及按硬盘 / 网络 / 电源状态自动配色。
+在飞牛 **fnOS** 上控制绿联 NAS 机箱 LED。应用内置上游 **v0.4-beta `ugreen_leds_cli`**，支持 `0x3a` legacy / SMBus block-write 协议、CLI / sysfs 后端、DXP480T `0x26` 电源灯后端、机型预设以及 2/4/6/8 盘位映射。
 
 - **本仓库**：[LLLED_FPK](https://github.com/BearHero520/LLLED_FPK) — 飞牛应用源码与打包说明  
 - **命令行版**：[LLLED](https://github.com/BearHero520/LLLED) — 不装飞牛包时的 Shell 方案  
@@ -20,7 +20,7 @@ LLLED_FPK/
 └── README.md
 ```
 
-应用 ID：`App.Native.UGreenLED` · 当前版本：**1.5.1**
+应用 ID：`App.Native.UGreenLED` · 当前版本：**1.6.8**
 
 ## 功能概览
 
@@ -28,7 +28,9 @@ LLLED_FPK/
 |------|------|
 | 三档模式 | 关闭全部 / 开启全部 / 智能模式 |
 | 硬盘灯 | 活动、空闲、休眠、深度睡眠、离线（拔出自动关灯） |
-| 盘位映射 | 自动 HCTL 映射；实验室支持按硬盘位置或按硬盘序列号绑定 LED |
+| 硬件后端 | 默认使用内置 CLI；可检测或实验性安装 `led-ugreen` sysfs/DKMS 后端；DXP480T 自动使用专用电源灯后端，所有 I²C 控制路径严格互斥 |
+| 机型档案 | DMI 自动识别，也可手动选择；档案包含协议、灯位数量、LED 编号别名和 HCTL 顺序 |
+| 盘位映射 | 自动按当前 HCTL 实时重建；实验室支持按硬盘位置或按硬盘序列号绑定 LED |
 | 网络灯 | **外网**（海外检测点通）、**联网**（仅国内通）、**断网** |
 | 速度闪动 | 磁盘读写、网络上传下载超过阈值后闪动，速度越高闪动越快，两项可独立开关 |
 | 电源灯 | 智能 / 全开模式下可单独配色 |
@@ -43,7 +45,8 @@ LLLED_FPK/
 ### 环境要求
 
 - fnOS **≥ 0.9.27**，平台 **x86**
-- 安装需 **root**（访问 I2C）；安装回调会自动拉取 `ugreen_leds_cli`、安装 `i2c-tools` / `hdparm` 并加载 `i2c-dev`
+- 安装需 **root**（访问 I2C）；FPK 已内置并校验 v0.4-beta `ugreen_leds_cli`，安装回调会安装缺少的 `i2c-tools` / `hdparm` 并加载 `i2c-dev`
+- 实验性内核驱动不会自动安装；主动启用时需要 `dkms` 和当前内核对应的 headers
 
 ### 使用 fnpack 打包
 
@@ -87,8 +90,8 @@ python scripts/build_fpk.py
 `.github/workflows/release.yml` 会在推送 `v*.*.*` 标签时自动构建并发布 Release。标签版本必须与 `App.Native.UGreenLED/manifest` 中的 `version` 一致：
 
 ```bash
-git tag v1.5.1
-git push origin v1.5.1
+git tag v1.6.8
+git push origin v1.6.8
 ```
 
 也可以在 GitHub Actions 页面手动运行工作流，只生成可下载的构建产物而不创建 Release。Release 会同时上传带版本文件名、固定文件名以及 SHA256 校验文件。
@@ -123,7 +126,39 @@ python App.Native.UGreenLED/scripts/process_logo.py
 
 智能模式的“速度闪动提示”中可分别启用磁盘和网络闪动，并设置触发阈值（KB/s）。新安装和升级后默认关闭，以保持原有灯效；启用后低、中、高三档速度会使用不同闪动频率。
 
-智能模式下盘位示例：`0:0:0:0→disk1`，`2:0:0:0→disk3`（以实际 HCTL 为准）。
+自动模式不会把 `/dev/sdX` 当作固定盘位；每次启动和硬盘拓扑变化后，都会用当前的 `device + HCTL + serial` 重建映射。缺少中间硬盘时，其余盘位不会向前挤压。
+
+内置 HCTL 预设：
+
+| 机型 | 映射规则 |
+|------|----------|
+| DX4600 / DX4700 / DXP2800 / DXP4800 系列 | `0:0:0:0→disk1`，依次递增并限制到实际灯位数 |
+| DXP6800 Pro | `0→disk5`、`1→disk6`、`2→disk1`、`3→disk2`、`4→disk3`、`5→disk4` |
+| DXP8800 Plus | `0…7→disk1…disk8` |
+
+### 支持状态
+
+| 状态 | 机型 |
+|------|------|
+| 已验证 | DX4600 Pro、DX4700+、DXP2800、DXP4800、DXP4800 Plus、DXP6800 Pro、DXP8800 Plus |
+| 实验性 | DXP4800 GT、iDX6011 / iDX6011 Pro |
+| 待验证 | DXP2800 GT、DXP4800 Pro |
+| 受限支持 | DXP480T / DXP480T Plus（独立 `0x26` 控制器，仅红/白电源灯） |
+
+DXP4800 GT 和 iDX6011 系列使用 `smbus-block`；iDX6011 Pro 的第二网络灯与六个硬盘灯会通过逻辑 LED 别名校正。实验性机型建议先在“实验室”逐灯验证。
+
+DXP480T 系列与其他机型不同：它没有硬盘灯和网络灯，也不使用 `0x3a` RGB MCU。应用会按 [issue #6](https://github.com/miskcoo/ugreen_leds_controller/issues/6#issuecomment-2156807225) 动态查找 SMBus I801 上签名为 `0xa5/0xb5` 的 `0x26` 控制器，并提供红/白电源灯的常亮、闪烁和关闭；不会为该档案安装 `led-ugreen` DKMS 驱动。
+
+### CLI 与实验驱动
+
+- `backend=auto`：检测到可用的 `led-ugreen` sysfs 设备时使用驱动，否则使用内置 CLI。
+- `backend=cli`：强制使用内置 CLI；如果内核驱动仍占用 MCU，会拒绝启动，避免同时访问 I2C。
+- `backend=sysfs`：强制使用内核驱动；不可用时明确报错。
+- DXP480T 系列在 `auto` / `cli` 设置下会自动使用专用 `power-0x26` 后端，不调用通用 CLI。
+- `write_protocol=auto` 默认跟随机型档案；未知硬件可手动强制 `legacy` 或 `smbus-block`，避免完全依赖 DMI 名称。
+- FPK 携带上游驱动源码，但只有用户在 Web 页面确认后才会通过 DKMS 编译；缺少 headers、存在厂商 LED 模块或已有非本应用管理的驱动时会拒绝覆盖。
+- 随包驱动基于上游 v0.4-beta `kmod` 源码，仅增加状态读取的数组边界保护；上游许可证原样保留在驱动目录中。
+- 用户启用过的驱动会在应用随系统启动时重新探测；内核升级后若 DKMS 模块暂不可用，会安全回退到内置 CLI。卸载驱动时会先释放应用创建的 I²C 设备，确认 MCU 不再被占用后才允许切回 CLI。
 
 ### 实验室：两种硬盘灯绑定方式
 
@@ -149,6 +184,9 @@ python App.Native.UGreenLED/scripts/process_logo.py
 | `/status` | 守护进程与 LED 状态 |
 | `/mapping` | 硬盘映射表 |
 | `/settings` | GET / POST 配置 |
+| `/hardware/status` | 机型档案、协议、后端、DKMS 与内核 headers 状态 |
+| `/driver/install` | POST：确认后安装或重建本应用管理的实验驱动 |
+| `/driver/unload` | POST：卸载本应用管理的驱动并切回 CLI |
 | `/update/check?force=1` | 检查 GitHub 最新 Release；`force=1` 忽略 6 小时缓存 |
 | `/mode?mode=off\|on\|smart` | 切换模式 |
 | `/daemon/start` · `/daemon/stop` | 启停守护进程 |
@@ -177,8 +215,11 @@ Web 管理页使用 fnOS CGI，不再自动启动旧版 5088 端口服务，减�
 **网络灯一直断网**  
 请升级至含新版 `net_state.sh` 的版本（海外通→外网，否则国内通→联网）。
 
+**为什么“安装实验驱动”按钮不可用？**
+当前内核缺少 headers、系统未安装 DKMS、检测到厂商 LED 模块，或已有非本应用管理的 `led-ugreen`。这些情况下继续使用内置 CLI 即可，应用不会为启用实验功能自动修改系统编译环境。
+
 ## 许可证
 
 本项目自有代码采用 [GNU Affero General Public License v3.0 only](LICENSE)（`AGPL-3.0-only`）授权。
 
-如果修改后的版本通过网络向用户提供服务，需要按 AGPL-3.0 第 13 条向这些用户提供对应源代码。`ugreen_leds_cli`、Bootstrap Icons 以及其他第三方组件继续适用各自的上游许可证，不因本项目采用 AGPL-3.0 而被重新授权。
+如果修改后的版本通过网络向用户提供服务，需要按 AGPL-3.0 第 13 条向这些用户提供对应源代码。`ugreen_leds_cli`、`led-ugreen` 驱动源码、Bootstrap Icons 以及其他第三方组件继续适用各自的上游许可证，不因本项目采用 AGPL-3.0 而被重新授权。上游驱动许可证副本位于 `app/server/driver/led-ugreen/LICENSE`。

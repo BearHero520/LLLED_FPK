@@ -25,6 +25,8 @@ check_result.txt
 # 旧版 LLLED 命令行与本地调试（非飞牛应用）
 ugreen_led_controller.sh
 ugreen_leds_cli
+!/App.Native.UGreenLED/app/server/bin/
+!/App.Native.UGreenLED/app/server/bin/ugreen_leds_cli
 quick_install.sh
 quick_led_test.sh
 uninstall.sh

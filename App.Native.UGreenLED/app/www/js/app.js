@@ -109,6 +109,7 @@
   let refreshPromise = null;
   let toastTimer = null;
   let currentIni = {};
+  let hardwareState = {};
   let labState = { active: false, mode: 'auto', slots: [], disks: [] };
   let labMethod = 'position';
   let labDraft = {};
@@ -601,6 +602,8 @@
     labState = {
       active: Boolean(data.active),
       mode,
+      productName: data.product_name || '',
+      profile: data.profile || 'unknown',
       slots: Array.isArray(data.slots) ? data.slots : [],
       disks: Array.isArray(data.disks) ? data.disks : [],
     };
@@ -609,11 +612,14 @@
     $('labModeBadge').textContent = labState.mode === 'position'
       ? '当前：位置绑定'
       : labState.mode === 'disk' ? '当前：硬盘绑定' : '当前：自动映射';
+    const autoSummary = labState.profile === 'dxp6800'
+      ? `已识别 ${labState.productName || 'DXP6800 系列'}，自动使用六盘位专用顺序：HCTL 0/1 → disk5/6，HCTL 2–5 → disk1–4。`
+      : `已识别 ${labState.productName || '未知机型'}，自动使用标准 HCTL 顺序。`;
     $('labSummary').textContent = labState.mode === 'position'
       ? '当前使用 HCTL 位置规则：更换硬盘不会改变 LED 对应关系。'
       : labState.mode === 'disk'
         ? '当前使用硬盘序列号规则：设备名变化后，LED 映射仍会跟随具体硬盘。'
-        : '当前按 HCTL 顺序自动生成映射；如果实际机箱灯位乱序，可选择位置绑定手动修正。';
+        : `${autoSummary} 如果实际机箱灯位乱序，可选择位置绑定手动修正。`;
     $('labSession').hidden = !labState.active;
     $('btnStartLabMapping').disabled = labState.active;
     $('btnStartLabMapping').innerHTML = labState.active
@@ -789,6 +795,10 @@
     $('networkBlinkThreshold').value = positiveInt(currentIni.activity?.network_threshold_kbps, ACTIVITY_DEFAULTS.network_threshold_kbps);
     $('diskPowerProbeInterval').value = boundedInt(currentIni.daemon?.disk_power_probe_interval, 10, 3600, DAEMON_DEFAULTS.disk_power_probe_interval);
     $('hotplugCheckInterval').value = boundedInt(currentIni.daemon?.hotplug_check_interval, 5, 3600, DAEMON_DEFAULTS.hotplug_check_interval);
+    $('hardwareBackend').value = ['auto', 'cli', 'sysfs'].includes(currentIni.hardware?.backend) ? currentIni.hardware.backend : 'auto';
+    $('hardwareWriteProtocol').value = ['auto', 'legacy', 'smbus-block'].includes(currentIni.hardware?.write_protocol) ? currentIni.hardware.write_protocol : 'auto';
+    const selectedProfile = currentIni.hardware?.profile || 'auto';
+    $('hardwareProfile').value = Array.from($('hardwareProfile').options).some((option) => option.value === selectedProfile) ? selectedProfile : 'auto';
     syncActivityControls();
     updateModeUi();
   }
@@ -849,6 +859,14 @@
     return [
       `daemon.disk_power_probe_interval=${boundedInt($('diskPowerProbeInterval').value, 10, 3600, DAEMON_DEFAULTS.disk_power_probe_interval)}`,
       `daemon.hotplug_check_interval=${boundedInt($('hotplugCheckInterval').value, 5, 3600, DAEMON_DEFAULTS.hotplug_check_interval)}`,
+    ];
+  }
+
+  function collectHardwareLines() {
+    return [
+      `hardware.backend=${$('hardwareBackend').value}`,
+      `hardware.profile=${$('hardwareProfile').value}`,
+      `hardware.write_protocol=${$('hardwareWriteProtocol').value}`,
     ];
   }
 
@@ -950,13 +968,51 @@
     fillDiskTable('deviceMapTable', mapping);
   }
 
+  function renderHardware(data) {
+    hardwareState = data || {};
+    const supportLabels = { stable: '已验证', experimental: '实验性', unverified: '待验证', limited: '受限支持', unsupported: '暂不支持', unknown: '未知机型' };
+    $('hardwareSupportBadge').textContent = supportLabels[data.support] || data.support || '未知';
+    $('hardwareDetectedModel').textContent = `DMI：${data.product_name || '未读取到'} · 当前档案：${data.profile_name || data.profile || '未知'} · CLI ${data.cli_version || '未知'} · 内核 ${data.kernel || '未知'}`;
+    $('hardwareActiveBackend').textContent = data.backend_active === 'sysfs'
+      ? '内核驱动 / sysfs'
+      : data.backend_active === 'cli'
+        ? '内置 CLI'
+        : data.backend_active === 'power-0x26' ? '0x26 电源灯控制' : '不可用';
+    $('hardwareProtocol').textContent = data.write_protocol || 'legacy';
+    $('hardwareLayout').textContent = `${data.netdev_count ?? 1} 网络灯 · ${data.disk_count ?? 0} 硬盘灯`;
+    $('hardwareKernelState').textContent = data.backend_active === 'power-0x26'
+      ? '独立电源灯控制器'
+      : data.driver_loaded
+      ? '驱动已加载'
+      : data.dkms_ready && data.headers_ready ? '可安装驱动' : 'CLI 模式';
+    const messages = [];
+    if (data.driver_conflict) messages.push('检测到厂商 LED 内核模块，实验驱动安装已禁用。');
+    if (data.driver_loaded && data.driver_managed) messages.push('修改机型档案或写入协议后，请点击“安装 / 重建实验驱动”让模块参数生效。');
+    if (!data.headers_ready) messages.push('当前内核 headers 不可用，不能编译 DKMS；内置 CLI 不受影响。');
+    if (data.support === 'experimental' || data.support === 'unverified') messages.push('此机型需要实机验证，请先在实验室逐灯确认。');
+    if (data.support === 'limited') messages.push('此机型使用独立 0x26 控制器，仅支持红/白电源灯；没有硬盘灯和网络灯。');
+    if (data.backend_active === 'unavailable') messages.push('所选后端不可用或 CLI 与内核驱动发生冲突。');
+    $('hardwareMessage').textContent = messages.join(' ');
+    const sysfsOption = Array.from($('hardwareBackend').options).find((option) => option.value === 'sysfs');
+    if (sysfsOption) sysfsOption.disabled = !data.sysfs_ready;
+    document.querySelectorAll('[data-backend-guide]').forEach((item) => {
+      const active = item.dataset.backendGuide === data.backend_active;
+      item.classList.toggle('is-active', active);
+      const currentTag = item.querySelector('.hardware-current-tag');
+      if (currentTag) currentTag.hidden = !active;
+    });
+    $('btnInstallDriver').disabled = data.driver_supported === false || data.support === 'unsupported' || Boolean(data.driver_conflict) || !data.dkms_ready || !data.headers_ready || Boolean(data.dkms_registered && !data.driver_managed);
+    $('btnUnloadDriver').disabled = !data.driver_loaded || !data.driver_managed;
+  }
+
   function refresh() {
     if (refreshPromise) return refreshPromise;
     const button = $('btnRefresh');
     setBusy(button, true);
     const statusRequest = api('/status').then(renderStatus);
     const mappingRequest = api('/mapping').then(renderMapping);
-    refreshPromise = Promise.all([statusRequest, mappingRequest])
+    const hardwareRequest = api('/hardware/status').then(renderHardware);
+    refreshPromise = Promise.all([statusRequest, mappingRequest, hardwareRequest])
       .catch(showError)
       .finally(() => {
         refreshPromise = null;
@@ -1016,6 +1072,25 @@
   });
   $('btnSaveMonitoring').addEventListener('click', function () {
     saveSettings(this, collectMonitoringLines(), '监测频率已保存');
+  });
+  $('btnSaveHardware').addEventListener('click', function () {
+    if ($('hardwareBackend').value === 'cli' && hardwareState.driver_loaded) {
+      showMessage('内核驱动仍在占用 MCU，请先点击“卸载驱动并切回 CLI”', 'error');
+      return;
+    }
+    if ($('hardwareBackend').value === 'sysfs' && !hardwareState.sysfs_ready) {
+      showMessage('sysfs 后端尚未就绪，请先安装并成功探测实验驱动', 'error');
+      return;
+    }
+    saveSettings(this, collectHardwareLines(), '硬件设置已保存');
+  });
+  $('btnInstallDriver').addEventListener('click', function () {
+    if (!window.confirm('实验驱动会针对当前 fnOS 内核编译模块，并暂时停止 LED 后台服务。确认继续吗？')) return;
+    runAction(this, api('/driver/install', { method: 'POST', query: 'confirm=install-driver', body: '' }), '内核驱动已安装');
+  });
+  $('btnUnloadDriver').addEventListener('click', function () {
+    if (!window.confirm('将卸载本应用管理的 led-ugreen 模块并切回内置 CLI。确认继续吗？')) return;
+    runAction(this, api('/driver/unload', { method: 'POST', query: 'confirm=unload-driver', body: '' }), '已切回 CLI 后端');
   });
   $('btnRemap').addEventListener('click', function () {
     runAction(this, api('/remap'), '硬盘映射已更新');

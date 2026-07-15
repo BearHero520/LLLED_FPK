@@ -17,16 +17,35 @@ ugreen_resolve_runtime || exit 1
 
 export APP_ROOT VAR_DIR RUNTIME_DIR SERVER_DIR TARGET="${APP_ROOT}"
 
+SETTINGS_FILE="${VAR_DIR}/settings.conf"
+UGREEN_CLI=""
+for c in "${SERVER_DIR}/bin/ugreen_leds_cli" "${APP_ROOT}/target/server/bin/ugreen_leds_cli" /usr/bin/ugreen_leds_cli; do
+    [[ -x "$c" ]] && UGREEN_CLI="$c" && break
+done
+export SETTINGS_FILE UGREEN_CLI LED_API_CACHE_DIR="${RUNTIME_DIR}/led_cache"
+source "${SERVER_DIR}/lib/settings.sh"
+source "${SERVER_DIR}/lib/hardware_profile.sh"
+source "${SERVER_DIR}/lib/driver_manager.sh"
+source "${SERVER_DIR}/lib/led_api.sh"
+settings_init "$SETTINGS_FILE"
+
 case "$1" in
 start)
     modprobe i2c-dev 2>/dev/null || true
     mkdir -p "${VAR_DIR}/log" "$RUNTIME_DIR"
-    CLI=""
-    for c in "${SERVER_DIR}/bin/ugreen_leds_cli" "${APP_ROOT}/target/server/bin/ugreen_leds_cli" /usr/bin/ugreen_leds_cli; do
-        [[ -x "$c" ]] && CLI="$c" && break
-    done
-    if [[ -z "$CLI" ]]; then
-        echo "ugreen_leds_cli 未安装，请重新安装应用" >&2
+    configured_backend=$(led_backend_configured)
+    if [[ "$configured_backend" != "cli" ]] && driver_managed_by_app && ! driver_sysfs_ready; then
+        if driver_dkms_installed && driver_probe >> "${VAR_DIR}/log/driver.log" 2>&1; then
+            led_backend_reset
+        elif [[ "$configured_backend" == "sysfs" ]]; then
+            # 内核升级后 DKMS/headers 可能暂时不可用；优先恢复内置 CLI，避免应用无法启动。
+            settings_set "$SETTINGS_FILE" hardware backend cli
+            led_backend_reset
+            echo "实验驱动恢复失败，已安全回退到内置 CLI；请在 Web 页面重建驱动" >> "${VAR_DIR}/log/driver.log"
+        fi
+    fi
+    if ! ensure_led_backend; then
+        echo "LED 控制后端不可用；请检查 CLI、内核驱动或后端设置" >&2
         exit 1
     fi
     bash "${SERVER_DIR}/led_daemon.sh" start

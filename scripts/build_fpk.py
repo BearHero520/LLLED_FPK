@@ -18,7 +18,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PROJECT = ROOT / "App.Native.UGreenLED"
 APP_NAME = "App.Native.UGreenLED"
-TEXT_SUFFIXES = {".cgi", ".conf", ".css", ".html", ".js", ".md", ".py", ".sh"}
+BUNDLED_CLI_SHA256 = "415ef659b0cf5569184abe7f946dbda90ef7c03db4043fbe84e382127b928723"
+TEXT_SUFFIXES = {".c", ".cgi", ".conf", ".css", ".h", ".html", ".js", ".md", ".py", ".sh"}
 TEXT_NAMES = {
     "config",
     "manifest",
@@ -29,6 +30,7 @@ TEXT_NAMES = {
     "install_callback",
     "install_init",
     "main",
+    "Makefile",
     "uninstall_callback",
     "uninstall_init",
     "upgrade_callback",
@@ -85,7 +87,7 @@ def add_directory(archive: tarfile.TarFile, arcname: str, *, epoch: int) -> None
 def is_executable(relative: Path, *, command_tree: bool) -> bool:
     if command_tree:
         return True
-    return relative.suffix.lower() in {".cgi", ".sh"}
+    return relative.suffix.lower() in {".cgi", ".sh"} or relative.as_posix() == "server/bin/ugreen_leds_cli"
 
 
 def add_tree(
@@ -137,10 +139,15 @@ def validate_project() -> None:
         PROJECT / "LICENSE",
         PROJECT / "ICON.PNG",
         PROJECT / "ICON_256.PNG",
+        PROJECT / "app" / "server" / "bin" / "ugreen_leds_cli",
+        PROJECT / "app" / "server" / "driver" / "led-ugreen" / "led-ugreen.c",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
     if missing:
         raise SystemExit("缺少打包文件：" + ", ".join(missing))
+    cli = PROJECT / "app" / "server" / "bin" / "ugreen_leds_cli"
+    if hashlib.sha256(cli.read_bytes()).hexdigest() != BUNDLED_CLI_SHA256:
+        raise SystemExit("内置 ugreen_leds_cli SHA256 不匹配")
 
 
 def verify_package(package: Path, *, expected_checksum: str, expected_version: str) -> None:
@@ -163,7 +170,7 @@ def verify_package(package: Path, *, expected_checksum: str, expected_version: s
             raise SystemExit("FPK manifest version 不一致")
         with tarfile.open(fileobj=io.BytesIO(app_data), mode="r:gz") as app_archive:
             app_names = set(app_archive.getnames())
-            if not {"server", "ui", "www"}.issubset(app_names):
+            if not {"server", "ui", "www", "server/bin/ugreen_leds_cli", "server/driver/led-ugreen/led-ugreen.c"}.issubset(app_names):
                 raise SystemExit("FPK app.tgz 结构校验失败")
 
 
