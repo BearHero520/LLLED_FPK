@@ -457,6 +457,52 @@ case "$API_PATH" in
         n=${#DISK_LED_MAP[@]}
         printf '{"ok":true,"message":"已重新检测 %s 块硬盘","disk_count":%s}' "$n" "$n"
         ;;
+    /power26/apply)
+        color=$(query_value color)
+        effect=$(query_value effect)
+        threshold=$(query_value threshold); threshold="${threshold:-32}"
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif ! hardware_power26_controller; then
+            echo '{"ok":false,"error":"current model does not use the power-0x26 backend"}'
+        elif [[ ! "$color" =~ ^(red|white)$ || ! "$effect" =~ ^(steady|fast|slow|breath|network|off)$ || ! "$threshold" =~ ^[0-9]+$ ]] || \
+            (( threshold < 1 || threshold > 1048576 )); then
+            echo '{"ok":false,"error":"invalid power light parameters"}'
+        elif ! ensure_led_backend || [[ "$LED_BACKEND_ACTIVE" != "power-0x26" ]]; then
+            echo '{"ok":false,"error":"power-0x26 backend unavailable"}'
+        else
+            led_clear_cache 2>/dev/null
+            command_effect="$effect"
+            [[ "$command_effect" == "network" ]] && command_effect=steady
+            if led_set_power26_effect "$color" "$command_effect"; then
+                settings_set "$SETTINGS_FILE" power26 color "$color"
+                if [[ "$effect" == "off" ]]; then
+                    settings_set "$SETTINGS_FILE" mode global off
+                    mode=off
+                elif [[ "$effect" == "network" ]]; then
+                    settings_set "$SETTINGS_FILE" power26 effect network
+                    settings_set "$SETTINGS_FILE" power26 network_threshold_kbps "$threshold"
+                    settings_set "$SETTINGS_FILE" mode global smart
+                    mode=smart
+                else
+                    settings_set "$SETTINGS_FILE" power26 effect "$effect"
+                    settings_set "$SETTINGS_FILE" power26 network_threshold_kbps "$threshold"
+                    settings_set "$SETTINGS_FILE" mode global on
+                    mode=on
+                fi
+                if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+                    kill -HUP "$(cat "$PID_FILE")" 2>/dev/null || true
+                fi
+                if [[ "$effect" == "off" ]]; then
+                    printf '{"ok":true,"mode":"off","color":"%s","effect":"off","message":"电源灯已关闭"}' "$color"
+                else
+                    printf '{"ok":true,"mode":"%s","color":"%s","effect":"%s","message":"480T 电源灯设置已应用"}' "$mode" "$color" "$effect"
+                fi
+            else
+                echo '{"ok":false,"error":"power light command failed"}'
+            fi
+        fi
+        ;;
     /led/set)
         led=$(query_value led); r=$(query_value r); g=$(query_value g); b=$(query_value b); br=$(query_value brightness)
         br="${br:-64}"

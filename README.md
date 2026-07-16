@@ -20,7 +20,7 @@ LLLED_FPK/
 └── README.md
 ```
 
-应用 ID：`App.Native.UGreenLED` · 当前版本：**1.6.8**
+应用 ID：`App.Native.UGreenLED` · 当前版本：**1.6.9**
 
 ## 功能概览
 
@@ -90,8 +90,8 @@ python scripts/build_fpk.py
 `.github/workflows/release.yml` 会在推送 `v*.*.*` 标签时自动构建并发布 Release。标签版本必须与 `App.Native.UGreenLED/manifest` 中的 `version` 一致：
 
 ```bash
-git tag v1.6.8
-git push origin v1.6.8
+git tag v1.6.9
+git push origin v1.6.9
 ```
 
 也可以在 GitHub Actions 页面手动运行工作流，只生成可下载的构建产物而不创建 Release。Release 会同时上传带版本文件名、固定文件名以及 SHA256 校验文件。
@@ -147,7 +147,9 @@ python App.Native.UGreenLED/scripts/process_logo.py
 
 DXP4800 GT 和 iDX6011 系列使用 `smbus-block`；iDX6011 Pro 的第二网络灯与六个硬盘灯会通过逻辑 LED 别名校正。实验性机型建议先在“实验室”逐灯验证。
 
-DXP480T 系列与其他机型不同：它没有硬盘灯和网络灯，也不使用 `0x3a` RGB MCU。应用会按 [issue #6](https://github.com/miskcoo/ugreen_leds_controller/issues/6#issuecomment-2156807225) 动态查找 SMBus I801 上签名为 `0xa5/0xb5` 的 `0x26` 控制器，并提供红/白电源灯的常亮、闪烁和关闭；不会为该档案安装 `led-ugreen` DKMS 驱动。
+DXP480T 系列与其他机型不同：它没有硬盘灯和网络灯，也不使用 `0x3a` RGB MCU。参考 [飞牛论坛实机方案](https://club.fnnas.com/forum.php?mod=viewthread&tid=27494) 和 [上游 issue #6](https://github.com/miskcoo/ugreen_leds_controller/issues/6#issuecomment-2156807225)，应用直接使用 `i2c-0`、地址 `0x26` 的 `i2cset` 命令控制红/白电源灯的常亮、快闪、慢闪、呼吸和关闭，不再执行额外的总线扫描或签名读取；不会为该档案安装 `led-ugreen` DKMS 驱动。检测到专用后端后，“灯光设置”页面会自动替换为 480T 简化控制页，只显示红色 / 白色和实际支持的灯效；“网络活动”模式会复用电源灯，在总上传与下载速度超过页面设置的阈值后慢闪，达到阈值 4 倍后快闪。其他机型继续使用原来的完整 RGB 设置页。
+
+如果 LED 硬件或 `i2c-tools` 暂时不可用，应用仍会完成安装并开放 Web 管理页，不会因为灯控后端探测失败而让 fnOS 报整包安装失败。后台服务会继续重试，并在硬件状态区域显示诊断信息。
 
 ### CLI 与实验驱动
 
@@ -185,6 +187,7 @@ DXP480T 系列与其他机型不同：它没有硬盘灯和网络灯，也不使
 | `/mapping` | 硬盘映射表 |
 | `/settings` | GET / POST 配置 |
 | `/hardware/status` | 机型档案、协议、后端、DKMS 与内核 headers 状态 |
+| `/power26/apply` | POST：为 DXP480T / Plus 应用红白电源灯颜色、灯效或关闭 |
 | `/driver/install` | POST：确认后安装或重建本应用管理的实验驱动 |
 | `/driver/unload` | POST：卸载本应用管理的驱动并切回 CLI |
 | `/update/check?force=1` | 检查 GitHub 最新 Release；`force=1` 忽略 6 小时缓存 |

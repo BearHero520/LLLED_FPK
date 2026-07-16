@@ -37,6 +37,7 @@
   };
   const NET_LABELS = { disconnected: '断网', connected: '联网', vpn: '外网' };
   const MODE_LABELS = { off: '关闭全部', on: '开启全部', smart: '智能模式' };
+  const POWER26_EFFECT_LABELS = { steady: '常亮', fast: '快闪', slow: '慢闪', breath: '呼吸', network: '网络活动' };
 
   const ACTIVITY_DEFAULTS = {
     disk_blink: false,
@@ -172,6 +173,18 @@
       if (index > 0 && section) data[section][line.slice(0, index).trim()] = line.slice(index + 1).trim();
     });
     return data;
+  }
+
+  function isPower26Profile() {
+    return hardwareState.backend_active === 'power-0x26';
+  }
+
+  function applyHardwareRouting() {
+    if (!hardwareState.backend_active) return;
+    const power26 = isPower26Profile();
+    $('power26LightingContent').hidden = !power26;
+    $('standardLightingContent').hidden = power26;
+    if (currentRoute === 'lighting') setRoute('lighting', false);
   }
 
   function mergeIni(base, patch) {
@@ -688,7 +701,9 @@
       if (active) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
     });
     $('pageTitle').textContent = ROUTES[next].title;
-    $('pageDescription').textContent = ROUTES[next].description;
+    $('pageDescription').textContent = next === 'lighting' && isPower26Profile()
+      ? '控制 DXP480T / Plus 的红白电源灯与硬件灯效。'
+      : ROUTES[next].description;
     document.body.classList.toggle('lab-route', next === 'lab');
     if (updateHash !== false && location.hash !== `#${next}`) history.replaceState(null, '', `#${next}`);
     $('appMain').scrollTo({ top: 0, behavior: 'smooth' });
@@ -783,12 +798,75 @@
     });
   }
 
+  function selectedPower26Value(name, fallback) {
+    return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
+  }
+
+  function setPower26Value(name, value, fallback) {
+    const target = document.querySelector(`input[name="${name}"][value="${value}"]`)
+      || document.querySelector(`input[name="${name}"][value="${fallback}"]`);
+    if (target) target.checked = true;
+  }
+
+  function updatePower26Preview(forceOff) {
+    const color = selectedPower26Value('power26Color', 'white');
+    const effect = selectedPower26Value('power26Effect', 'steady');
+    const off = forceOff === undefined ? currentMode === 'off' : forceOff;
+    const lamp = $('power26LampPreview');
+    lamp.dataset.color = color;
+    lamp.dataset.effect = off ? 'off' : effect;
+    $('power26PreviewText').textContent = off
+      ? '灯光已关闭'
+      : `${color === 'red' ? '红色' : '白色'} · ${POWER26_EFFECT_LABELS[effect] || '常亮'}`;
+  }
+
+  function syncPower26NetworkOptions() {
+    $('power26NetworkOptions').hidden = selectedPower26Value('power26Effect', 'steady') !== 'network';
+  }
+
+  function loadPower26Controls(ini) {
+    const color = ini.power26?.color === 'red' ? 'red' : 'white';
+    const effect = POWER26_EFFECT_LABELS[ini.power26?.effect] ? ini.power26.effect : 'steady';
+    setPower26Value('power26Color', color, 'white');
+    setPower26Value('power26Effect', effect, 'steady');
+    $('power26NetworkThreshold').value = positiveInt(ini.power26?.network_threshold_kbps, 32);
+    syncPower26NetworkOptions();
+    updatePower26Preview();
+  }
+
+  function applyPower26(button, turnOff) {
+    if (!isPower26Profile()) {
+      showMessage('当前机型未使用 480T 专用电源灯后端', 'err');
+      return Promise.resolve();
+    }
+    const color = selectedPower26Value('power26Color', 'white');
+    const effect = turnOff ? 'off' : selectedPower26Value('power26Effect', 'steady');
+    const threshold = positiveInt($('power26NetworkThreshold').value, 32);
+    setBusy(button, true);
+    return api('/power26/apply', { method: 'POST', query: `color=${encodeURIComponent(color)}&effect=${encodeURIComponent(effect)}&threshold=${threshold}` })
+      .then((data) => {
+        currentMode = data.mode || (turnOff ? 'off' : 'on');
+        currentIni.power26 = Object.assign({}, currentIni.power26 || {}, { color });
+        if (!turnOff) {
+          currentIni.power26.effect = effect;
+          currentIni.power26.network_threshold_kbps = String(threshold);
+        }
+        updateModeUi();
+        updatePower26Preview(turnOff);
+        showMessage(data.message || (turnOff ? '电源灯已关闭' : '480T 电源灯设置已应用'), 'ok');
+        return refresh();
+      })
+      .catch(showError)
+      .finally(() => setBusy(button, false));
+  }
+
   function loadUiFromSettings(ini) {
     currentIni = ini || {};
     buildColorGrid('diskGrid', DISK_STATES, 'disk_colors', 'disk_brightness');
     buildColorGrid('netGrid', NET_STATES, 'netdev_colors', 'netdev_brightness');
     buildPowerGrid();
     currentMode = currentIni.mode?.global || 'smart';
+    loadPower26Controls(currentIni);
     $('diskBlink').checked = settingBool(currentIni.activity?.disk_blink, ACTIVITY_DEFAULTS.disk_blink);
     $('networkBlink').checked = settingBool(currentIni.activity?.network_blink, ACTIVITY_DEFAULTS.network_blink);
     $('diskBlinkThreshold').value = positiveInt(currentIni.activity?.disk_threshold_kbps, ACTIVITY_DEFAULTS.disk_threshold_kbps);
@@ -945,6 +1023,7 @@
     const running = data.daemon === 'running';
     currentMode = data.mode || currentMode;
     updateModeUi();
+    updatePower26Preview();
     $('overviewServiceState').textContent = running ? '应用运行中' : '后台已停止';
     $('overviewNetwork').textContent = data.network_label || NET_LABELS[data.network] || data.network || '未知';
     $('networkBadge').textContent = data.network_label || NET_LABELS[data.network] || '未知';
@@ -1003,6 +1082,7 @@
     });
     $('btnInstallDriver').disabled = data.driver_supported === false || data.support === 'unsupported' || Boolean(data.driver_conflict) || !data.dkms_ready || !data.headers_ready || Boolean(data.dkms_registered && !data.driver_managed);
     $('btnUnloadDriver').disabled = !data.driver_loaded || !data.driver_managed;
+    applyHardwareRouting();
   }
 
   function refresh() {
@@ -1062,6 +1142,18 @@
   });
 
   $('btnRefresh').addEventListener('click', refresh);
+  document.querySelectorAll('input[name="power26Color"], input[name="power26Effect"]').forEach((input) => {
+    input.addEventListener('change', () => {
+      syncPower26NetworkOptions();
+      updatePower26Preview(false);
+    });
+  });
+  $('btnPower26Apply').addEventListener('click', function () {
+    applyPower26(this, false);
+  });
+  $('btnPower26Off').addEventListener('click', function () {
+    applyPower26(this, true);
+  });
   $('diskBlink').addEventListener('change', syncActivityControls);
   $('networkBlink').addEventListener('change', syncActivityControls);
   $('btnSaveLighting').addEventListener('click', function () {

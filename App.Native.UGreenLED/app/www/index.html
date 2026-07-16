@@ -7,7 +7,7 @@
   <title>绿联 LED 灯控</title>
   <base href="/cgi/ThirdParty/App.Native.UGreenLED/index.cgi/">
   <link rel="stylesheet" href="./vendor/bootstrap-icons/font/bootstrap-icons.min.css?v=1.11.3">
-  <link rel="stylesheet" href="./css/style.css?v=1.6.8">
+  <link rel="stylesheet" href="./css/style.css?v=1.6.9">
 </head>
 <body>
   <div class="app-shell">
@@ -24,23 +24,23 @@
         <button type="button" class="nav-item active" data-route="overview" aria-current="page">
           <i class="bi bi-grid-1x2" aria-hidden="true"></i><span>概览</span>
         </button>
-        <button type="button" class="nav-item" data-route="lighting">
+        <button type="button" class="nav-item" id="navLighting" data-route="lighting">
           <i class="bi bi-lightbulb" aria-hidden="true"></i><span>灯光设置</span>
         </button>
-        <button type="button" class="nav-item" data-route="activity">
+        <button type="button" class="nav-item" id="navActivity" data-route="activity">
           <i class="bi bi-activity" aria-hidden="true"></i><span>活动提示</span>
         </button>
         <button type="button" class="nav-item" data-route="devices">
           <i class="bi bi-hdd-rack" aria-hidden="true"></i><span>设备与高级</span>
         </button>
-        <button type="button" class="nav-item lab-nav-item" data-route="lab">
+        <button type="button" class="nav-item lab-nav-item" id="navLab" data-route="lab">
           <i class="bi bi-eyedropper" aria-hidden="true"></i><span>实验室</span><small>未经验证</small>
         </button>
       </nav>
 
       <div class="rail-footer">
         <span class="rail-state"><span class="status-dot" id="railStatusDot"></span><span id="railStatusText">正在连接</span></span>
-        <small>v1.6.8 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
+        <small>v1.6.9 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
       </div>
     </aside>
 
@@ -113,6 +113,75 @@
       </section>
 
       <section class="app-view" id="view-lighting" data-view="lighting" hidden>
+        <div id="power26LightingContent" hidden>
+        <div class="power26-layout">
+          <article class="glass-surface power26-control-surface">
+            <div class="section-heading">
+              <div><span class="section-kicker">DXP480T POWER LED</span><h2>电源灯控制</h2></div>
+              <span class="soft-badge">专用 0x26 控制器</span>
+            </div>
+            <p class="surface-help">选择电源灯颜色和灯效，应用后立即生效，并由后台服务保持当前设置。</p>
+
+            <div class="power26-controller">
+              <div class="power26-preview" aria-live="polite">
+                <span class="power26-lamp" id="power26LampPreview"></span>
+                <div><small>效果预览</small><strong id="power26PreviewText">白色 · 常亮</strong></div>
+              </div>
+
+              <fieldset class="power26-option-group">
+                <legend>颜色</legend>
+                <div class="power26-color-options">
+                  <label class="power26-choice color-choice">
+                    <input type="radio" name="power26Color" value="white" checked>
+                    <span class="power26-choice-swatch white" aria-hidden="true"></span>
+                    <span><strong>白色</strong><small>日常状态</small></span>
+                  </label>
+                  <label class="power26-choice color-choice">
+                    <input type="radio" name="power26Color" value="red">
+                    <span class="power26-choice-swatch red" aria-hidden="true"></span>
+                    <span><strong>红色</strong><small>警示状态</small></span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset class="power26-option-group">
+                <legend>灯效</legend>
+                <div class="power26-effect-options">
+                  <label class="power26-choice effect-choice"><input type="radio" name="power26Effect" value="steady" checked><i class="bi bi-brightness-high" aria-hidden="true"></i><span><strong>常亮</strong><small>持续点亮</small></span></label>
+                  <label class="power26-choice effect-choice"><input type="radio" name="power26Effect" value="fast"><i class="bi bi-lightning-charge" aria-hidden="true"></i><span><strong>快闪</strong><small>快速闪烁</small></span></label>
+                  <label class="power26-choice effect-choice"><input type="radio" name="power26Effect" value="slow"><i class="bi bi-clock" aria-hidden="true"></i><span><strong>慢闪</strong><small>缓慢闪烁</small></span></label>
+                  <label class="power26-choice effect-choice"><input type="radio" name="power26Effect" value="breath"><i class="bi bi-wind" aria-hidden="true"></i><span><strong>呼吸</strong><small>明暗呼吸</small></span></label>
+                  <label class="power26-choice effect-choice"><input type="radio" name="power26Effect" value="network"><i class="bi bi-activity" aria-hidden="true"></i><span><strong>网络活动</strong><small>按网速闪动</small></span></label>
+                </div>
+              </fieldset>
+
+              <div class="power26-network-options" id="power26NetworkOptions" hidden>
+                <div><strong>网络闪动阈值</strong><small>总上传与下载速度超过此值后，电源灯开始闪动</small></div>
+                <label for="power26NetworkThreshold"><input type="number" id="power26NetworkThreshold" min="1" max="1048576" step="1" value="32"><span>KB/s</span></label>
+              </div>
+            </div>
+
+            <div class="power26-actions">
+              <button type="button" class="secondary-button" id="btnPower26Off"><i class="bi bi-power" aria-hidden="true"></i>关闭灯光</button>
+              <button type="button" class="primary-button" id="btnPower26Apply"><i class="bi bi-check2-circle" aria-hidden="true"></i>应用灯光</button>
+            </div>
+          </article>
+
+          <aside class="glass-surface power26-info-surface">
+            <span class="surface-icon blue"><i class="bi bi-info-circle" aria-hidden="true"></i></span>
+            <div><span class="section-kicker">480T ONLY</span><h2>当前机型专用页面</h2></div>
+            <p class="surface-help">此页面只会在 DXP480T / Plus 使用专用后端时显示，其他机型仍使用完整 RGB 灯控页面。</p>
+            <div class="power26-facts">
+              <span><small>I²C 总线</small><strong>i2c-0</strong></span>
+              <span><small>控制地址</small><strong>0x26</strong></span>
+              <span><small>可用颜色</small><strong>红色 / 白色</strong></span>
+              <span><small>亮度调节</small><strong>不支持</strong></span>
+            </div>
+          </aside>
+        </div>
+        </div>
+
+        <div id="standardLightingContent">
         <div class="settings-tabs glass-surface" role="tablist" aria-label="灯光设置分类">
           <button type="button" class="settings-tab active" data-lighting-tab="disk" role="tab" aria-selected="true" aria-controls="lighting-panel-disk">
             <i class="bi bi-device-hdd" aria-hidden="true"></i><span>硬盘灯</span>
@@ -162,6 +231,7 @@
           </article>
         </div>
         <div class="view-actions"><button type="button" class="primary-button" id="btnSaveLighting"><i class="bi bi-floppy" aria-hidden="true"></i>保存灯光设置</button></div>
+        </div>
       </section>
 
       <section class="app-view" id="view-activity" data-view="activity" hidden>
@@ -329,7 +399,7 @@
             </div>
             <div class="update-content">
               <div class="update-copy">
-                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.6.8</strong></div>
+                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.6.9</strong></div>
                 <h3 id="updateTitle">检查 GitHub Release 获取新版本</h3>
                 <p class="surface-help" id="updateDescription">发现新版本后，可下载安装包并在 fnOS 应用中心手动升级。</p>
                 <small id="updateCheckedAt">不会自动安装，也不会在后台静默升级。</small>
@@ -440,6 +510,6 @@
     <button type="button" class="mode-button primary" data-mode="smart"><i class="bi bi-stars" aria-hidden="true"></i><span>智能模式</span></button>
   </div>
 
-  <script src="./js/app.js?v=1.6.8"></script>
+  <script src="./js/app.js?v=1.6.9"></script>
 </body>
 </html>

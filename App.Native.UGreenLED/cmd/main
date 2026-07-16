@@ -45,8 +45,10 @@ start)
         fi
     fi
     if ! ensure_led_backend; then
-        echo "LED 控制后端不可用；请检查 CLI、内核驱动或后端设置" >&2
-        exit 1
+        # fnOS 会把 start 的非零退出码当成安装失败。硬件或依赖暂时不可用时，
+        # 仍允许应用和 Web 管理页启动，由守护进程持续重试并在页面显示诊断。
+        echo "LED 控制后端暂不可用；应用继续启动，请在 Web 页面检查硬件与依赖" | \
+            tee -a "${VAR_DIR}/log/driver.log" >&2
     fi
     bash "${SERVER_DIR}/led_daemon.sh" start
     exit 0

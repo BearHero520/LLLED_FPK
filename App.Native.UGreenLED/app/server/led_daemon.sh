@@ -158,7 +158,7 @@ tick_mode_smart() {
     local dev led state cached idle_sec sample read_kbps write_kbps total_kbps
     local manage_power manage_netdev disk_blink net_blink disk_threshold net_threshold
     local disk_tmp now net_sample rx_kbps tx_kbps net_total probe_sample ns domestic overseas probe_ttl
-    local disk_power_probe_interval hotplug_check_interval net_led
+    local disk_power_probe_interval hotplug_check_interval net_led power26_network_mode
 
     idle_sec=$(positive_int "$(settings_get "$SETTINGS_FILE" daemon io_idle_seconds "8")" 8)
     manage_power=$(settings_get "$SETTINGS_FILE" behavior manage_power "true")
@@ -170,6 +170,11 @@ tick_mode_smart() {
     probe_ttl=$(positive_int "$(settings_get "$SETTINGS_FILE" daemon network_probe_interval "30")" 30)
     disk_power_probe_interval=$(bounded_int "$(settings_get "$SETTINGS_FILE" daemon disk_power_probe_interval "60")" 10 3600 60)
     hotplug_check_interval=$(bounded_int "$(settings_get "$SETTINGS_FILE" daemon hotplug_check_interval "30")" 5 3600 30)
+    power26_network_mode=false
+    if declare -F hardware_power26_controller >/dev/null && hardware_power26_controller && \
+        [[ "$(settings_get "$SETTINGS_FILE" power26 effect "steady")" == "network" ]]; then
+        power26_network_mode=true
+    fi
 
     $MAPPING_READY || ensure_mapping
     check_hotplug "$hotplug_check_interval"
@@ -208,7 +213,7 @@ tick_mode_smart() {
         led_set_off "$led"
     done
 
-    if [[ "$manage_netdev" == "true" ]]; then
+    if [[ "$manage_netdev" == "true" || "$power26_network_mode" == "true" ]]; then
         net_sample=$(net_sample_speed)
         IFS='|' read -r rx_kbps tx_kbps net_total <<< "$net_sample"
         probe_sample=$(net_detect_state_cached "$probe_ttl")
@@ -222,19 +227,25 @@ tick_mode_smart() {
             NET_STATE_CACHE[main]="$ns"
             log "网络: $ns"
         fi
-        while IFS= read -r net_led; do
-            [[ -n "$net_led" ]] || continue
-            if [[ "$net_blink" == "true" && "$ns" != "disconnected" && "$net_total" -ge "$net_threshold" ]]; then
-                apply_netdev_activity "$ns" "$SETTINGS_FILE" "$net_total" "$net_threshold" "$net_led"
-            else
-                apply_netdev_state "$ns" "$SETTINGS_FILE" "$net_led"
-            fi
-        done < <(led_list_network_slots)
+        if [[ "$manage_netdev" == "true" ]]; then
+            while IFS= read -r net_led; do
+                [[ -n "$net_led" ]] || continue
+                if [[ "$net_blink" == "true" && "$ns" != "disconnected" && "$net_total" -ge "$net_threshold" ]]; then
+                    apply_netdev_activity "$ns" "$SETTINGS_FILE" "$net_total" "$net_threshold" "$net_led"
+                else
+                    apply_netdev_state "$ns" "$SETTINGS_FILE" "$net_led"
+                fi
+            done < <(led_list_network_slots)
+        fi
         write_net_runtime_status "$ns" "${domestic:-0}" "${overseas:-0}" "$rx_kbps" "$tx_kbps" "$net_total"
     fi
 
     if [[ "$manage_power" == "true" ]]; then
-        apply_power_smart "$SETTINGS_FILE"
+        if [[ "$power26_network_mode" == "true" ]]; then
+            apply_power26_network_activity "$SETTINGS_FILE" "${net_total:-0}"
+        else
+            apply_power_smart "$SETTINGS_FILE"
+        fi
     fi
 }
 

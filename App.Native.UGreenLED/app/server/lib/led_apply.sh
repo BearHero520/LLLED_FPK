@@ -69,9 +69,45 @@ apply_netdev_activity() {
     apply_color_blink_from_settings "$led" "netdev" "$state" "$settings" "$period"
 }
 
+apply_power26_from_settings() {
+    local settings="$1" color effect
+    color=$(settings_get "$settings" power26 color "white")
+    effect=$(settings_get "$settings" power26 effect "steady")
+    case "$color" in red|white) ;; *) color="white" ;; esac
+    case "$effect" in steady|fast|slow|breath) ;; network) effect="steady" ;; *) effect="steady" ;; esac
+    led_set_power26_effect "$color" "$effect"
+}
+
+power26_network_effect() {
+    local speed="${1:-0}" threshold="${2:-32}"
+    [[ "$speed" =~ ^[0-9]+$ ]] || speed=0
+    [[ "$threshold" =~ ^[0-9]+$ ]] || threshold=32
+    (( threshold < 1 )) && threshold=1
+    if (( speed < threshold )); then
+        echo steady
+    elif (( speed >= threshold * 4 )); then
+        echo fast
+    else
+        echo slow
+    fi
+}
+
+apply_power26_network_activity() {
+    local settings="$1" speed="${2:-0}" color threshold effect
+    color=$(settings_get "$settings" power26 color "white")
+    threshold=$(settings_get "$settings" power26 network_threshold_kbps "32")
+    case "$color" in red|white) ;; *) color="white" ;; esac
+    effect=$(power26_network_effect "$speed" "$threshold")
+    led_set_power26_effect "$color" "$effect"
+}
+
 apply_power_smart() {
     local settings="$1"
     local color brightness
+    if declare -F hardware_power26_controller >/dev/null && hardware_power26_controller; then
+        apply_power26_from_settings "$settings"
+        return
+    fi
     color=$(settings_get "$settings" power smart_color "100 100 100")
     brightness=$(settings_get "$settings" power brightness "40")
     led_set_color "power" $color "$brightness"
@@ -80,6 +116,10 @@ apply_power_smart() {
 apply_power_all_on() {
     local settings="$1"
     local color brightness
+    if declare -F hardware_power26_controller >/dev/null && hardware_power26_controller; then
+        apply_power26_from_settings "$settings"
+        return
+    fi
     color=$(settings_get "$settings" power all_on_color "180 180 180")
     brightness=$(settings_get "$settings" power brightness "64")
     led_set_color "power" $color "$brightness"
@@ -94,6 +134,10 @@ led_all_off_full() {
 
 led_all_on_full() {
     local settings="${1:-}" s color brightness
+    if [[ -n "$settings" ]] && declare -F hardware_power26_controller >/dev/null && hardware_power26_controller; then
+        apply_power26_from_settings "$settings"
+        return
+    fi
     color="200 200 200"
     brightness="64"
     if [[ -n "$settings" ]]; then

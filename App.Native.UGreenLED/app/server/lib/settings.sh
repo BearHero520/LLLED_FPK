@@ -30,6 +30,10 @@ disk_blink=false
 network_blink=false
 disk_threshold_kbps=128
 network_threshold_kbps=32
+[power26]
+color=white
+effect=steady
+network_threshold_kbps=32
 [disk_map]
 EOF
 }

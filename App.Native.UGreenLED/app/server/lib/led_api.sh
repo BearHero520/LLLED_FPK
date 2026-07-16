@@ -6,6 +6,7 @@ LED_SYSFS_ROOT="${LED_SYSFS_ROOT:-/sys/class/leds}"
 LED_API_CACHE_DIR="${LED_API_CACHE_DIR:-/tmp/ugreen-led-api}"
 LED_BACKEND_ACTIVE="${LED_BACKEND_ACTIVE:-}"
 LED_POWER26_BUS="${LED_POWER26_BUS:-}"
+LED_POWER26_DEFAULT_BUS="${LED_POWER26_DEFAULT_BUS:-${UGREEN_POWER26_BUS:-0}}"
 
 mkdir -p "$LED_API_CACHE_DIR" 2>/dev/null
 
@@ -28,21 +29,10 @@ led_power26_profile() {
 }
 
 led_power26_ensure_bus() {
-    local dev bus sig_a sig_b
     [[ "$LED_POWER26_BUS" =~ ^[0-9]+$ ]] && return 0
-    command -v i2cdetect >/dev/null 2>&1 || return 1
-    command -v i2cget >/dev/null 2>&1 || return 1
-    while read -r dev; do
-        [[ "$dev" =~ ^i2c-[0-9]+$ ]] || continue
-        bus="${dev#i2c-}"
-        sig_a=$(timeout 2 i2cget -y "$bus" 0x26 0x5a b 2>/dev/null || true)
-        sig_b=$(timeout 2 i2cget -y "$bus" 0x26 0x5b b 2>/dev/null || true)
-        if [[ "${sig_a,,}" == "0xa5" && "${sig_b,,}" == "0xb5" ]]; then
-            LED_POWER26_BUS="$bus"
-            return 0
-        fi
-    done < <(i2cdetect -l 2>/dev/null | awk 'tolower($0) ~ /smbus i801/ {print $1}')
-    return 1
+    # DXP480T / Plus 已验证为固定 i2c-0、地址 0x26；无需额外扫描或读取签名。
+    [[ "$LED_POWER26_DEFAULT_BUS" =~ ^[0-9]+$ ]] || return 1
+    LED_POWER26_BUS="$LED_POWER26_DEFAULT_BUS"
 }
 
 led_power26_available() {
@@ -83,6 +73,32 @@ led_power26_set_off() {
     led_power26_write 0x51 0 || return 1
     led_power26_write 0xa0 1 || return 1
     led_power26_write 0xa0 2
+}
+
+led_set_power26_effect() {
+    local color="${1:-white}" effect="${2:-steady}" backend key r g b
+    case "$color" in
+        red) r=255; g=0; b=0 ;;
+        white) r=255; g=255; b=255 ;;
+        *) return 2 ;;
+    esac
+    case "$effect" in
+        steady|fast|slow|breath|off) ;;
+        *) return 2 ;;
+    esac
+
+    led_backend_select >/dev/null || return 1
+    backend="$LED_BACKEND_ACTIVE"
+    [[ "$backend" == "power-0x26" ]] || return 3
+    key="power26,${color},${effect}"
+    [[ "$(led_read_cached_state power)" == "$key" ]] && return 0
+
+    if [[ "$effect" == "off" ]]; then
+        led_power26_set_off || return 1
+    else
+        led_power26_set_color "$r" "$g" "$b" "$effect" || return 1
+    fi
+    led_write_cached_state power "$key"
 }
 
 led_cli_available() {
@@ -212,8 +228,9 @@ led_backend_status_raw() {
         [[ "$led" == "power" ]] || return 1
         state=$(led_read_cached_state "$led")
         case "$state" in
-            off) echo "off 0 0 0 0 0 0" ;;
-            blink,*) echo "blink 0 0 0 0 0 0" ;;
+            off|power26,*,off) echo "off 0 0 0 0 0 0" ;;
+            blink,*|power26,*,fast|power26,*,slow) echo "blink 0 0 0 0 0 0" ;;
+            power26,*,breath) echo "breath 0 0 0 0 0 0" ;;
             *) echo "on 0 0 0 0 0 0" ;;
         esac
     else

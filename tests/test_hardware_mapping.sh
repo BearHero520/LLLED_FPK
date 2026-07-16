@@ -60,6 +60,7 @@ LED_SYSFS_ROOT="$TMP/sysfs"
 LED_API_CACHE_DIR="$TMP/cache"
 mkdir -p "$LED_API_CACHE_DIR"
 source "$LIB/led_api.sh"
+source "$LIB/led_apply.sh"
 
 settings_set "$SETTINGS_FILE" hardware backend cli
 led_backend_reset
@@ -92,23 +93,11 @@ assert_eq "$(tr -d '\r\n' < "$LED_SYSFS_ROOT/disk1/brightness")" "0"
 MOCK_BIN="$TMP/mock-bin"
 POWER26_LOG="$TMP/power26.log"
 mkdir -p "$MOCK_BIN"
-cat > "$MOCK_BIN/i2cdetect" <<'EOF'
-#!/bin/bash
-echo 'i2c-7 smbus SMBus I801 adapter at efa0 SMBus adapter'
-EOF
-cat > "$MOCK_BIN/i2cget" <<'EOF'
-#!/bin/bash
-case "$4" in
-    0x5a) echo 0xa5 ;;
-    0x5b) echo 0xb5 ;;
-    *) exit 1 ;;
-esac
-EOF
 cat > "$MOCK_BIN/i2cset" <<EOF
 #!/bin/bash
 echo "\$*" >> "$POWER26_LOG"
 EOF
-chmod +x "$MOCK_BIN/i2cdetect" "$MOCK_BIN/i2cget" "$MOCK_BIN/i2cset"
+chmod +x "$MOCK_BIN/i2cset"
 PATH="$MOCK_BIN:$PATH"
 export PATH
 
@@ -119,12 +108,31 @@ assert_eq "$(led_backend_name)" "power-0x26"
 assert_eq "$(led_list_network_slots | paste -sd, -)" ""
 assert_eq "$(led_list_disk_slots | paste -sd, -)" ""
 led_set_color power 255 0 0 40
-grep -q -- '-y 7 0x26 0xb1 1 b' "$POWER26_LOG" || fail "DXP480T red power LED command missing"
+grep -q -- '-y 0 0x26 0xb1 1 b' "$POWER26_LOG" || fail "DXP480T red power LED command missing"
 led_set_blink power 100 100 100 1500 500 40
-grep -q -- '-y 7 0x26 0xb1 2 b' "$POWER26_LOG" || fail "DXP480T white power LED command missing"
-grep -q -- '-y 7 0x26 0x51 1 b' "$POWER26_LOG" || fail "DXP480T slow blink command missing"
+grep -q -- '-y 0 0x26 0xb1 2 b' "$POWER26_LOG" || fail "DXP480T white power LED command missing"
+grep -q -- '-y 0 0x26 0x51 1 b' "$POWER26_LOG" || fail "DXP480T slow blink command missing"
 led_set_off power
-tail -n 1 "$POWER26_LOG" | grep -q -- '-y 7 0x26 0xa0 2 b' || fail "DXP480T power-off command missing"
+tail -n 1 "$POWER26_LOG" | grep -q -- '-y 0 0x26 0xa0 2 b' || fail "DXP480T power-off command missing"
+led_clear_cache
+led_set_power26_effect red fast
+grep -q -- '-y 0 0x26 0xb1 1 b' "$POWER26_LOG" || fail "DXP480T dedicated red selection missing"
+grep -q -- '-y 0 0x26 0x50 1 b' "$POWER26_LOG" || fail "DXP480T dedicated fast effect missing"
+led_set_power26_effect white breath
+grep -q -- '-y 0 0x26 0xb1 2 b' "$POWER26_LOG" || fail "DXP480T dedicated white selection missing"
+grep -q -- '-y 0 0x26 0x50 2 b' "$POWER26_LOG" || fail "DXP480T dedicated breath effect missing"
+led_set_power26_effect white off
+tail -n 1 "$POWER26_LOG" | grep -q -- '-y 0 0x26 0xa0 2 b' || fail "DXP480T dedicated off effect missing"
+assert_eq "$(power26_network_effect 31 32)" "steady"
+assert_eq "$(power26_network_effect 32 32)" "slow"
+assert_eq "$(power26_network_effect 127 32)" "slow"
+assert_eq "$(power26_network_effect 128 32)" "fast"
+settings_set "$SETTINGS_FILE" power26 color red
+settings_set "$SETTINGS_FILE" power26 network_threshold_kbps 32
+apply_power26_network_activity "$SETTINGS_FILE" 32
+grep -q -- '-y 0 0x26 0x51 1 b' "$POWER26_LOG" || fail "DXP480T network slow effect missing"
+apply_power26_network_activity "$SETTINGS_FILE" 128
+grep -q -- '-y 0 0x26 0x50 1 b' "$POWER26_LOG" || fail "DXP480T network fast effect missing"
 
 settings_set "$SETTINGS_FILE" hardware profile dxp6800
 settings_set "$SETTINGS_FILE" hardware backend cli

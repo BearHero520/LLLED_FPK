@@ -36,6 +36,22 @@ def manifest_version() -> str:
 
 CURRENT_VERSION = manifest_version()
 
+PROFILE_META = {
+    "dx4600": ("UGREEN DX4600 Pro", "stable", 4, 1, True),
+    "dx4700": ("UGREEN DX4700+", "stable", 4, 1, True),
+    "dxp2800": ("UGREEN DXP2800", "stable", 2, 1, True),
+    "dxp2800_gt": ("UGREEN DXP2800 GT", "unverified", 2, 1, True),
+    "dxp4800": ("UGREEN DXP4800", "stable", 4, 1, True),
+    "dxp4800_plus": ("UGREEN DXP4800 Plus", "stable", 4, 1, True),
+    "dxp4800_pro": ("UGREEN DXP4800 Pro", "unverified", 4, 1, True),
+    "dxp4800_gt": ("UGREEN DXP4800 GT", "experimental", 4, 1, True),
+    "dxp6800": ("UGREEN DXP6800 Pro", "stable", 6, 1, True),
+    "dxp8800": ("UGREEN DXP8800 Plus", "stable", 8, 1, True),
+    "dxp480t_plus": ("UGREEN DXP480T / DXP480T Plus", "limited", 0, 0, False),
+    "idx6011": ("UGREEN iDX6011", "experimental", 6, 1, True),
+    "idx6011_pro": ("UGREEN iDX6011 Pro", "experimental", 6, 2, True),
+}
+
 
 def parse_ini(raw: str) -> OrderedDict[str, OrderedDict[str, str]]:
     data: OrderedDict[str, OrderedDict[str, str]] = OrderedDict()
@@ -85,6 +101,19 @@ class PreviewState:
         self.position_led_map = dict(self.auto_led_map)
         self.identity_led_map = dict(self.auto_led_map)
 
+    def configure_profile(self, profile: str) -> None:
+        if profile not in PROFILE_META:
+            raise ValueError(f"未知预览机型：{profile}")
+        with self.lock:
+            self.settings.setdefault("hardware", OrderedDict())["profile"] = profile
+
+    def selected_profile(self) -> str:
+        profile = self.settings.setdefault("hardware", OrderedDict()).get("profile", "auto")
+        return "dxp6800" if profile == "auto" else profile
+
+    def profile_meta(self) -> tuple[str, str, int, int, bool]:
+        return PROFILE_META.get(self.selected_profile(), ("未知机型", "unknown", 0, 1, True))
+
     @property
     def mode(self) -> str:
         return self.settings.setdefault("mode", OrderedDict()).get("global", "smart")
@@ -114,14 +143,18 @@ class PreviewState:
 
     def lab_payload(self, message: str = "") -> dict:
         with self.lock:
+            profile = self.selected_profile()
+            profile_name, _, disk_count, _, _ = self.profile_meta()
+            slots = self.lab_slots[:disk_count]
+            disks = self.lab_disks[:disk_count]
             payload = {
                 "ok": True,
                 "active": self.lab_active,
                 "mode": self.settings.setdefault("behavior", OrderedDict()).get("disk_map_mode", "auto"),
-                "product_name": "DXP6800 Pro（预览）",
-                "profile": "dxp6800",
+                "product_name": f"{profile_name}（预览）",
+                "profile": profile,
                 "session_ttl": 1200,
-                "slots": [{"led": slot, "position": index} for index, slot in enumerate(self.lab_slots, 1)],
+                "slots": [{"led": slot, "position": index} for index, slot in enumerate(slots, 1)],
                 "disks": [
                     dict(
                         disk,
@@ -132,7 +165,7 @@ class PreviewState:
                         position_supported=bool(disk["hctl"]),
                         identity_supported=bool(disk["serial"]),
                     )
-                    for index, disk in enumerate(self.lab_disks, 1)
+                    for index, disk in enumerate(disks, 1)
                 ],
             }
         if message:
@@ -192,7 +225,7 @@ STATE = PreviewState()
 
 
 class PreviewHandler(BaseHTTPRequestHandler):
-    server_version = "UGreenLEDPreview/1.6.8"
+    server_version = "UGreenLEDPreview/1.6.9"
 
     def log_message(self, fmt: str, *args: object) -> None:
         print(f"[{self.log_date_time_string()}] {fmt % args}")
@@ -260,6 +293,11 @@ class PreviewHandler(BaseHTTPRequestHandler):
         if path == "/status":
             rx = int(1150 + abs(math.sin(now / 4.2)) * 9800)
             tx = int(380 + abs(math.cos(now / 5.1)) * 2400)
+            power_only = STATE.selected_profile() == "dxp480t_plus"
+            power26 = STATE.settings.setdefault("power26", OrderedDict())
+            power26_color = power26.get("color", "white").upper()
+            power26_effect = power26.get("effect", "steady")
+            power26_status = "power: off" if STATE.mode == "off" else f"power: on  {power26_color}  mode={power26_effect}"
             self.send_json({
                 "ok": True,
                 "daemon": STATE.daemon,
@@ -273,16 +311,17 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 "net_total_kbps": rx + tx,
                 "updated_at": int(now),
                 "lab_mapping_active": STATE.lab_active,
-                "led_status": "power: on  RGB(100,100,100)  brightness=40\nnetdev: blink  RGB(160,0,255)  brightness=64\ndisk1: on  RGB(0,255,0)  brightness=128\ndisk2: on  RGB(255,255,0)  brightness=64\ndisk3: standby  RGB(0,100,255)  brightness=40",
+                "led_status": power26_status if power_only else "power: on  RGB(100,100,100)  brightness=40\nnetdev: blink  RGB(160,0,255)  brightness=64\ndisk1: on  RGB(0,255,0)  brightness=128\ndisk2: on  RGB(255,255,0)  brightness=64\ndisk3: standby  RGB(0,100,255)  brightness=40",
             })
             return
         if path == "/mapping":
+            disk_count = STATE.profile_meta()[2]
             states = ["active", "idle", "standby", "idle", "deep_sleep", "active"]
             speeds = [
                 (disk["device"], STATE.active_led_map().get(disk["device"], ""), states[index],
                  int(abs(math.sin(now / (2.5 + index))) * (3500 if index in {0, 5} else 80)),
                  int(abs(math.cos(now / (3.2 + index))) * (880 if index in {0, 5} else 35)))
-                for index, disk in enumerate(STATE.lab_disks)
+                for index, disk in enumerate(STATE.lab_disks[:disk_count])
                 if disk["device"] in STATE.active_led_map()
             ]
             self.send_json({"ok": True, "mapping": [
@@ -306,22 +345,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 profile = hardware.get("profile", "auto")
                 protocol = hardware.get("write_protocol", "auto")
                 selected_profile = "dxp6800" if profile == "auto" else profile
-                profile_meta = {
-                    "dx4600": ("UGREEN DX4600 Pro", "stable", 4, 1, True),
-                    "dx4700": ("UGREEN DX4700+", "stable", 4, 1, True),
-                    "dxp2800": ("UGREEN DXP2800", "stable", 2, 1, True),
-                    "dxp2800_gt": ("UGREEN DXP2800 GT", "unverified", 2, 1, True),
-                    "dxp4800": ("UGREEN DXP4800", "stable", 4, 1, True),
-                    "dxp4800_plus": ("UGREEN DXP4800 Plus", "stable", 4, 1, True),
-                    "dxp4800_pro": ("UGREEN DXP4800 Pro", "unverified", 4, 1, True),
-                    "dxp4800_gt": ("UGREEN DXP4800 GT", "experimental", 4, 1, True),
-                    "dxp6800": ("UGREEN DXP6800 Pro", "stable", 6, 1, True),
-                    "dxp8800": ("UGREEN DXP8800 Plus", "stable", 8, 1, True),
-                    "dxp480t_plus": ("UGREEN DXP480T / DXP480T Plus", "limited", 0, 0, False),
-                    "idx6011": ("UGREEN iDX6011", "experimental", 6, 1, True),
-                    "idx6011_pro": ("UGREEN iDX6011 Pro", "experimental", 6, 2, True),
-                }
-                profile_name, support, disk_count, netdev_count, driver_supported = profile_meta.get(
+                profile_name, support, disk_count, netdev_count, driver_supported = PROFILE_META.get(
                     selected_profile, ("未知机型", "unknown", 0, 1, True)
                 )
                 effective_protocol = (
@@ -335,7 +359,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
                     active = "sysfs" if STATE.driver_loaded and configured != "cli" else "cli"
             self.send_json({
                 "ok": True,
-                "product_name": "DXP6800 Pro（预览）",
+                "product_name": f"{profile_name}（预览）",
                 "profile": selected_profile,
                 "profile_name": profile_name,
                 "support": support,
@@ -357,6 +381,41 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 "driver_managed": STATE.driver_loaded,
                 "driver_supported": driver_supported,
                 "kernel": "6.12.0-preview",
+            })
+            return
+        if path == "/power26/apply":
+            color = (query.get("color") or [""])[0]
+            effect = (query.get("effect") or [""])[0]
+            try:
+                threshold = int((query.get("threshold") or ["32"])[0])
+            except ValueError:
+                threshold = 0
+            if method != "POST":
+                self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
+                return
+            if STATE.selected_profile() != "dxp480t_plus":
+                self.send_json({"ok": False, "error": "current model does not use the power-0x26 backend"})
+                return
+            if color not in {"red", "white"} or effect not in {"steady", "fast", "slow", "breath", "network", "off"} or not 1 <= threshold <= 1048576:
+                self.send_json({"ok": False, "error": "invalid power light parameters"})
+                return
+            with STATE.lock:
+                power26 = STATE.settings.setdefault("power26", OrderedDict())
+                power26["color"] = color
+                if effect == "off":
+                    STATE.settings.setdefault("mode", OrderedDict())["global"] = "off"
+                    mode = "off"
+                else:
+                    power26["effect"] = effect
+                    power26["network_threshold_kbps"] = str(threshold)
+                    mode = "smart" if effect == "network" else "on"
+                    STATE.settings.setdefault("mode", OrderedDict())["global"] = mode
+            self.send_json({
+                "ok": True,
+                "mode": mode,
+                "color": color,
+                "effect": effect,
+                "message": "电源灯已关闭" if effect == "off" else "480T 电源灯设置已应用",
             })
             return
         if path == "/update/check":
@@ -441,7 +500,8 @@ class PreviewHandler(BaseHTTPRequestHandler):
         if path == "/remap":
             STATE.remap_count += 1
             STATE.reset_lab_mapping()
-            self.send_json({"ok": True, "message": "已重新检测 6 块硬盘", "disk_count": 6})
+            disk_count = STATE.profile_meta()[2]
+            self.send_json({"ok": True, "message": f"已重新检测 {disk_count} 块硬盘", "disk_count": disk_count})
             return
         if path == "/daemon/start":
             STATE.daemon = "running"
@@ -458,8 +518,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="预览绿联 LED 灯控 Web UI")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--profile", choices=sorted(PROFILE_META), default="dxp6800", help="预览指定机型能力")
     parser.add_argument("--no-open", action="store_true", help="不自动打开浏览器")
     args = parser.parse_args()
+
+    STATE.configure_profile(args.profile)
 
     server = ThreadingHTTPServer((args.host, args.port), PreviewHandler)
     url = f"http://{args.host}:{args.port}{STATIC_BASE}"

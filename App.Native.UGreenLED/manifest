@@ -1,5 +1,5 @@
 appname               = App.Native.UGreenLED
-version               = 1.6.8
+version               = 1.6.9
 display_name          = 绿联LED灯控
 desc                  = 绿联 NAS LED 控制。内置 v0.4-beta CLI，支持多机型档案、多控制后端与 2/4/6/8 盘位映射。
 platform              = x86
@@ -14,4 +14,4 @@ desktop_uidir         = ui
 desktop_applaunchname = App.Native.UGreenLED.Web
 service_port          = 5088
 checkport             = false
-changelog             = v1.6.8 新增多机型档案、内置 v0.4-beta CLI、CLI/sysfs/0x26 多后端与实验性 DKMS 驱动管理
+changelog             = v1.6.9 修复 DXP480T 安装与 0x26 电源灯控制，新增专用灯光页及网络活动闪动
