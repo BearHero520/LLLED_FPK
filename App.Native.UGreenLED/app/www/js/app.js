@@ -8,6 +8,7 @@
     lighting: { title: '灯光设置', description: '配置硬盘、网络和电源灯的状态颜色。' },
     activity: { title: '活动提示', description: '控制磁盘读写和网络流量的速度闪动。' },
     devices: { title: '设备与高级', description: '管理盘位映射、监测频率、后台服务与诊断状态。' },
+    bios: { title: 'BIOS 控制', description: 'DXP4800 Plus / Pro / DXP480T Plus 的 IT8613 风扇、系统信息与来电启动控制。' },
     lab: { title: '实验室', description: '未经验证的高级硬件功能，请确认风险后谨慎使用。' },
   };
 
@@ -111,6 +112,11 @@
   let toastTimer = null;
   let currentIni = {};
   let hardwareState = {};
+  let biosState = { loaded: false, supported: false, available: false };
+  const biosFanWrites = {
+    cpu: { timer: null, statusTimer: null, queue: Promise.resolve(), revision: 0, busy: false },
+    sys: { timer: null, statusTimer: null, queue: Promise.resolve(), revision: 0, busy: false },
+  };
   let labState = { active: false, mode: 'auto', slots: [], disks: [] };
   let labMethod = 'position';
   let labDraft = {};
@@ -155,6 +161,7 @@
     if (!button) return;
     button.classList.toggle('busy', busy);
     button.disabled = busy;
+    button.setAttribute('aria-busy', busy ? 'true' : 'false');
   }
 
   function parseIni(raw) {
@@ -185,6 +192,12 @@
     $('power26LightingContent').hidden = !power26;
     $('standardLightingContent').hidden = power26;
     if (currentRoute === 'lighting') setRoute('lighting', false);
+  }
+
+  function applyBiosRouting() {
+    const supported = Boolean(biosState.supported);
+    $('navBios').hidden = !supported;
+    if (biosState.loaded && !supported && currentRoute === 'bios') setRoute('overview');
   }
 
   function mergeIni(base, patch) {
@@ -688,7 +701,8 @@
   }
 
   function setRoute(route, updateHash) {
-    const next = ROUTES[route] ? route : 'overview';
+    let next = ROUTES[route] ? route : 'overview';
+    if (next === 'bios' && biosState.loaded && !biosState.supported) next = 'overview';
     currentRoute = next;
     document.querySelectorAll('.app-view').forEach((view) => {
       const active = view.dataset.view === next;
@@ -705,9 +719,11 @@
       ? '控制 DXP480T / Plus 的红白电源灯与硬件灯效。'
       : ROUTES[next].description;
     document.body.classList.toggle('lab-route', next === 'lab');
+    document.body.classList.toggle('bios-route', next === 'bios');
     if (updateHash !== false && location.hash !== `#${next}`) history.replaceState(null, '', `#${next}`);
     $('appMain').scrollTo({ top: 0, behavior: 'smooth' });
     if (next === 'lab') loadLabMappingStatus();
+    if (next === 'bios') loadBiosStatus();
   }
 
   function setLightingPanel(panel) {
@@ -1047,8 +1063,343 @@
     fillDiskTable('deviceMapTable', mapping);
   }
 
+  function biosBackendLabel(backend) {
+    return {
+      port: '/dev/port 直连',
+      proc: '原厂 /proc/it86',
+      ugreenctl: 'UGREEN-NAS-Hardware',
+      unavailable: '不可用',
+    }[backend] || backend || '不可用';
+  }
+
+  function biosStartupLabel(policy) {
+    return { on: '自动开机', off: '保持关机', last: '恢复断电前状态', unknown: '未知' }[policy] || '未知';
+  }
+
+  function formatSystemUptime(value) {
+    const total = Math.max(0, Math.floor(Number(value) || 0));
+    const days = Math.floor(total / 86400);
+    const hours = Math.floor((total % 86400) / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    if (days > 0) return `${days} 天 ${hours} 小时 ${minutes} 分钟`;
+    if (hours > 0) return `${hours} 小时 ${minutes} 分钟`;
+    return `${minutes} 分钟`;
+  }
+
+  function formatMemoryMb(value) {
+    const mb = Math.max(0, Number(value) || 0);
+    return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`;
+  }
+
+  function renderBiosSystemInfo(data) {
+    const info = data || {};
+    const available = Boolean(info.system_hostname || info.system_os || info.system_cpu_model);
+    $('biosSystemBadge').textContent = available ? '实时只读' : '信息不可用';
+    $('biosSystemHostname').textContent = info.system_hostname || '未读取到';
+    $('biosSystemOs').textContent = info.system_os || '未读取到';
+    $('biosSystemKernel').textContent = info.kernel || '未读取到';
+    $('biosSystemUptime').textContent = formatSystemUptime(info.system_uptime_seconds);
+    $('biosSystemCpu').textContent = info.system_cpu_model || '未读取到';
+    $('biosSystemThreads').textContent = Number(info.system_cpu_threads) > 0 ? `${info.system_cpu_threads} 线程` : '未读取到';
+    const hasTemperature = info.system_cpu_temp_c !== null && info.system_cpu_temp_c !== '' && Number.isFinite(Number(info.system_cpu_temp_c));
+    $('biosSystemTemperature').textContent = hasTemperature
+      ? `${Number(info.system_cpu_temp_c).toFixed(1)} °C`
+      : '传感器未提供';
+    const totalMb = Number(info.system_memory_total_mb) || 0;
+    const usedMb = Number(info.system_memory_used_mb) || 0;
+    $('biosSystemMemory').textContent = totalMb > 0
+      ? `${formatMemoryMb(usedMb)} / ${formatMemoryMb(totalMb)} · ${Number(info.system_memory_percent) || 0}%`
+      : '未读取到';
+    const loads = [info.system_load_1, info.system_load_5, info.system_load_15]
+      .map((value) => Number(value))
+      .map((value) => Number.isFinite(value) ? value.toFixed(2) : '—');
+    $('biosSystemLoad').textContent = loads.join(' / ');
+  }
+
+  function setBiosPwmControl(prefix, value) {
+    const current = $(`${prefix}FanCurrentPwm`);
+    if (Number.isFinite(Number(value)) && Number(value) >= 0) {
+      const bounded = boundedInt(value, 0, 255, 0);
+      current.textContent = String(bounded);
+      setBiosPwmEditor(prefix, bounded);
+    } else {
+      current.textContent = '未提供';
+    }
+  }
+
+  function setBiosPwmEditor(prefix, value) {
+    if (!Number.isFinite(Number(value)) || Number(value) < 0) return;
+    const bounded = boundedInt(value, 0, 255, 0);
+    $(`${prefix}FanPwmRange`).value = String(bounded);
+  }
+
+  function biosPwmValue(value) {
+    const number = Number(value);
+    return Number.isInteger(number) && number >= 0 && number <= 255 ? number : null;
+  }
+
+  function biosPwmText(value) {
+    const pwm = biosPwmValue(value);
+    return pwm === null ? '—' : String(pwm);
+  }
+
+  function setBiosModeSelection(prefix, manual, mixed) {
+    const modeSwitch = $(`${prefix}FanManualSwitch`);
+    modeSwitch.indeterminate = Boolean(mixed);
+    modeSwitch.checked = !mixed && Boolean(manual);
+  }
+
+  function biosFanTarget(prefix) {
+    if (prefix === 'cpu') return 'cpu';
+    return biosState.fan_write_target === 'all' ? 'all' : 'sys';
+  }
+
+  function setBiosFanWriteStatus(prefix, state, message) {
+    const writeState = biosFanWrites[prefix];
+    const status = $(`${prefix}FanWriteStatus`);
+    const icon = status.querySelector('i');
+    const label = status.querySelector('span');
+    clearTimeout(writeState.statusTimer);
+    writeState.statusTimer = null;
+    status.className = `bios-fan-write-status${state ? ` is-${state}` : ''}`;
+    icon.className = state === 'saving'
+      ? 'bi bi-arrow-repeat'
+      : state === 'saved'
+        ? 'bi bi-check2-circle'
+        : state === 'error' ? 'bi bi-exclamation-circle' : 'bi bi-lightning-charge';
+    label.textContent = message;
+  }
+
+  function resetBiosFanWriteStatus(prefix) {
+    const modeSwitch = $(`${prefix}FanManualSwitch`);
+    if (!biosState.available) {
+      setBiosFanWriteStatus(prefix, '', '当前不可写入');
+    } else if (modeSwitch.indeterminate) {
+      setBiosFanWriteStatus(prefix, '', '选择自动或手动后立即应用');
+    } else if (modeSwitch.checked) {
+      setBiosFanWriteStatus(prefix, '', '调整 PWM 后自动应用');
+    } else {
+      setBiosFanWriteStatus(prefix, '', '硬件自动调速已启用');
+    }
+  }
+
+  function updateBiosFanEditorState(prefix) {
+    const available = Boolean(biosState.available);
+    const writeState = biosFanWrites[prefix];
+    const modeSwitch = $(`${prefix}FanManualSwitch`);
+    const manual = modeSwitch.checked && !modeSwitch.indeterminate;
+    const writable = available && !writeState.busy;
+    modeSwitch.disabled = !writable;
+    $(`${prefix}FanPwmRange`).disabled = !writable || !manual;
+  }
+
+  function updateBiosWriteAvailability() {
+    const available = Boolean(biosState.available);
+    updateBiosFanEditorState('cpu');
+    updateBiosFanEditorState('sys');
+    $('btnApplyBiosStartup').disabled = !available;
+    document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
+      input.disabled = !available;
+    });
+  }
+
+  function renderBios(data) {
+    biosState = Object.assign({ loaded: true, supported: false, available: false }, data || {}, { loaded: true });
+    applyBiosRouting();
+    const available = Boolean(biosState.available);
+    const is480t = biosState.model === 'dxp480t_plus';
+    const is4800Pro = biosState.model === 'dxp4800_pro';
+    const minPwm = Math.max(0, Number(biosState.min_pwm) || 0);
+    $('biosAvailabilityBadge').textContent = !biosState.supported ? '非适用机型' : available ? '控制器就绪' : '控制器不可用';
+    $('biosAvailabilityText').textContent = !biosState.supported
+      ? '此入口仅对 DXP4800 Plus / Pro 与 DXP480T Plus 开放。'
+      : available
+        ? is480t
+          ? 'IT8613 芯片校验通过。三路风扇转速、PWM 与模式可读取，CPU / 全部风扇及来电启动控制已通过实机验证。'
+          : 'IT8613 芯片校验通过，可以读取和写入风扇及来电启动设置。'
+        : biosState.error || '没有找到可用的 BIOS 控制接口。';
+    $('biosModelKicker').textContent = is480t ? 'DXP480T PLUS · IT8613 · VERIFIED' : `DXP4800 ${is4800Pro ? 'PRO' : 'PLUS'} · IT8613`;
+    $('biosPwmRangeBadge').textContent = `${minPwm}–255`;
+    $('biosFanSafetyText').textContent = is480t
+      ? '模式切换会立即生效，PWM 调整完成后自动写入。DXP480T Plus 只开放 CPU 与全部风扇操作，PWM 最低为 40。'
+      : '模式切换会立即生效，PWM 调整完成后自动写入。请先确认温度监控正常，PWM 最低为 40。';
+    $('biosProductName').textContent = biosState.product_name || '未读取到';
+    $('biosChipId').textContent = biosState.chip_id
+      ? `${biosState.chip_id} · Rev ${biosState.revision ?? 0}`
+      : '未读取';
+    $('biosBackendName').textContent = biosBackendLabel(biosState.backend);
+    $('biosStartupSummary').textContent = biosStartupLabel(biosState.startup);
+    $('biosStartupBadge').textContent = biosStartupLabel(biosState.startup);
+    $('cpuFanRpm').textContent = available ? String(biosState.cpu_rpm ?? 0) : '—';
+    $('sysFanRpm').textContent = available ? String(biosState.sys_rpm ?? 0) : '—';
+    $('sys2FanRpm').textContent = available ? String(biosState.sys2_rpm ?? 0) : '—';
+    $('biosSys2RpmRow').hidden = !is480t;
+    $('sysFanEyebrow').textContent = is480t ? 'ALL FANS' : 'SYSTEM FAN';
+    $('sysFanTitle').textContent = is480t ? '全部风扇' : '系统风扇';
+    $('sysFanRpmLabel').textContent = is480t ? 'SYS 1 RPM' : 'RPM';
+    setBiosPwmControl('cpu', biosState.cpu_pwm);
+    setBiosModeSelection('cpu', biosState.cpu_manual, false);
+    if (is480t) {
+      const allPwmValues = [biosState.cpu_pwm, biosState.sys_pwm, biosState.sys2_pwm].map(biosPwmValue);
+      const knownPwmValues = allPwmValues.filter((value) => value !== null);
+      const allKnown = knownPwmValues.length === 3;
+      const allSame = allKnown && knownPwmValues.every((value) => value === knownPwmValues[0]);
+      $('biosAllFanPwmRow').hidden = false;
+      $('allCpuFanPwm').textContent = biosPwmText(biosState.cpu_pwm);
+      $('allSys1FanPwm').textContent = biosPwmText(biosState.sys_pwm);
+      $('allSys2FanPwm').textContent = biosPwmText(biosState.sys2_pwm);
+      $('sysFanCurrentPwm').textContent = allSame ? String(knownPwmValues[0]) : allKnown ? '多值' : '未提供';
+      if (knownPwmValues.length > 0) setBiosPwmEditor('sys', Math.max(...knownPwmValues));
+      const allManual = Boolean(biosState.cpu_manual && biosState.sys_manual && biosState.sys2_manual);
+      const allAuto = !biosState.cpu_manual && !biosState.sys_manual && !biosState.sys2_manual;
+      const mixedMode = !allManual && !allAuto;
+      setBiosModeSelection('sys', allManual, mixedMode);
+      const modeText = mixedMode ? '三路当前为混合模式' : allManual ? '三路手动 PWM 模式' : '三路硬件自动模式';
+      const pwmText = allSame
+        ? 'PWM 一致'
+        : allKnown ? 'PWM 不同，手动应用后将统一' : 'PWM 读取不完整';
+      $('sysFanMode').textContent = `${modeText} · ${pwmText}`;
+    } else {
+      $('biosAllFanPwmRow').hidden = true;
+      setBiosPwmControl('sys', biosState.sys_pwm);
+      setBiosModeSelection('sys', biosState.sys_manual, false);
+    }
+    ['cpuFanPwmRange', 'sysFanPwmRange'].forEach((id) => {
+      $(id).min = String(minPwm);
+      if (Number($(id).value) < minPwm) $(id).value = String(minPwm);
+    });
+    $('cpuFanMode').textContent = biosState.backend === 'proc'
+      ? '由原厂内核接口管理'
+      : biosState.cpu_manual ? '手动 PWM 模式' : '硬件自动模式';
+    if (!is480t) $('sysFanMode').textContent = biosState.backend === 'proc'
+      ? '由原厂内核接口管理'
+      : biosState.sys_manual ? '手动 PWM 模式' : '硬件自动模式';
+    $('biosGuardTitle').textContent = is480t ? '480T Plus 已验证保护' : '4800 系列专属保护';
+    $('biosGuardText').textContent = is480t
+      ? '仅精确 DMI 识别为 DXP480T Plus 且芯片 ID 为 0x8613 时开放；检测到原厂 /proc/it86 驱动会拒绝并发访问，PWM 低于 40 会被后端拒绝。'
+      : '页面和写入接口只在 DMI 识别为 DXP4800 Plus / Pro 时启用，并校验 IT8613 芯片 ID。其他机型不会显示此入口。';
+    if (currentRoute === 'bios') $('pageDescription').textContent = is480t
+      ? 'DXP480T Plus 的 IT8613 三风扇状态、已验证 PWM 与来电启动控制。'
+      : ROUTES.bios.description;
+    document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
+      input.checked = input.value === biosState.startup;
+      input.closest('.bios-policy-choice')?.classList.toggle('active', input.checked);
+    });
+    updateBiosWriteAvailability();
+    ['cpu', 'sys'].forEach((prefix) => {
+      if (!biosFanWrites[prefix].busy) resetBiosFanWriteStatus(prefix);
+    });
+  }
+
+  function loadBiosStatus() {
+    return api('/bios/status')
+      .then(renderBios)
+      .catch((error) => {
+        biosState = { loaded: true, supported: false, available: false, error: error.message };
+        applyBiosRouting();
+        console.error('[UGreenLED] BIOS status failed', error);
+      });
+  }
+
+  function runBiosAction(button, promise) {
+    const icon = button?.querySelector('i');
+    const iconClass = icon?.className || '';
+    if (icon) icon.className = 'bi bi-arrow-repeat';
+    setBusy(button, true);
+    return promise
+      .then((data) => {
+        renderBios(data);
+        showMessage(data.message || 'BIOS 设置已应用', 'ok');
+      })
+      .catch(showError)
+      .finally(() => {
+        if (icon) icon.className = iconClass;
+        setBusy(button, false);
+        updateBiosWriteAvailability();
+      });
+  }
+
+  function queueBiosFanWrite(prefix, requestFactory, successMessage) {
+    const writeState = biosFanWrites[prefix];
+    const revision = ++writeState.revision;
+    writeState.busy = true;
+    setBiosFanWriteStatus(prefix, 'saving', '正在写入硬件…');
+    updateBiosFanEditorState(prefix);
+
+    const request = writeState.queue.catch(() => {}).then(requestFactory);
+    writeState.queue = request.catch(() => {});
+    return request
+      .then((data) => {
+        if (revision !== writeState.revision) return data;
+        renderBios(data);
+        setBiosFanWriteStatus(prefix, 'saved', successMessage);
+        writeState.statusTimer = setTimeout(() => {
+          if (!writeState.busy && revision === writeState.revision) resetBiosFanWriteStatus(prefix);
+        }, 1600);
+        return data;
+      })
+      .catch((error) => {
+        if (revision === writeState.revision) {
+          renderBios(biosState);
+          setBiosFanWriteStatus(prefix, 'error', error?.message || '写入失败，请重试');
+          showError(error);
+        }
+        throw error;
+      })
+      .finally(() => {
+        if (revision === writeState.revision) {
+          writeState.busy = false;
+          updateBiosFanEditorState(prefix);
+        }
+      });
+  }
+
+  function applyBiosFanMode(prefix) {
+    const writeState = biosFanWrites[prefix];
+    const modeSwitch = $(`${prefix}FanManualSwitch`);
+    clearTimeout(writeState.timer);
+    writeState.timer = null;
+    modeSwitch.indeterminate = false;
+    const channel = biosFanTarget(prefix);
+    const mode = modeSwitch.checked ? 'manual' : 'auto';
+    const modeLabel = mode === 'manual' ? '手动 PWM 模式已启用' : '硬件自动调速已启用';
+    queueBiosFanWrite(
+      prefix,
+      () => api('/bios/fan/mode', { method: 'POST', query: `channel=${channel}&mode=${mode}` }),
+      modeLabel,
+    ).catch(() => {});
+  }
+
+  function scheduleBiosFanPwm(prefix, delay, strict) {
+    const writeState = biosFanWrites[prefix];
+    const input = $(`${prefix}FanPwmRange`);
+    const minimum = Math.max(0, Number(biosState.min_pwm) || 0);
+    const pwm = Number(input.value);
+    clearTimeout(writeState.timer);
+    writeState.timer = null;
+    if (!Number.isInteger(pwm) || pwm < minimum || pwm > 255) {
+      setBiosFanWriteStatus(
+        prefix,
+        strict ? 'error' : '',
+        strict ? `请输入 ${minimum}–255 的整数 PWM` : `继续输入 ${minimum}–255 的 PWM`,
+      );
+      return;
+    }
+    setBiosFanWriteStatus(prefix, '', `PWM ${pwm} 即将自动应用`);
+    writeState.timer = setTimeout(() => {
+      writeState.timer = null;
+      const channel = biosFanTarget(prefix);
+      queueBiosFanWrite(
+        prefix,
+        () => api('/bios/fan', { method: 'POST', query: `channel=${channel}&pwm=${pwm}` }),
+        `PWM ${pwm} 已应用`,
+      ).catch(() => {});
+    }, Math.max(0, delay));
+  }
+
   function renderHardware(data) {
     hardwareState = data || {};
+    renderBiosSystemInfo(data);
     const supportLabels = { stable: '已验证', experimental: '实验性', unverified: '待验证', limited: '受限支持', unsupported: '暂不支持', unknown: '未知机型' };
     $('hardwareSupportBadge').textContent = supportLabels[data.support] || data.support || '未知';
     $('hardwareDetectedModel').textContent = `DMI：${data.product_name || '未读取到'} · 当前档案：${data.profile_name || data.profile || '未知'} · CLI ${data.cli_version || '未知'} · 内核 ${data.kernel || '未知'}`;
@@ -1056,7 +1407,7 @@
       ? '内核驱动 / sysfs'
       : data.backend_active === 'cli'
         ? '内置 CLI'
-        : data.backend_active === 'power-0x26' ? '0x26 电源灯控制' : '不可用';
+        : data.backend_active === 'power-0x26' ? 'N76E003 电源灯控制' : '不可用';
     $('hardwareProtocol').textContent = data.write_protocol || 'legacy';
     $('hardwareLayout').textContent = `${data.netdev_count ?? 1} 网络灯 · ${data.disk_count ?? 0} 硬盘灯`;
     $('hardwareKernelState').textContent = data.backend_active === 'power-0x26'
@@ -1069,7 +1420,7 @@
     if (data.driver_loaded && data.driver_managed) messages.push('修改机型档案或写入协议后，请点击“安装 / 重建实验驱动”让模块参数生效。');
     if (!data.headers_ready) messages.push('当前内核 headers 不可用，不能编译 DKMS；内置 CLI 不受影响。');
     if (data.support === 'experimental' || data.support === 'unverified') messages.push('此机型需要实机验证，请先在实验室逐灯确认。');
-    if (data.support === 'limited') messages.push('此机型使用独立 0x26 控制器，仅支持红/白电源灯；没有硬盘灯和网络灯。');
+    if (data.support === 'limited') messages.push('此机型使用独立 N76E003 控制器，仅支持红/白电源灯；没有硬盘灯和网络灯。');
     if (data.backend_active === 'unavailable') messages.push('所选后端不可用或 CLI 与内核驱动发生冲突。');
     $('hardwareMessage').textContent = messages.join(' ');
     const sysfsOption = Array.from($('hardwareBackend').options).find((option) => option.value === 'sysfs');
@@ -1092,7 +1443,8 @@
     const statusRequest = api('/status').then(renderStatus);
     const mappingRequest = api('/mapping').then(renderMapping);
     const hardwareRequest = api('/hardware/status').then(renderHardware);
-    refreshPromise = Promise.all([statusRequest, mappingRequest, hardwareRequest])
+    const biosRequest = loadBiosStatus();
+    refreshPromise = Promise.all([statusRequest, mappingRequest, hardwareRequest, biosRequest])
       .catch(showError)
       .finally(() => {
         refreshPromise = null;
@@ -1195,6 +1547,39 @@
   });
   $('btnCheckUpdate').addEventListener('click', function () {
     checkForUpdates(true, this);
+  });
+  [
+    ['cpu', 'cpuFanPwmRange'],
+    ['sys', 'sysFanPwmRange'],
+  ].forEach(([prefix, rangeId]) => {
+    $(rangeId).addEventListener('input', function () {
+      clearTimeout(biosFanWrites[prefix].timer);
+      biosFanWrites[prefix].timer = null;
+      setBiosFanWriteStatus(prefix, '', `PWM ${this.value}，松开后自动应用`);
+    });
+    $(rangeId).addEventListener('change', function () {
+      scheduleBiosFanPwm(prefix, 0, true);
+    });
+  });
+  ['cpu', 'sys'].forEach((prefix) => {
+    $(`${prefix}FanManualSwitch`).addEventListener('change', function () {
+      applyBiosFanMode(prefix);
+    });
+  });
+  $('btnApplyBiosStartup').addEventListener('click', function () {
+    const selected = document.querySelector('input[name="biosStartupPolicy"]:checked');
+    if (!selected) {
+      showMessage('请选择来电启动策略', 'error');
+      return;
+    }
+    runBiosAction(this, api('/bios/startup', { method: 'POST', query: `policy=${selected.value}` }));
+  });
+  document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
+    input.addEventListener('change', () => {
+      document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((candidate) => {
+        candidate.closest('.bios-policy-choice')?.classList.toggle('active', candidate.checked);
+      });
+    });
   });
   document.querySelectorAll('[data-lab-method]').forEach((button) => {
     button.addEventListener('click', () => {

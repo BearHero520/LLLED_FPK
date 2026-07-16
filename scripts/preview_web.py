@@ -88,6 +88,13 @@ class PreviewState:
         self.lab_active = False
         self.lab_highlight = ""
         self.driver_loaded = False
+        self.bios_cpu_pwm = 118
+        self.bios_sys_pwm = 96
+        self.bios_sys2_pwm = 96
+        self.bios_cpu_manual = False
+        self.bios_sys_manual = False
+        self.bios_sys2_manual = False
+        self.bios_startup = "last"
         self.lab_slots = [f"disk{index}" for index in range(1, 7)]
         self.lab_disks = [
             {"device": "/dev/sda", "hctl": "0:0:0:0", "serial": "ZHZ4A001", "model": "ST8000VN004", "size": "7.3T", "transport": "sata", "supported": True},
@@ -113,6 +120,38 @@ class PreviewState:
 
     def profile_meta(self) -> tuple[str, str, int, int, bool]:
         return PROFILE_META.get(self.selected_profile(), ("未知机型", "unknown", 0, 1, True))
+
+    def bios_payload(self, message: str = "") -> dict[str, object]:
+        profile = self.selected_profile()
+        supported = profile in {"dxp4800_plus", "dxp4800_pro", "dxp480t_plus"}
+        is_480t = profile == "dxp480t_plus"
+        payload: dict[str, object] = {
+            "ok": True,
+            "supported": supported,
+            "available": supported,
+            "model": profile if supported else "unknown",
+            "experimental": False,
+            "min_pwm": 40,
+            "fan_write_target": "all" if is_480t else "sys",
+            "product_name": f"{self.profile_meta()[0]}（预览）",
+            "backend": "ugreenctl" if supported else "unavailable",
+            "chip_id": "0x8613" if supported else "",
+            "revision": 2 if supported else 0,
+            "cpu_pwm": self.bios_cpu_pwm if supported else -1,
+            "sys_pwm": self.bios_sys_pwm if supported else -1,
+            "sys2_pwm": self.bios_sys2_pwm if is_480t else -1,
+            "cpu_rpm": 1120 if is_480t else 1280 if supported else 0,
+            "sys_rpm": 860 if is_480t else 940 if supported else 0,
+            "sys2_rpm": 790 if is_480t else 0,
+            "cpu_manual": self.bios_cpu_manual if supported else False,
+            "sys_manual": self.bios_sys_manual if supported else False,
+            "sys2_manual": self.bios_sys2_manual if is_480t else False,
+            "startup": self.bios_startup if supported else "unknown",
+            "error": "" if supported else "BIOS 控制仅支持 DXP4800 Plus / Pro 与 DXP480T Plus",
+        }
+        if message:
+            payload["message"] = message
+        return payload
 
     @property
     def mode(self) -> str:
@@ -225,7 +264,7 @@ STATE = PreviewState()
 
 
 class PreviewHandler(BaseHTTPRequestHandler):
-    server_version = "UGreenLEDPreview/1.6.9"
+    server_version = "UGreenLEDPreview/1.7.6"
 
     def log_message(self, fmt: str, *args: object) -> None:
         print(f"[{self.log_date_time_string()}] {fmt % args}")
@@ -381,7 +420,108 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 "driver_managed": STATE.driver_loaded,
                 "driver_supported": driver_supported,
                 "kernel": "6.12.0-preview",
+                "system_hostname": "dxp480tplus-preview" if selected_profile == "dxp480t_plus" else "dxp4800plus-preview",
+                "system_os": "fnOS 1.1（预览）",
+                "system_uptime_seconds": 345678,
+                "system_cpu_model": "Intel(R) Pentium(R) Gold 8505",
+                "system_cpu_threads": 6,
+                "system_load_1": 0.18,
+                "system_load_5": 0.24,
+                "system_load_15": 0.21,
+                "system_memory_total_mb": 8192,
+                "system_memory_used_mb": 3379,
+                "system_memory_percent": 41,
+                "system_cpu_temp_c": 47.2,
             })
+            return
+        if path == "/bios/status":
+            self.send_json(STATE.bios_payload())
+            return
+        if path == "/bios/fan":
+            channel = (query.get("channel") or [""])[0]
+            profile = STATE.selected_profile()
+            is_480t = profile == "dxp480t_plus"
+            try:
+                pwm = int((query.get("pwm") or ["-1"])[0])
+            except ValueError:
+                pwm = -1
+            if method != "POST":
+                self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
+                return
+            if profile not in {"dxp4800_plus", "dxp4800_pro", "dxp480t_plus"}:
+                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800 Plus / Pro 与 DXP480T Plus"})
+                return
+            valid_channels = {"cpu", "all"} if is_480t else {"cpu", "sys"}
+            minimum = 40
+            if channel not in valid_channels or not minimum <= pwm <= 255:
+                self.send_json({"ok": False, "error": "风扇参数无效"})
+                return
+            with STATE.lock:
+                if channel in {"cpu", "all"}:
+                    STATE.bios_cpu_pwm = pwm
+                    STATE.bios_cpu_manual = True
+                if channel == "sys":
+                    STATE.bios_sys_pwm = pwm
+                    STATE.bios_sys_manual = True
+                if channel == "all":
+                    STATE.bios_sys_pwm = pwm
+                    STATE.bios_sys2_pwm = pwm
+                    STATE.bios_sys_manual = True
+                    STATE.bios_sys2_manual = True
+            fan_name = "全部风扇" if channel == "all" else "CPU 风扇" if channel == "cpu" else "系统风扇"
+            self.send_json(STATE.bios_payload(f"{fan_name} PWM 已设置为 {pwm}"))
+            return
+        if path == "/bios/fan/mode":
+            channel = (query.get("channel") or [""])[0]
+            fan_mode = (query.get("mode") or [""])[0]
+            profile = STATE.selected_profile()
+            is_480t = profile == "dxp480t_plus"
+            if method != "POST":
+                self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
+                return
+            if profile not in {"dxp4800_plus", "dxp4800_pro", "dxp480t_plus"}:
+                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800 Plus / Pro 与 DXP480T Plus"})
+                return
+            valid_channels = {"cpu", "all"} if is_480t else {"cpu", "sys"}
+            if channel not in valid_channels or fan_mode not in {"auto", "manual"}:
+                self.send_json({"ok": False, "error": "风扇模式参数无效"})
+                return
+            manual = fan_mode == "manual"
+            with STATE.lock:
+                if manual:
+                    current_pwms = [STATE.bios_cpu_pwm]
+                    if channel == "sys":
+                        current_pwms = [STATE.bios_sys_pwm]
+                    elif channel == "all":
+                        current_pwms = [STATE.bios_cpu_pwm, STATE.bios_sys2_pwm, STATE.bios_sys_pwm]
+                    if any(pwm < 40 for pwm in current_pwms):
+                        self.send_json({"ok": False, "error": "当前 PWM 低于 40，拒绝进入手动模式"})
+                        return
+                if channel in {"cpu", "all"}:
+                    STATE.bios_cpu_manual = manual
+                if channel in {"sys", "all"}:
+                    STATE.bios_sys_manual = manual
+                if channel == "all":
+                    STATE.bios_sys2_manual = manual
+            fan_name = "全部风扇" if channel == "all" else "CPU 风扇" if channel == "cpu" else "系统风扇"
+            message = f"{fan_name} 已切换到手动 PWM 模式" if manual else f"{fan_name} 已恢复硬件自动调速"
+            self.send_json(STATE.bios_payload(message))
+            return
+        if path == "/bios/startup":
+            policy = (query.get("policy") or [""])[0]
+            profile = STATE.selected_profile()
+            if method != "POST":
+                self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
+                return
+            if profile not in {"dxp4800_plus", "dxp4800_pro", "dxp480t_plus"}:
+                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800 Plus / Pro 与 DXP480T Plus"})
+                return
+            if policy not in {"on", "off", "last"}:
+                self.send_json({"ok": False, "error": "来电启动参数无效"})
+                return
+            with STATE.lock:
+                STATE.bios_startup = policy
+            self.send_json(STATE.bios_payload("来电启动策略已更新"))
             return
         if path == "/power26/apply":
             color = (query.get("color") or [""])[0]

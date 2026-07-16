@@ -1,6 +1,6 @@
 # 绿联 LED 灯控（飞牛 fnOS 原生应用）
 
-在飞牛 **fnOS** 上控制绿联 NAS 机箱 LED。应用内置上游 **v0.4-beta `ugreen_leds_cli`**，支持 `0x3a` legacy / SMBus block-write 协议、CLI / sysfs 后端、DXP480T `0x26` 电源灯后端、机型预设以及 2/4/6/8 盘位映射。
+在飞牛 **fnOS** 上控制绿联 NAS 机箱 LED。应用内置上游 **v0.4-beta `ugreen_leds_cli`**，支持 `0x3a` legacy / SMBus block-write 协议、CLI / sysfs 后端、DXP480T N76E003 电源灯后端、机型预设以及 2/4/6/8 盘位映射。
 
 - **本仓库**：[LLLED_FPK](https://github.com/BearHero520/LLLED_FPK) — 飞牛应用源码与打包说明  
 - **命令行版**：[LLLED](https://github.com/BearHero520/LLLED) — 不装飞牛包时的 Shell 方案  
@@ -20,7 +20,7 @@ LLLED_FPK/
 └── README.md
 ```
 
-应用 ID：`App.Native.UGreenLED` · 当前版本：**1.6.9**
+应用 ID：`App.Native.UGreenLED` · 当前版本：**1.7.6**
 
 ## 功能概览
 
@@ -34,6 +34,7 @@ LLLED_FPK/
 | 网络灯 | **外网**（海外检测点通）、**联网**（仅国内通）、**断网** |
 | 速度闪动 | 磁盘读写、网络上传下载超过阈值后闪动，速度越高闪动越快，两项可独立开关 |
 | 电源灯 | 智能 / 全开模式下可单独配色 |
+| BIOS 控制 | 直接集成 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 的 `ugreenctl`；DXP4800 Plus / Pro 支持 CPU、系统风扇 PWM，DXP480T Plus 可读三路转速/PWM/模式，并已验证 CPU/全部风扇 PWM 与来电启动策略 |
 | Web 配置 | 飞牛桌面 iframe 内配色预设、保存后自动进入智能模式 |
 
 > 硬件限制：灯处于 **off** 时不能直接改色，须先 `-on` 再设色。`app/server/lib/led_api.sh` 已自动处理。
@@ -74,8 +75,11 @@ python scripts/build_fpk_remote.py
 仓库内置了跨平台构建器，可在 Windows、Linux 或 GitHub Actions 中直接生成与 `fnpack` 相同结构的 FPK，不需要连接 NAS：
 
 ```bash
+python scripts/build_ugreenctl.py # 仅 x86 Linux；GitHub Actions 会自动执行
 python scripts/build_fpk.py
 ```
+
+`ugreenctl` 与 DXP4800 Plus / DXP480T Plus 机型插件由 CI 在 Ubuntu 22.04 构建并随 FPK 分发；Windows 本地检出请通过 GitHub Actions 打包。`scripts/build_fpk_remote.py` 会在 NAS 端按需安装 CMake 和编译器再构建它。硬件源代码以 Git 子模块固定在 `App.Native.UGreenLED/app/server/vendor/UGREEN-NAS-Hardware`，克隆时请使用 `git clone --recurse-submodules`；升级时同步更新该子模块提交。
 
 输出目录为 `dist/`，其中包括：
 
@@ -90,8 +94,8 @@ python scripts/build_fpk.py
 `.github/workflows/release.yml` 会在推送 `v*.*.*` 标签时自动构建并发布 Release。标签版本必须与 `App.Native.UGreenLED/manifest` 中的 `version` 一致：
 
 ```bash
-git tag v1.6.9
-git push origin v1.6.9
+git tag v1.7.6
+git push origin v1.7.6
 ```
 
 也可以在 GitHub Actions 页面手动运行工作流，只生成可下载的构建产物而不创建 Release。Release 会同时上传带版本文件名、固定文件名以及 SHA256 校验文件。
@@ -143,11 +147,13 @@ python App.Native.UGreenLED/scripts/process_logo.py
 | 已验证 | DX4600 Pro、DX4700+、DXP2800、DXP4800、DXP4800 Plus、DXP6800 Pro、DXP8800 Plus |
 | 实验性 | DXP4800 GT、iDX6011 / iDX6011 Pro |
 | 待验证 | DXP2800 GT、DXP4800 Pro |
-| 受限支持 | DXP480T / DXP480T Plus（独立 `0x26` 控制器，仅红/白电源灯） |
+| 受限支持 | DXP480T / DXP480T Plus（独立 N76E003 控制器，仅红/白电源灯） |
 
 DXP4800 GT 和 iDX6011 系列使用 `smbus-block`；iDX6011 Pro 的第二网络灯与六个硬盘灯会通过逻辑 LED 别名校正。实验性机型建议先在“实验室”逐灯验证。
 
-DXP480T 系列与其他机型不同：它没有硬盘灯和网络灯，也不使用 `0x3a` RGB MCU。参考 [飞牛论坛实机方案](https://club.fnnas.com/forum.php?mod=viewthread&tid=27494) 和 [上游 issue #6](https://github.com/miskcoo/ugreen_leds_controller/issues/6#issuecomment-2156807225)，应用直接使用 `i2c-0`、地址 `0x26` 的 `i2cset` 命令控制红/白电源灯的常亮、快闪、慢闪、呼吸和关闭，不再执行额外的总线扫描或签名读取；不会为该档案安装 `led-ugreen` DKMS 驱动。检测到专用后端后，“灯光设置”页面会自动替换为 480T 简化控制页，只显示红色 / 白色和实际支持的灯效；“网络活动”模式会复用电源灯，在总上传与下载速度超过页面设置的阈值后慢闪，达到阈值 4 倍后快闪。其他机型继续使用原来的完整 RGB 设置页。
+DXP480T 系列与其他机型不同：它没有硬盘灯和网络灯，也不使用 `0x3a` RGB MCU。应用按原厂 `leds-mcu-n76e003` 驱动的规则，在可用 I²C 总线上探测地址 `0x31`、`0x26`，并读取 `0x5a/0x5b` 验证 `0xa5b5` 签名后才允许写入。红/白通道、常亮、快闪、慢闪、呼吸和关闭均使用固件恢复的 SMBus byte-data 寄存器序列；不会为该档案安装通用 `led-ugreen` DKMS 驱动。检测到专用后端后，“灯光设置”页面会自动替换为 480T 简化控制页；“网络活动”模式会复用电源灯，在总上传与下载速度超过页面设置的阈值后慢闪，达到阈值 4 倍后快闪。其他机型继续使用原来的完整 RGB 设置页。
+
+BIOS 控制直接集成 [BearHero520/UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 的 `ugreenctl` 与 DXP4800 Plus / DXP480T Plus 插件（MIT）。该项目负责精确 DMI 匹配、IT8613 身份及原厂驱动冲突检查、进程锁和寄存器映射；本应用负责 Web API 与页面展示。DXP480T Plus 的风扇和来电启动路径来自原厂固件 `1.17.0.95` 静态逆向，并已在实机验证：页面可读取 CPU、系统风扇 1、系统风扇 2 的转速、PWM 和自动/手动模式；写入仍只开放 CPU 或全部风扇，PWM 强制最低 40。全部风扇按原厂顺序写入 CPU、系统风扇 2、系统风扇 1，不开放单独系统风扇写入。普通 DXP480T 不会因手动机型档案选择而绕过精确 DMI 保护。
 
 如果 LED 硬件或 `i2c-tools` 暂时不可用，应用仍会完成安装并开放 Web 管理页，不会因为灯控后端探测失败而让 fnOS 报整包安装失败。后台服务会继续重试，并在硬件状态区域显示诊断信息。
 
@@ -187,6 +193,9 @@ DXP480T 系列与其他机型不同：它没有硬盘灯和网络灯，也不使
 | `/mapping` | 硬盘映射表 |
 | `/settings` | GET / POST 配置 |
 | `/hardware/status` | 机型档案、协议、后端、DKMS 与内核 headers 状态 |
+| `/bios/status` | DXP4800 Plus / Pro / DXP480T Plus 的 IT8613、风扇 PWM/转速/模式与来电启动状态 |
+| `/bios/fan?channel=cpu\|sys\|all&pwm=40..255` | POST：设置风扇 PWM；480T 仅允许 `cpu` / `all` |
+| `/bios/startup?policy=on\|off\|last` | POST：设置来电启动策略 |
 | `/power26/apply` | POST：为 DXP480T / Plus 应用红白电源灯颜色、灯效或关闭 |
 | `/driver/install` | POST：确认后安装或重建本应用管理的实验驱动 |
 | `/driver/unload` | POST：卸载本应用管理的驱动并切回 CLI |
@@ -225,4 +234,4 @@ Web 管理页使用 fnOS CGI，不再自动启动旧版 5088 端口服务，减�
 
 本项目自有代码采用 [GNU Affero General Public License v3.0 only](LICENSE)（`AGPL-3.0-only`）授权。
 
-如果修改后的版本通过网络向用户提供服务，需要按 AGPL-3.0 第 13 条向这些用户提供对应源代码。`ugreen_leds_cli`、`led-ugreen` 驱动源码、Bootstrap Icons 以及其他第三方组件继续适用各自的上游许可证，不因本项目采用 AGPL-3.0 而被重新授权。上游驱动许可证副本位于 `app/server/driver/led-ugreen/LICENSE`。
+如果修改后的版本通过网络向用户提供服务，需要按 AGPL-3.0 第 13 条向这些用户提供对应源代码。`ugreen_leds_cli`、直接集成的 `UGREEN-NAS-Hardware`（MIT）、`led-ugreen` 驱动源码、Bootstrap Icons 以及其他第三方组件继续适用各自的上游许可证，不因本项目采用 AGPL-3.0 而被重新授权。上游硬件项目许可证副本位于 `app/server/vendor/UGREEN-NAS-Hardware/LICENSE`，驱动许可证副本位于 `app/server/driver/led-ugreen/LICENSE`。

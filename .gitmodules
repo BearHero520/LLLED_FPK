@@ -1,0 +1,4 @@
+[submodule "ugreen-nas-hardware"]
+	path = App.Native.UGreenLED/app/server/vendor/UGREEN-NAS-Hardware
+	url = https://github.com/BearHero520/UGREEN-NAS-Hardware.git
+	branch = main

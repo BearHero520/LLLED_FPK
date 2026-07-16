@@ -65,6 +65,8 @@ def make_zip():
         for root, dirs, files in os.walk(PROJECT):
             dirs[:] = [d for d in dirs if d not in {".git", "__pycache__", "wizard", "scripts"}]
             for name in files:
+                if name == ".git":
+                    continue
                 fp = Path(root) / name
                 arc = fp.relative_to(PROJECT).as_posix()
                 data = fp.read_bytes()
@@ -97,6 +99,27 @@ def main():
         c,
         f"chmod +x {REMOTE_DIR}/cmd/* {REMOTE_DIR}/app/ui/*.cgi "
         f"{REMOTE_DIR}/app/server/*.sh {REMOTE_DIR}/app/server/lib/*.sh 2>/dev/null; true",
+    )
+
+    print("\n=== build bundled UGREEN-NAS-Hardware control CLI ===")
+    sudo(
+        c,
+        "if ! command -v cmake >/dev/null 2>&1 || ! command -v cc >/dev/null 2>&1; then "
+        "apt-get update -qq && apt-get install -y -qq cmake build-essential; fi",
+        password,
+        5,
+    )
+    hardware_source = f"{REMOTE_DIR}/app/server/vendor/UGREEN-NAS-Hardware"
+    hardware_build = f"{REMOTE_DIR}/.ugreenctl-build"
+    run(
+        c,
+        f"cmake -S {hardware_source} -B {hardware_build} -DCMAKE_BUILD_TYPE=Release && "
+        f"cmake --build {hardware_build} --parallel && "
+        f"mkdir -p {REMOTE_DIR}/app/server/bin {REMOTE_DIR}/app/server/lib/ugreenctl/models && "
+        f"install -m 0755 {hardware_build}/ugreenctl {REMOTE_DIR}/app/server/bin/ugreenctl && "
+        f"install -m 0644 {hardware_build}/models/dxp4800plus.so {hardware_build}/models/dxp480tplus.so "
+        f"{REMOTE_DIR}/app/server/lib/ugreenctl/models/",
+        8,
     )
 
     print("\n=== fnpack build ===")

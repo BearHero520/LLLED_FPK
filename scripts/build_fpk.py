@@ -87,7 +87,10 @@ def add_directory(archive: tarfile.TarFile, arcname: str, *, epoch: int) -> None
 def is_executable(relative: Path, *, command_tree: bool) -> bool:
     if command_tree:
         return True
-    return relative.suffix.lower() in {".cgi", ".sh"} or relative.as_posix() == "server/bin/ugreen_leds_cli"
+    return relative.suffix.lower() in {".cgi", ".sh"} or relative.as_posix() in {
+        "server/bin/ugreen_leds_cli",
+        "server/bin/ugreenctl",
+    }
 
 
 def add_tree(
@@ -100,6 +103,8 @@ def add_tree(
 ) -> None:
     for path in sorted(source.rglob("*"), key=lambda item: item.as_posix()):
         relative = path.relative_to(source)
+        if ".git" in relative.parts:
+            continue
         arcname = "/".join(part for part in (prefix, relative.as_posix()) if part)
         if path.is_symlink():
             raise SystemExit(f"暂不支持符号链接：{path}")
@@ -140,6 +145,10 @@ def validate_project() -> None:
         PROJECT / "ICON.PNG",
         PROJECT / "ICON_256.PNG",
         PROJECT / "app" / "server" / "bin" / "ugreen_leds_cli",
+        PROJECT / "app" / "server" / "bin" / "ugreenctl",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp4800plus.so",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp480tplus.so",
+        PROJECT / "app" / "server" / "vendor" / "UGREEN-NAS-Hardware" / "LICENSE",
         PROJECT / "app" / "server" / "driver" / "led-ugreen" / "led-ugreen.c",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
@@ -170,7 +179,17 @@ def verify_package(package: Path, *, expected_checksum: str, expected_version: s
             raise SystemExit("FPK manifest version 不一致")
         with tarfile.open(fileobj=io.BytesIO(app_data), mode="r:gz") as app_archive:
             app_names = set(app_archive.getnames())
-            if not {"server", "ui", "www", "server/bin/ugreen_leds_cli", "server/driver/led-ugreen/led-ugreen.c"}.issubset(app_names):
+            if not {
+                "server",
+                "ui",
+                "www",
+                "server/bin/ugreen_leds_cli",
+                "server/bin/ugreenctl",
+                "server/lib/ugreenctl/models/dxp4800plus.so",
+                "server/lib/ugreenctl/models/dxp480tplus.so",
+                "server/vendor/UGREEN-NAS-Hardware/LICENSE",
+                "server/driver/led-ugreen/led-ugreen.c",
+            }.issubset(app_names):
                 raise SystemExit("FPK app.tgz 结构校验失败")
 
 

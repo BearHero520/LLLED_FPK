@@ -7,7 +7,7 @@
   <title>绿联 LED 灯控</title>
   <base href="/cgi/ThirdParty/App.Native.UGreenLED/index.cgi/">
   <link rel="stylesheet" href="./vendor/bootstrap-icons/font/bootstrap-icons.min.css?v=1.11.3">
-  <link rel="stylesheet" href="./css/style.css?v=1.6.9">
+  <link rel="stylesheet" href="./css/style.css?v=1.7.6">
 </head>
 <body>
   <div class="app-shell">
@@ -33,6 +33,9 @@
         <button type="button" class="nav-item" data-route="devices">
           <i class="bi bi-hdd-rack" aria-hidden="true"></i><span>设备与高级</span>
         </button>
+        <button type="button" class="nav-item" id="navBios" data-route="bios" hidden>
+          <i class="bi bi-motherboard" aria-hidden="true"></i><span>BIOS 控制</span>
+        </button>
         <button type="button" class="nav-item lab-nav-item" id="navLab" data-route="lab">
           <i class="bi bi-eyedropper" aria-hidden="true"></i><span>实验室</span><small>未经验证</small>
         </button>
@@ -40,7 +43,7 @@
 
       <div class="rail-footer">
         <span class="rail-state"><span class="status-dot" id="railStatusDot"></span><span id="railStatusText">正在连接</span></span>
-        <small>v1.6.9 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
+        <small>v1.7.6 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
       </div>
     </aside>
 
@@ -118,7 +121,7 @@
           <article class="glass-surface power26-control-surface">
             <div class="section-heading">
               <div><span class="section-kicker">DXP480T POWER LED</span><h2>电源灯控制</h2></div>
-              <span class="soft-badge">专用 0x26 控制器</span>
+              <span class="soft-badge">专用 N76E003 控制器</span>
             </div>
             <p class="surface-help">选择电源灯颜色和灯效，应用后立即生效，并由后台服务保持当前设置。</p>
 
@@ -172,8 +175,8 @@
             <div><span class="section-kicker">480T ONLY</span><h2>当前机型专用页面</h2></div>
             <p class="surface-help">此页面只会在 DXP480T / Plus 使用专用后端时显示，其他机型仍使用完整 RGB 灯控页面。</p>
             <div class="power26-facts">
-              <span><small>I²C 总线</small><strong>i2c-0</strong></span>
-              <span><small>控制地址</small><strong>0x26</strong></span>
+              <span><small>I²C 总线</small><strong>自动探测</strong></span>
+              <span><small>控制地址</small><strong>0x31 / 0x26</strong></span>
               <span><small>可用颜色</small><strong>红色 / 白色</strong></span>
               <span><small>亮度调节</small><strong>不支持</strong></span>
             </div>
@@ -357,7 +360,7 @@
                   </div>
                   <div class="hardware-guide-item" data-backend-guide="power-0x26">
                     <div class="hardware-guide-item-head"><span><i class="bi bi-lightbulb" aria-hidden="true"></i><strong>DXP480T 专用后端</strong></span><small class="hardware-current-tag" hidden>当前使用</small></div>
-                    <p>用于 DXP480T / Plus 的独立 <code>0x26</code> 控制器，只支持红/白电源灯，不控制硬盘灯和网络灯，也不会安装通用内核驱动。</p>
+                    <p>用于 DXP480T / Plus 的 N76E003 控制器，按原厂驱动规则探测 <code>0x31</code> / <code>0x26</code> 与硬件签名；只支持红/白电源灯，不控制硬盘灯和网络灯。</p>
                   </div>
                 </div>
                 <div class="hardware-protocol-note">
@@ -399,7 +402,7 @@
             </div>
             <div class="update-content">
               <div class="update-copy">
-                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.6.9</strong></div>
+                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.7.6</strong></div>
                 <h3 id="updateTitle">检查 GitHub Release 获取新版本</h3>
                 <p class="surface-help" id="updateDescription">发现新版本后，可下载安装包并在 fnOS 应用中心手动升级。</p>
                 <small id="updateCheckedAt">不会自动安装，也不会在后台静默升级。</small>
@@ -424,6 +427,173 @@
             <summary class="diagnostics-summary"><span><span class="section-kicker">DIAGNOSTICS</span><strong>LED 原始状态</strong></span><i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
             <pre class="status-console" id="statusBar">正在读取状态…</pre>
           </details>
+        </div>
+      </section>
+
+      <section class="app-view" id="view-bios" data-view="bios" hidden>
+        <div class="bios-layout">
+          <article class="glass-surface bios-status-surface">
+            <div class="section-heading">
+              <div><span class="section-kicker" id="biosModelKicker">SUPPORTED MODEL · IT8613</span><h2>BIOS 控制器</h2></div>
+              <span class="soft-badge" id="biosAvailabilityBadge">检测中</span>
+            </div>
+            <p class="surface-help" id="biosAvailabilityText" role="status" aria-live="polite">正在读取机型、IT8613 芯片与低层控制接口。</p>
+            <div class="bios-facts">
+              <span><small>设备型号</small><strong id="biosProductName">—</strong></span>
+              <span><small>控制芯片</small><strong id="biosChipId">—</strong></span>
+              <span><small>访问后端</small><strong id="biosBackendName">—</strong></span>
+              <span><small>来电启动</small><strong id="biosStartupSummary">—</strong></span>
+            </div>
+          </article>
+
+          <article class="glass-surface bios-system-surface">
+            <div class="section-heading">
+              <div><span class="section-kicker">SYSTEM TELEMETRY</span><h2>系统信息</h2></div>
+              <span class="soft-badge" id="biosSystemBadge">读取中</span>
+            </div>
+            <p class="surface-help">来自 Linux 系统接口的只读信息，每次刷新页面状态时同步更新。</p>
+            <div class="bios-system-grid" aria-live="polite">
+              <div class="bios-system-fact">
+                <small><i class="bi bi-pc-display-horizontal" aria-hidden="true"></i>主机名</small>
+                <strong id="biosSystemHostname">—</strong>
+              </div>
+              <div class="bios-system-fact">
+                <small><i class="bi bi-box" aria-hidden="true"></i>系统版本</small>
+                <strong id="biosSystemOs">—</strong>
+              </div>
+              <div class="bios-system-fact">
+                <small><i class="bi bi-terminal" aria-hidden="true"></i>内核版本</small>
+                <strong id="biosSystemKernel">—</strong>
+              </div>
+              <div class="bios-system-fact">
+                <small><i class="bi bi-clock-history" aria-hidden="true"></i>运行时间</small>
+                <strong id="biosSystemUptime">—</strong>
+              </div>
+              <div class="bios-system-fact wide">
+                <small><i class="bi bi-cpu" aria-hidden="true"></i>处理器</small>
+                <strong id="biosSystemCpu">—</strong>
+              </div>
+              <div class="bios-system-fact">
+                <small><i class="bi bi-diagram-3" aria-hidden="true"></i>逻辑线程</small>
+                <strong id="biosSystemThreads">—</strong>
+              </div>
+              <div class="bios-system-fact">
+                <small><i class="bi bi-thermometer-half" aria-hidden="true"></i>CPU 温度</small>
+                <strong id="biosSystemTemperature">—</strong>
+              </div>
+              <div class="bios-system-fact wide">
+                <small><i class="bi bi-memory" aria-hidden="true"></i>内存使用</small>
+                <strong id="biosSystemMemory">—</strong>
+              </div>
+              <div class="bios-system-fact wide">
+                <small><i class="bi bi-speedometer2" aria-hidden="true"></i>系统负载（1 / 5 / 15 分钟）</small>
+                <strong id="biosSystemLoad">—</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="glass-surface bios-fan-surface">
+            <div class="section-heading">
+              <div><span class="section-kicker">AUTO / MANUAL PWM</span><h2>风扇控制</h2></div>
+              <span class="soft-badge" id="biosPwmRangeBadge">40–255</span>
+            </div>
+            <div class="bios-safety-note" id="biosFanSafetyNote" role="note">
+              <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+              <p id="biosFanSafetyText">写入 PWM 会将对应风扇切换到手动模式。请先确认温度监控正常，PWM 最低为 40。</p>
+            </div>
+            <div class="bios-fan-grid">
+              <section class="bios-fan-card" aria-labelledby="cpuFanTitle">
+                <div class="bios-fan-head">
+                  <span class="bios-fan-icon"><i class="bi bi-cpu" aria-hidden="true"></i></span>
+                  <div><small>CPU FAN</small><strong id="cpuFanTitle">CPU 风扇</strong></div>
+                  <span class="bios-rpm"><strong id="cpuFanRpm">—</strong><small>RPM</small></span>
+                </div>
+                <div class="bios-control-state"><span>当前 PWM</span><strong id="cpuFanCurrentPwm">—</strong><small id="cpuFanMode">读取中</small></div>
+                <div class="bios-mode-control">
+                  <span>控制模式</span>
+                  <label class="bios-mode-switch" for="cpuFanManualSwitch">
+                    <span class="bios-mode-label">自动</span>
+                    <input type="checkbox" id="cpuFanManualSwitch" aria-label="CPU 风扇自动或手动模式" aria-describedby="cpuFanMode">
+                    <span class="bios-mode-track" aria-hidden="true"><span></span></span>
+                    <span class="bios-mode-label">手动</span>
+                  </label>
+                </div>
+                <div class="bios-pwm-control">
+                  <input type="range" id="cpuFanPwmRange" min="40" max="255" step="1" value="120" aria-label="CPU 风扇 PWM" aria-describedby="biosFanSafetyNote">
+                </div>
+                <div class="bios-fan-write-status" id="cpuFanWriteStatus" role="status" aria-live="polite">
+                  <i class="bi bi-lightning-charge" aria-hidden="true"></i><span>调整后自动应用</span>
+                </div>
+              </section>
+
+              <section class="bios-fan-card" aria-labelledby="sysFanTitle">
+                <div class="bios-fan-head">
+                  <span class="bios-fan-icon"><i class="bi bi-fan" aria-hidden="true"></i></span>
+                  <div><small id="sysFanEyebrow">SYSTEM FAN</small><strong id="sysFanTitle">系统风扇</strong></div>
+                  <span class="bios-rpm"><strong id="sysFanRpm">—</strong><small id="sysFanRpmLabel">RPM</small></span>
+                </div>
+                <div class="bios-extra-rpm" id="biosSys2RpmRow" hidden><span>系统风扇 2</span><strong><span id="sys2FanRpm">—</span> RPM</strong></div>
+                <div class="bios-all-pwm" id="biosAllFanPwmRow" aria-label="全部风扇当前 PWM" hidden>
+                  <span><small>CPU PWM</small><strong id="allCpuFanPwm">—</strong></span>
+                  <span><small>系统 1 PWM</small><strong id="allSys1FanPwm">—</strong></span>
+                  <span><small>系统 2 PWM</small><strong id="allSys2FanPwm">—</strong></span>
+                </div>
+                <div class="bios-control-state"><span>当前 PWM</span><strong id="sysFanCurrentPwm">—</strong><small id="sysFanMode">读取中</small></div>
+                <div class="bios-mode-control">
+                  <span>控制模式</span>
+                  <label class="bios-mode-switch" for="sysFanManualSwitch">
+                    <span class="bios-mode-label">自动</span>
+                    <input type="checkbox" id="sysFanManualSwitch" aria-label="系统风扇自动或手动模式" aria-describedby="sysFanMode">
+                    <span class="bios-mode-track" aria-hidden="true"><span></span></span>
+                    <span class="bios-mode-label">手动</span>
+                  </label>
+                </div>
+                <div class="bios-pwm-control">
+                  <input type="range" id="sysFanPwmRange" min="40" max="255" step="1" value="100" aria-label="系统风扇 PWM" aria-describedby="biosFanSafetyNote">
+                </div>
+                <div class="bios-fan-write-status" id="sysFanWriteStatus" role="status" aria-live="polite">
+                  <i class="bi bi-lightning-charge" aria-hidden="true"></i><span>调整后自动应用</span>
+                </div>
+              </section>
+            </div>
+          </article>
+
+          <article class="glass-surface bios-startup-surface">
+            <div class="section-heading">
+              <div><span class="section-kicker">AC POWER RECOVERY</span><h2>来电启动策略</h2></div>
+              <span class="soft-badge" id="biosStartupBadge">读取中</span>
+            </div>
+            <p class="surface-help">设置交流电恢复后设备的启动行为。该设置写入 IT8613 的 BIOS/Super I/O 配置寄存器。</p>
+            <div class="bios-policy-grid" role="radiogroup" aria-label="来电启动策略">
+              <label class="bios-policy-choice">
+                <input type="radio" name="biosStartupPolicy" value="on">
+                <i class="bi bi-power" aria-hidden="true"></i>
+                <span><strong>自动开机</strong><small>供电恢复后立即启动</small></span>
+              </label>
+              <label class="bios-policy-choice">
+                <input type="radio" name="biosStartupPolicy" value="off">
+                <i class="bi bi-moon" aria-hidden="true"></i>
+                <span><strong>保持关机</strong><small>供电恢复后等待手动开机</small></span>
+              </label>
+              <label class="bios-policy-choice">
+                <input type="radio" name="biosStartupPolicy" value="last">
+                <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                <span><strong>恢复断电前状态</strong><small>按断电前的开关机状态恢复</small></span>
+              </label>
+            </div>
+            <div class="bios-startup-actions">
+              <button type="button" class="primary-button" id="btnApplyBiosStartup" disabled><i class="bi bi-floppy" aria-hidden="true"></i>保存来电启动策略</button>
+            </div>
+          </article>
+
+          <aside class="glass-surface bios-detail-surface">
+            <span class="bios-detail-icon"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
+            <div>
+              <span class="section-kicker">MODEL GUARD</span>
+              <h2 id="biosGuardTitle">支持机型保护</h2>
+              <p id="biosGuardText">页面和写入接口只对已映射机型启用，并校验 IT8613 芯片 ID。其他机型不会显示此入口。</p>
+            </div>
+          </aside>
         </div>
       </section>
 
@@ -510,6 +680,6 @@
     <button type="button" class="mode-button primary" data-mode="smart"><i class="bi bi-stars" aria-hidden="true"></i><span>智能模式</span></button>
   </div>
 
-  <script src="./js/app.js?v=1.6.9"></script>
+  <script src="./js/app.js?v=1.7.6"></script>
 </body>
 </html>

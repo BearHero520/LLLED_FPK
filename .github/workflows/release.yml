@@ -11,10 +11,15 @@ permissions:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build bundled UGREEN-NAS-Hardware control CLI
+        run: python3 scripts/build_ugreenctl.py
 
       - name: Resolve version
         id: version
@@ -56,9 +61,12 @@ jobs:
           )
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+            gh release edit "$RELEASE_TAG" \
+              --title "绿联 LED 灯控 v$VERSION" \
+              --notes "$(sed -n 's/^changelog[[:space:]]*=[[:space:]]*//p' App.Native.UGreenLED/manifest)"
           else
             gh release create "$RELEASE_TAG" "${assets[@]}" \
               --title "绿联 LED 灯控 v$VERSION" \
-              --generate-notes \
+              --notes "$(sed -n 's/^changelog[[:space:]]*=[[:space:]]*//p' App.Native.UGreenLED/manifest)" \
               --verify-tag
           fi

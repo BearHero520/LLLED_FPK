@@ -5,6 +5,7 @@
 # 测试 / 诊断脚本与临时输出（保留远程打包脚本）
 /scripts/*
 !/scripts/build_fpk.py
+!/scripts/build_ugreenctl.py
 !/scripts/build_fpk_remote.py
 !/scripts/preview_web.py
 /dist/
@@ -27,6 +28,8 @@ ugreen_led_controller.sh
 ugreen_leds_cli
 !/App.Native.UGreenLED/app/server/bin/
 !/App.Native.UGreenLED/app/server/bin/ugreen_leds_cli
+/App.Native.UGreenLED/app/server/bin/ugreenctl
+/App.Native.UGreenLED/app/server/lib/ugreenctl/models/*.so
 quick_install.sh
 quick_led_test.sh
 uninstall.sh

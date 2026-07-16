@@ -6,12 +6,29 @@ LED_SYSFS_ROOT="${LED_SYSFS_ROOT:-/sys/class/leds}"
 LED_API_CACHE_DIR="${LED_API_CACHE_DIR:-/tmp/ugreen-led-api}"
 LED_BACKEND_ACTIVE="${LED_BACKEND_ACTIVE:-}"
 LED_POWER26_BUS="${LED_POWER26_BUS:-}"
-LED_POWER26_DEFAULT_BUS="${LED_POWER26_DEFAULT_BUS:-${UGREEN_POWER26_BUS:-0}}"
+LED_POWER26_ADDRESS="${LED_POWER26_ADDRESS:-}"
+LED_POWER26_DEFAULT_BUS="${LED_POWER26_DEFAULT_BUS:-${UGREEN_POWER26_BUS:-}}"
+LED_POWER26_DEFAULT_ADDRESS="${LED_POWER26_DEFAULT_ADDRESS:-${UGREEN_POWER26_ADDRESS:-}}"
+LED_I2C_DEV_ROOT="${LED_I2C_DEV_ROOT:-/dev}"
+LED_LAST_ERROR="${LED_LAST_ERROR:-}"
 
 mkdir -p "$LED_API_CACHE_DIR" 2>/dev/null
 
 _led_log() {
     [[ "${LED_DEBUG:-false}" == "true" ]] && echo "[led_api] $*" >&2
+}
+
+led_set_error() {
+    LED_LAST_ERROR="$*"
+    _led_log "$LED_LAST_ERROR"
+}
+
+led_run_timed() {
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 3 "$@"
+    else
+        "$@"
+    fi
 }
 
 ensure_i2c() {
@@ -28,22 +45,78 @@ led_power26_profile() {
     declare -F hardware_power26_controller >/dev/null && hardware_power26_controller
 }
 
-led_power26_ensure_bus() {
-    [[ "$LED_POWER26_BUS" =~ ^[0-9]+$ ]] && return 0
-    # DXP480T / Plus 已验证为固定 i2c-0、地址 0x26；无需额外扫描或读取签名。
-    [[ "$LED_POWER26_DEFAULT_BUS" =~ ^[0-9]+$ ]] || return 1
-    LED_POWER26_BUS="$LED_POWER26_DEFAULT_BUS"
+led_power26_bus_candidates() {
+    local path bus
+    declare -A seen=()
+    if [[ "$LED_POWER26_DEFAULT_BUS" =~ ^[0-9]+$ ]]; then
+        seen["$LED_POWER26_DEFAULT_BUS"]=1
+        printf '%s\n' "$LED_POWER26_DEFAULT_BUS"
+    fi
+    for path in "$LED_I2C_DEV_ROOT"/i2c-*; do
+        [[ -e "$path" ]] || continue
+        bus=${path##*-}
+        [[ "$bus" =~ ^[0-9]+$ && -z "${seen[$bus]:-}" ]] || continue
+        seen["$bus"]=1
+        printf '%s\n' "$bus"
+    done
+}
+
+led_power26_address_candidates() {
+    case "${LED_POWER26_DEFAULT_ADDRESS,,}" in
+        0x31|49) printf '%s\n' 0x31 0x26 ;;
+        0x26|38) printf '%s\n' 0x26 0x31 ;;
+        *) printf '%s\n' 0x31 0x26 ;;
+    esac
+}
+
+led_power26_signature_matches() {
+    local bus="$1" address="$2" high low
+    high=$(led_run_timed i2cget -y "$bus" "$address" 0x5a b 2>/dev/null) || return 1
+    low=$(led_run_timed i2cget -y "$bus" "$address" 0x5b b 2>/dev/null) || return 1
+    high="${high//[[:space:]]/}"
+    low="${low//[[:space:]]/}"
+    [[ "${high,,}" == "0xa5" && "${low,,}" == "0xb5" ]]
+}
+
+led_power26_detect() {
+    local bus address
+    if [[ "$LED_POWER26_BUS" =~ ^[0-9]+$ && "${LED_POWER26_ADDRESS,,}" =~ ^0x(31|26)$ ]]; then
+        return 0
+    fi
+    LED_POWER26_BUS=""
+    LED_POWER26_ADDRESS=""
+    while IFS= read -r bus; do
+        while IFS= read -r address; do
+            if led_power26_signature_matches "$bus" "$address"; then
+                LED_POWER26_BUS="$bus"
+                LED_POWER26_ADDRESS="$address"
+                LED_LAST_ERROR=""
+                _led_log "检测到 DXP480T 灯控：i2c-${bus} ${address}，签名 0xa5b5"
+                return 0
+            fi
+        done < <(led_power26_address_candidates)
+    done < <(led_power26_bus_candidates)
+    led_set_error "未找到 DXP480T 灯控 MCU：已在可用 I²C 总线上检查 0x31/0x26 与 0xA5B5 签名"
+    return 1
 }
 
 led_power26_available() {
     ensure_i2c
-    command -v i2cset >/dev/null 2>&1 && led_power26_ensure_bus
+    if ! command -v i2cset >/dev/null 2>&1 || ! command -v i2cget >/dev/null 2>&1; then
+        led_set_error "缺少 i2c-tools（需要 i2cget 与 i2cset）"
+        return 1
+    fi
+    led_power26_detect
 }
 
 led_power26_write() {
-    local reg="$1" value="$2"
-    led_power26_ensure_bus || return 1
-    timeout 3 i2cset -y "$LED_POWER26_BUS" 0x26 "$reg" "$value" b >/dev/null 2>&1 || return 1
+    local reg="$1" value="$2" output
+    led_power26_detect || return 1
+    if ! output=$(led_run_timed i2cset -y "$LED_POWER26_BUS" "$LED_POWER26_ADDRESS" "$reg" "$value" b 2>&1); then
+        output="${output//$'\n'/ }"
+        led_set_error "I²C 写入失败：i2c-${LED_POWER26_BUS} ${LED_POWER26_ADDRESS} 寄存器 ${reg}=${value}${output:+（$output）}"
+        return 1
+    fi
     sleep 0.03
 }
 
@@ -53,26 +126,54 @@ led_power26_color_mode() {
 }
 
 led_power26_set_color() {
-    local r="$1" g="$2" b="$3" effect="${4:-steady}" mode
+    local r="$1" g="$2" b="$3" effect="${4:-steady}" mode selector mask effect_reg timer_on_reg timer_off_reg
     mode=$(led_power26_color_mode "$r" "$g" "$b")
-    led_power26_write 0xa0 1 || return 1
-    led_power26_write 0xa0 2 || return 1
-    led_power26_write 0x51 0 || return 1
     led_power26_write 0x50 0 || return 1
-    led_power26_write 0xb1 "$mode" || return 1
+    led_power26_write 0x51 0 || return 1
+    if [[ "$mode" == "1" ]]; then
+        selector=1
+        mask=2
+        effect_reg=0x51
+        timer_on_reg=0xc2
+        timer_off_reg=0xd2
+    else
+        selector=2
+        mask=1
+        effect_reg=0x50
+        timer_on_reg=0xc0
+        timer_off_reg=0xd0
+    fi
+    led_power26_write 0xb1 "$selector" || return 1
+    led_power26_write 0xa0 "$mask" || return 1
     case "$effect" in
-        fast) led_power26_write 0x50 1 ;;
-        slow) led_power26_write 0x51 1 ;;
-        breath) led_power26_write 0x50 2 ;;
-        *) led_power26_write 0x50 0 ;;
+        fast)
+            led_power26_write "$effect_reg" 1 || return 1
+            led_power26_write_u16 "$timer_on_reg" 280 || return 1
+            led_power26_write_u16 "$timer_off_reg" 280
+            ;;
+        slow)
+            led_power26_write "$effect_reg" 1 || return 1
+            led_power26_write_u16 "$timer_on_reg" 900 || return 1
+            led_power26_write_u16 "$timer_off_reg" 900
+            ;;
+        breath) led_power26_write "$effect_reg" 2 ;;
+        *) return 0 ;;
     esac
+}
+
+led_power26_write_u16() {
+    local reg="$1" value="$2" low high next_reg
+    low=$((value & 0xff))
+    high=$(((value >> 8) & 0xff))
+    printf -v next_reg '0x%02x' "$((reg + 1))"
+    led_power26_write "$reg" "$low" || return 1
+    led_power26_write "$next_reg" "$high"
 }
 
 led_power26_set_off() {
     led_power26_write 0x50 0 || return 1
     led_power26_write 0x51 0 || return 1
-    led_power26_write 0xa0 1 || return 1
-    led_power26_write 0xa0 2
+    led_power26_write 0xb1 3
 }
 
 led_set_power26_effect() {
@@ -142,6 +243,7 @@ led_backend_configured() {
 led_backend_reset() {
     LED_BACKEND_ACTIVE=""
     LED_POWER26_BUS=""
+    LED_POWER26_ADDRESS=""
 }
 
 led_backend_select() {
@@ -149,8 +251,8 @@ led_backend_select() {
     [[ -n "$LED_BACKEND_ACTIVE" ]] && { echo "$LED_BACKEND_ACTIVE"; return; }
     configured=$(led_backend_configured)
     if led_power26_profile; then
-        [[ "$configured" != "sysfs" ]] || return 1
-        led_driver_loaded && return 2
+        [[ "$configured" != "sysfs" ]] || { led_set_error "480T 电源灯不支持通用 sysfs 后端"; return 1; }
+        led_driver_loaded && { led_set_error "检测到内核 LED 驱动占用灯控 MCU，已拒绝并发 I²C 写入"; return 2; }
         led_power26_available || return 1
         LED_BACKEND_ACTIVE="power-0x26"
         echo "$LED_BACKEND_ACTIVE"

@@ -33,6 +33,8 @@ export NET_SPEED_CACHE_FILE="${RUNTIME_DIR}/net_speed.cache" NET_STATE_CACHE_FIL
 
 source "${LIB_DIR}/settings.sh" 2>/dev/null
 source "${LIB_DIR}/hardware_profile.sh" 2>/dev/null
+source "${LIB_DIR}/system_info.sh" 2>/dev/null
+source "${LIB_DIR}/bios_control.sh" 2>/dev/null
 source "${LIB_DIR}/driver_manager.sh" 2>/dev/null
 source "${LIB_DIR}/led_api.sh" 2>/dev/null
 source "${LIB_DIR}/disk_map.sh" 2>/dev/null
@@ -246,6 +248,8 @@ runtime_file_fresh() {
 
 hardware_status_json() {
     local product profile profile_name support protocol protocol_configured disk_count netdev_count configured active
+    local system_hostname system_os system_kernel system_uptime system_cpu system_threads load_values load1 load5 load15
+    local memory_values memory_total memory_used memory_percent cpu_temp cpu_temp_json=null
     local cli_ready=false driver_loaded=false sysfs_ready=false dkms_ready=false headers_ready=false conflict=false dkms_installed=false dkms_registered=false driver_managed=false driver_supported=true
     product=$(hardware_detected_product_name)
     profile=$(hardware_profile_key)
@@ -268,10 +272,48 @@ hardware_status_json() {
     driver_managed_by_app && driver_managed=true
     declare -F hardware_driver_supported >/dev/null && ! hardware_driver_supported "$profile" && driver_supported=false
     [[ "$disk_count" =~ ^[0-9]+$ ]] || disk_count=0
-    printf '{"ok":true,"product_name":"%s","profile":"%s","profile_name":"%s","support":"%s","cli_version":"%s","write_protocol":"%s","write_protocol_configured":"%s","disk_count":%s,"netdev_count":%s,"backend_configured":"%s","backend_active":"%s","cli_ready":%s,"driver_loaded":%s,"sysfs_ready":%s,"dkms_ready":%s,"headers_ready":%s,"driver_conflict":%s,"dkms_installed":%s,"dkms_registered":%s,"driver_managed":%s,"driver_supported":%s,"kernel":"%s"}' \
+    system_hostname=$(system_info_hostname)
+    system_os=$(system_info_os_name)
+    system_kernel=$(system_info_kernel)
+    system_uptime=$(system_info_uptime_seconds)
+    system_cpu=$(system_info_cpu_model)
+    system_threads=$(system_info_cpu_threads)
+    load_values=$(system_info_load_averages)
+    IFS='|' read -r load1 load5 load15 <<< "$load_values"
+    memory_values=$(system_info_memory_metrics)
+    IFS='|' read -r memory_total memory_used memory_percent <<< "$memory_values"
+    cpu_temp=$(system_info_cpu_temperature)
+    [[ "$system_uptime" =~ ^[0-9]+$ ]] || system_uptime=0
+    [[ "$system_threads" =~ ^[0-9]+$ ]] || system_threads=0
+    [[ "$load1" =~ ^[0-9]+([.][0-9]+)?$ ]] || load1=0
+    [[ "$load5" =~ ^[0-9]+([.][0-9]+)?$ ]] || load5=0
+    [[ "$load15" =~ ^[0-9]+([.][0-9]+)?$ ]] || load15=0
+    [[ "$memory_total" =~ ^[0-9]+$ ]] || memory_total=0
+    [[ "$memory_used" =~ ^[0-9]+$ ]] || memory_used=0
+    [[ "$memory_percent" =~ ^[0-9]+$ ]] || memory_percent=0
+    [[ "$cpu_temp" =~ ^[0-9]+([.][0-9]+)?$ ]] && cpu_temp_json="$cpu_temp"
+    printf '{"ok":true,"product_name":"%s","profile":"%s","profile_name":"%s","support":"%s","cli_version":"%s","write_protocol":"%s","write_protocol_configured":"%s","disk_count":%s,"netdev_count":%s,"backend_configured":"%s","backend_active":"%s","cli_ready":%s,"driver_loaded":%s,"sysfs_ready":%s,"dkms_ready":%s,"headers_ready":%s,"driver_conflict":%s,"dkms_installed":%s,"dkms_registered":%s,"driver_managed":%s,"driver_supported":%s,"kernel":"%s","system_hostname":"%s","system_os":"%s","system_uptime_seconds":%s,"system_cpu_model":"%s","system_cpu_threads":%s,"system_load_1":%s,"system_load_5":%s,"system_load_15":%s,"system_memory_total_mb":%s,"system_memory_used_mb":%s,"system_memory_percent":%s,"system_cpu_temp_c":%s}' \
         "$(json_str "$product")" "$(json_str "$profile")" "$(json_str "$profile_name")" "$(json_str "$support")" \
         "$(json_str "$UGREEN_CLI_RELEASE")" "$(json_str "$protocol")" "$(json_str "$protocol_configured")" "$disk_count" "$netdev_count" "$(json_str "$configured")" "$(json_str "$active")" \
-        "$cli_ready" "$driver_loaded" "$sysfs_ready" "$dkms_ready" "$headers_ready" "$conflict" "$dkms_installed" "$dkms_registered" "$driver_managed" "$driver_supported" "$(json_str "$(driver_kernel_release)")"
+        "$cli_ready" "$driver_loaded" "$sysfs_ready" "$dkms_ready" "$headers_ready" "$conflict" "$dkms_installed" "$dkms_registered" "$driver_managed" "$driver_supported" "$(json_str "$system_kernel")" \
+        "$(json_str "$system_hostname")" "$(json_str "$system_os")" "$system_uptime" "$(json_str "$system_cpu")" "$system_threads" "$load1" "$load5" "$load15" \
+        "$memory_total" "$memory_used" "$memory_percent" "$cpu_temp_json"
+}
+
+bios_status_json() {
+    local message="${1:-}" chip_id="" error=""
+    bios_read_status >/dev/null 2>&1 || true
+    if [[ "$BIOS_CHIP_ID" =~ ^[0-9]+$ ]]; then
+        printf -v chip_id '0x%04x' "$BIOS_CHIP_ID"
+    fi
+    error="$BIOS_LAST_ERROR"
+    printf '{"ok":true,"supported":%s,"available":%s,"model":"%s","experimental":%s,"min_pwm":%s,"fan_write_target":"%s","product_name":"%s","backend":"%s","chip_id":"%s","revision":%s,"cpu_pwm":%s,"sys_pwm":%s,"sys2_pwm":%s,"cpu_rpm":%s,"sys_rpm":%s,"sys2_rpm":%s,"cpu_manual":%s,"sys_manual":%s,"sys2_manual":%s,"startup":"%s","error":"%s"' \
+        "$BIOS_SUPPORTED" "$BIOS_AVAILABLE" "$(json_str "$BIOS_MODEL")" "$BIOS_EXPERIMENTAL" "${BIOS_MIN_PWM:-0}" "$(json_str "$BIOS_FAN_WRITE_TARGET")" "$(json_str "$BIOS_PRODUCT_NAME")" "$(json_str "$BIOS_BACKEND")" \
+        "$(json_str "$chip_id")" "${BIOS_REVISION:-0}" "${BIOS_CPU_PWM:--1}" "${BIOS_SYS_PWM:--1}" "${BIOS_SYS2_PWM:--1}" \
+        "${BIOS_CPU_RPM:-0}" "${BIOS_SYS_RPM:-0}" "${BIOS_SYS2_RPM:-0}" "$BIOS_CPU_MANUAL" "$BIOS_SYS_MANUAL" "$BIOS_SYS2_MANUAL" \
+        "$(json_str "$BIOS_STARTUP_POLICY")" "$(json_str "$error")"
+    [[ -n "$message" ]] && printf ',"message":"%s"' "$(json_str "$message")"
+    printf '}'
 }
 
 echo "Content-Type: application/json; charset=utf-8"
@@ -298,6 +340,53 @@ case "$API_PATH" in
         ;;
     /hardware/status)
         hardware_status_json
+        ;;
+    /bios/status)
+        bios_status_json
+        ;;
+    /bios/fan)
+        channel=$(query_value channel)
+        pwm=$(query_value pwm)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif ! [[ "$channel" =~ ^(cpu|sys|all)$ && "$pwm" =~ ^[0-9]+$ ]] || (( pwm < 0 || pwm > 255 )); then
+            echo '{"ok":false,"error":"风扇参数无效"}'
+        elif bios_set_fan "$channel" "$pwm"; then
+            if [[ "$channel" == "cpu" ]]; then fan_name="CPU 风扇"; elif [[ "$channel" == "all" ]]; then fan_name="全部风扇"; else fan_name="系统风扇"; fi
+            bios_status_json "${fan_name} PWM 已设置为 ${pwm}"
+        else
+            printf '{"ok":false,"error":"%s"}' "$(json_str "${BIOS_LAST_ERROR:-风扇控制失败}")"
+        fi
+        ;;
+    /bios/fan/mode)
+        channel=$(query_value channel)
+        fan_mode=$(query_value mode)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif ! [[ "$channel" =~ ^(cpu|sys|all)$ && "$fan_mode" =~ ^(auto|manual)$ ]]; then
+            echo '{"ok":false,"error":"风扇模式参数无效"}'
+        elif bios_set_fan_mode "$channel" "$fan_mode"; then
+            if [[ "$channel" == "cpu" ]]; then fan_name="CPU 风扇"; elif [[ "$channel" == "all" ]]; then fan_name="全部风扇"; else fan_name="系统风扇"; fi
+            if [[ "$fan_mode" == "auto" ]]; then
+                bios_status_json "${fan_name} 已恢复硬件自动调速"
+            else
+                bios_status_json "${fan_name} 已切换到手动 PWM 模式"
+            fi
+        else
+            printf '{"ok":false,"error":"%s"}' "$(json_str "${BIOS_LAST_ERROR:-风扇模式设置失败}")"
+        fi
+        ;;
+    /bios/startup)
+        policy=$(query_value policy)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif ! [[ "$policy" =~ ^(on|off|last)$ ]]; then
+            echo '{"ok":false,"error":"来电启动参数无效"}'
+        elif bios_set_startup "$policy"; then
+            bios_status_json "来电启动策略已更新"
+        else
+            printf '{"ok":false,"error":"%s"}' "$(json_str "${BIOS_LAST_ERROR:-来电启动设置失败}")"
+        fi
         ;;
     /mapping)
         disk_load_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || DISK_LED_MAP=()
@@ -469,7 +558,7 @@ case "$API_PATH" in
             (( threshold < 1 || threshold > 1048576 )); then
             echo '{"ok":false,"error":"invalid power light parameters"}'
         elif ! ensure_led_backend || [[ "$LED_BACKEND_ACTIVE" != "power-0x26" ]]; then
-            echo '{"ok":false,"error":"power-0x26 backend unavailable"}'
+            printf '{"ok":false,"error":"%s"}' "$(json_str "${LED_LAST_ERROR:-power-0x26 backend unavailable}")"
         else
             led_clear_cache 2>/dev/null
             command_effect="$effect"
@@ -499,7 +588,7 @@ case "$API_PATH" in
                     printf '{"ok":true,"mode":"%s","color":"%s","effect":"%s","message":"480T 电源灯设置已应用"}' "$mode" "$color" "$effect"
                 fi
             else
-                echo '{"ok":false,"error":"power light command failed"}'
+                printf '{"ok":false,"error":"%s"}' "$(json_str "${LED_LAST_ERROR:-power light command failed}")"
             fi
         fi
         ;;
