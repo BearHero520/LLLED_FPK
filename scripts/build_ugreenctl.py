@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCE = ROOT / "App.Native.UGreenLED" / "app" / "server" / "vendor" / "UGREEN-NAS-Hardware"
 DEFAULT_BINARY = ROOT / "App.Native.UGreenLED" / "app" / "server" / "bin" / "ugreenctl"
 DEFAULT_PLUGIN_DIR = ROOT / "App.Native.UGreenLED" / "app" / "server" / "lib" / "ugreenctl" / "models"
-MODELS = ("dxp4800plus", "dxp4800s", "dxp480tplus")
+MODELS = ("dxp4800plus", "dxp4800s", "dxp480tplus", "dxp6800pro")
 
 
 def run(command: list[str]) -> None:

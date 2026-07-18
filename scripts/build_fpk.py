@@ -151,6 +151,7 @@ def validate_project() -> None:
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp4800plus.so",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp4800s.so",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp480tplus.so",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp6800pro.so",
         PROJECT / "app" / "server" / "vendor" / "UGREEN-NAS-Hardware" / "LICENSE",
         PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dxp480t-power.patch",
     ]
@@ -198,6 +199,7 @@ def verify_package(package: Path, *, expected_checksum: str, expected_version: s
                 "server/lib/ugreenctl/models/dxp4800plus.so",
                 "server/lib/ugreenctl/models/dxp4800s.so",
                 "server/lib/ugreenctl/models/dxp480tplus.so",
+                "server/lib/ugreenctl/models/dxp6800pro.so",
                 "server/vendor/UGREEN-NAS-Hardware/LICENSE",
             }.issubset(app_names):
                 raise SystemExit("FPK app.tgz 结构校验失败")

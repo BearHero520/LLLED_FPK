@@ -17,6 +17,7 @@ mkdir -p "$PLUGINS"
 : > "$PLUGINS/dxp4800plus.so"
 : > "$PLUGINS/dxp4800s.so"
 : > "$PLUGINS/dxp480tplus.so"
+: > "$PLUGINS/dxp6800pro.so"
 cat > "$BIN" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$@" > "$UGREENCTL_ARGS"
@@ -112,6 +113,37 @@ assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan 
 ! bios_set_fan_mode sys manual || fail "DXP4800S mode writes must remain unavailable"
 bios_set_startup on
 assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply power startup set on "
+
+UGREEN_PRODUCT_NAME="DXP6800 Pro"
+bios_supported_model || fail "DXP6800 Pro should expose guarded firmware-reversed BIOS control"
+UGREEN_PRODUCT_NAME="UGREEN DXP6800 Pro"
+! bios_supported_model || fail "DXP6800 Pro BIOS control must require the exact upstream DMI product name"
+UGREEN_PRODUCT_NAME="DXP6800 Pro"
+cat > "$STATUS" <<'EOF'
+model: dxp6800pro (DXP6800 Pro (firmware-reversed))
+controller: ITE IT8613 Super I/O
+startup: restore
+fan cpu: pwm=120 mode=manual tach=675 rpm=1000
+fan sys1: pwm=88 mode=manual tach=750 rpm=900
+fan sys2: pwm=88 mode=manual tach=450 rpm=1500
+EOF
+bios_read_status
+assert_eq "$BIOS_MODEL" "dxp6800pro"
+assert_eq "$BIOS_EXPERIMENTAL" "true"
+assert_eq "$BIOS_WRITE_CONFIRMATION_REQUIRED" "true"
+assert_eq "$BIOS_CPU_PWM" "120"
+assert_eq "$BIOS_SYS_PWM" "88"
+assert_eq "$BIOS_SYS2_PWM" "88"
+assert_eq "$BIOS_SYS2_RPM" "1500"
+bios_write_confirmation_required || fail "DXP6800 Pro must require explicit write acknowledgement"
+bios_set_fan cpu 120
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan set cpu 120 "
+bios_set_fan sys 88
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan set sys 88 "
+! bios_set_fan all 88 || fail "DXP6800 Pro must only expose the paired system fan target"
+! bios_set_fan sys 39 || fail "DXP6800 Pro PWM below 40 must be rejected"
+bios_set_startup last
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply power startup set restore "
 
 UGREEN_PRODUCT_NAME="UGREEN DXP480T Plus"
 cat > "$STATUS" <<'EOF'

@@ -128,10 +128,11 @@ def main():
         f"printf '%s\\n' \"$model_list\" | grep -q '^dxp4800plus[[:space:]]' && "
         f"printf '%s\\n' \"$model_list\" | grep -q '^dxp4800s[[:space:]]' && "
         f"printf '%s\\n' \"$model_list\" | grep -q '^dxp480tplus[[:space:]]' && "
+        f"printf '%s\\n' \"$model_list\" | grep -q '^dxp6800pro[[:space:]]' && "
         f"mkdir -p {REMOTE_DIR}/app/server/bin {REMOTE_DIR}/app/server/lib/ugreenctl/models && "
         f"install -m 0755 {hardware_build}/ugreenctl {REMOTE_DIR}/app/server/bin/ugreenctl && "
         f"install -m 0644 {hardware_build}/models/dxp4800plus.so {hardware_build}/models/dxp4800s.so "
-        f"{hardware_build}/models/dxp480tplus.so "
+        f"{hardware_build}/models/dxp480tplus.so {hardware_build}/models/dxp6800pro.so "
         f"{REMOTE_DIR}/app/server/lib/ugreenctl/models/",
         8,
     )

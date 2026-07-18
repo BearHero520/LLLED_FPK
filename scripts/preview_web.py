@@ -142,36 +142,37 @@ class PreviewState:
 
     def bios_payload(self, message: str = "") -> dict[str, object]:
         profile = self.selected_profile()
-        supported = profile in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus"}
+        supported = profile in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}
         is_480t = profile == "dxp480t_plus"
         is_4800s = profile == "dxp4800s"
+        is_6800 = profile == "dxp6800"
         payload: dict[str, object] = {
             "ok": True,
             "supported": supported,
             "available": supported,
-            "model": profile if supported else "unknown",
-            "experimental": is_4800s,
+            "model": "dxp6800pro" if is_6800 else profile if supported else "unknown",
+            "experimental": is_4800s or is_6800,
             "min_pwm": 64 if is_4800s else 40,
             "fan_write_target": "all" if is_480t else "sys",
             "cpu_fan_present": not is_4800s,
-            "fan_mode_writable": not is_4800s,
+            "fan_mode_writable": False,
             "pwm_readable": not is_4800s,
-            "write_confirmation_required": is_4800s,
+            "write_confirmation_required": is_4800s or is_6800,
             "product_name": f"{self.profile_meta()[0]}（预览）",
             "backend": "ugreenctl" if supported else "unavailable",
             "chip_id": "0x8613" if supported else "",
             "revision": 2 if supported else 0,
             "cpu_pwm": self.bios_cpu_pwm if supported and not is_4800s else -1,
             "sys_pwm": self.bios_sys_pwm if supported and not is_4800s else -1,
-            "sys2_pwm": self.bios_sys2_pwm if is_480t else -1,
+            "sys2_pwm": self.bios_sys2_pwm if is_480t or is_6800 else -1,
             "cpu_rpm": 1120 if is_480t else 1280 if supported and not is_4800s else 0,
             "sys_rpm": 860 if is_480t else 920 if is_4800s else 940 if supported else 0,
-            "sys2_rpm": 790 if is_480t else 0,
+            "sys2_rpm": 790 if is_480t else 820 if is_6800 else 0,
             "cpu_manual": self.bios_cpu_manual if supported else False,
             "sys_manual": self.bios_sys_manual if supported else False,
-            "sys2_manual": self.bios_sys2_manual if is_480t else False,
+            "sys2_manual": self.bios_sys2_manual if is_480t or is_6800 else False,
             "startup": self.bios_startup if supported else "unknown",
-            "error": "" if supported else "BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S 与 DXP480T Plus",
+            "error": "" if supported else "BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro",
         }
         if message:
             payload["message"] = message
@@ -299,7 +300,7 @@ STATE = PreviewState()
 
 
 class PreviewHandler(BaseHTTPRequestHandler):
-    server_version = "UGreenLEDPreview/1.8.2"
+    server_version = "UGreenLEDPreview/1.8.3"
 
     def log_message(self, fmt: str, *args: object) -> None:
         print(f"[{self.log_date_time_string()}] {fmt % args}")
@@ -640,6 +641,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
             profile = STATE.selected_profile()
             is_480t = profile == "dxp480t_plus"
             is_4800s = profile == "dxp4800s"
+            is_6800 = profile == "dxp6800"
             try:
                 pwm = int((query.get("pwm") or ["-1"])[0])
             except ValueError:
@@ -647,11 +649,11 @@ class PreviewHandler(BaseHTTPRequestHandler):
             if method != "POST":
                 self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
                 return
-            if profile not in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus"}:
-                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S 与 DXP480T Plus"})
+            if profile not in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}:
+                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"})
                 return
-            if is_4800s and (query.get("confirm") or [""])[0] != "firmware-reversed":
-                self.send_json({"ok": False, "error": "DXP4800S 写入尚未实机验证，请先确认固件逆向风险"})
+            if (is_4800s or is_6800) and (query.get("confirm") or [""])[0] != "firmware-reversed":
+                self.send_json({"ok": False, "error": "固件逆向写入尚未实机验证，请先确认风险"})
                 return
             valid_channels = {"sys"} if is_4800s else {"cpu", "all"} if is_480t else {"cpu", "sys"}
             minimum = 64 if is_4800s else 40
@@ -665,6 +667,9 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 if channel == "sys":
                     STATE.bios_sys_pwm = pwm
                     STATE.bios_sys_manual = True
+                    if is_6800:
+                        STATE.bios_sys2_pwm = pwm
+                        STATE.bios_sys2_manual = True
                 if channel == "all":
                     STATE.bios_sys_pwm = pwm
                     STATE.bios_sys2_pwm = pwm
@@ -681,8 +686,8 @@ class PreviewHandler(BaseHTTPRequestHandler):
             if method != "POST":
                 self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
                 return
-            if profile not in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus"}:
-                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S 与 DXP480T Plus"})
+            if profile not in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}:
+                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"})
                 return
             if profile == "dxp4800s":
                 self.send_json({"ok": False, "error": "DXP4800S 当前模式不可读，只开放受保护的手动 PWM 写入"})
@@ -718,11 +723,11 @@ class PreviewHandler(BaseHTTPRequestHandler):
             if method != "POST":
                 self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
                 return
-            if profile not in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus"}:
-                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S 与 DXP480T Plus"})
+            if profile not in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}:
+                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"})
                 return
-            if profile == "dxp4800s" and (query.get("confirm") or [""])[0] != "firmware-reversed":
-                self.send_json({"ok": False, "error": "DXP4800S 写入尚未实机验证，请先确认固件逆向风险"})
+            if profile in {"dxp4800s", "dxp6800"} and (query.get("confirm") or [""])[0] != "firmware-reversed":
+                self.send_json({"ok": False, "error": "固件逆向写入尚未实机验证，请先确认风险"})
                 return
             if policy not in {"on", "off", "last"}:
                 self.send_json({"ok": False, "error": "来电启动参数无效"})

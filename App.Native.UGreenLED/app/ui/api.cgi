@@ -469,7 +469,7 @@ bios_status_json() {
 bios_write_confirmation_valid() {
     local confirmation="$(query_value confirm)"
 
-    if [[ "$(bios_detected_profile)" == "dxp4800s" ]]; then
+    if [[ "$(bios_detected_profile)" == "dxp4800s" || "$(bios_detected_profile)" == "dxp6800pro" ]]; then
         [[ "$confirmation" == "firmware-reversed" ]]
     elif bios_direct_fan_fallback_active; then
         [[ "$confirmation" == "direct-superio" ]]
@@ -711,7 +711,11 @@ case "$API_PATH" in
         elif ! [[ "$channel" =~ ^(cpu|sys|all)$ && "$pwm" =~ ^[0-9]+$ ]] || (( pwm < 0 || pwm > 255 )); then
             echo '{"ok":false,"error":"风扇参数无效"}'
         elif ! bios_write_confirmation_valid; then
-            echo '{"ok":false,"error":"直控风扇写入需要先确认 IT8613 直控风险"}'
+            if [[ "$(bios_detected_profile)" == "dxp4800s" || "$(bios_detected_profile)" == "dxp6800pro" ]]; then
+                echo '{"ok":false,"error":"固件逆向风扇写入需要先确认风险"}'
+            else
+                echo '{"ok":false,"error":"直控风扇写入需要先确认 IT8613 直控风险"}'
+            fi
         elif bios_set_fan "$channel" "$pwm"; then
             if [[ "$channel" == "cpu" ]]; then fan_name="CPU 风扇"; elif [[ "$channel" == "all" ]]; then fan_name="全部风扇"; else fan_name="系统风扇"; fi
             bios_status_json "${fan_name} PWM 已设置为 ${pwm}"

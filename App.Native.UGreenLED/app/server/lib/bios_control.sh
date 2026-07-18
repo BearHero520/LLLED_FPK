@@ -61,13 +61,14 @@ bios_detected_profile() {
         "DXP4800S") echo "dxp4800s" ;;
         "DXP4800 PLUS"|"UGREEN DXP4800 PLUS") echo "dxp4800_plus" ;;
         "DXP4800 PRO"|"UGREEN DXP4800 PRO") echo "dxp4800_pro" ;;
+        "DXP6800 PRO") echo "dxp6800pro" ;;
         *) echo "unknown" ;;
     esac
 }
 
 bios_supported_model() {
     case "$(bios_detected_profile)" in
-        dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus) return 0 ;;
+        dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -83,7 +84,10 @@ bios_direct_fan_fallback_active() {
 }
 
 bios_write_confirmation_required() {
-    [[ "$(bios_detected_profile)" == "dxp4800s" ]] || bios_direct_fan_fallback_active
+    case "$(bios_detected_profile)" in
+        dxp4800s|dxp6800pro) return 0 ;;
+    esac
+    bios_direct_fan_fallback_active
 }
 
 bios_ugreenctl_binary() {
@@ -103,7 +107,7 @@ bios_ugreenctl_plugin_dir() {
         "$BIOS_UGREENCTL_PLUGIN_DIR" \
         "${SERVER_DIR:-}/lib/ugreenctl/models" \
         "${APP_ROOT:-}/target/server/lib/ugreenctl/models"; do
-        [[ -n "$candidate" && -r "$candidate/dxp4800plus.so" && -r "$candidate/dxp4800s.so" && -r "$candidate/dxp480tplus.so" ]] && {
+        [[ -n "$candidate" && -r "$candidate/dxp4800plus.so" && -r "$candidate/dxp4800s.so" && -r "$candidate/dxp480tplus.so" && -r "$candidate/dxp6800pro.so" ]] && {
             printf '%s\n' "$candidate"
             return 0
         }
@@ -279,6 +283,9 @@ bios_read_status() {
         BIOS_CPU_FAN_PRESENT=false
         BIOS_PWM_READABLE=true
         BIOS_WRITE_CONFIRMATION_REQUIRED=true
+    elif [[ "$BIOS_MODEL" == "dxp6800pro" ]]; then
+        BIOS_EXPERIMENTAL=true
+        BIOS_WRITE_CONFIRMATION_REQUIRED=true
     fi
     if bios_direct_fan_fallback_active; then
         BIOS_DIRECT_FAN_FALLBACK=true
@@ -326,6 +333,16 @@ bios_set_fan() {
                 return 1
             }
             ;;
+        dxp6800pro)
+            [[ "$pwm" =~ ^[0-9]+$ ]] && (( pwm >= 40 && pwm <= 255 )) || {
+                BIOS_LAST_ERROR="DXP6800 Pro PWM 必须在 40 到 255 之间"
+                return 1
+            }
+            [[ "$channel" == "cpu" || "$channel" == "sys" ]] || {
+                BIOS_LAST_ERROR="DXP6800 Pro 仅支持 CPU 或成对系统风扇写入"
+                return 1
+            }
+            ;;
         dxp480t_plus)
             [[ "$pwm" =~ ^[0-9]+$ ]] && (( pwm >= 40 && pwm <= 255 )) || {
                 BIOS_LAST_ERROR="PWM 必须在 40 到 255 之间"
@@ -350,7 +367,7 @@ bios_set_fan() {
     if ! output=$(bios_cli "${args[@]}" fan set "$channel" "$pwm" 2>&1); then
         bios_set_error_from_output "$output" "设置风扇 PWM 失败"
         _bios_log_error "bios.fan_set_failed" "$BIOS_LAST_ERROR" \
-            "model=$model" "channel=$channel" "pwm=$pwm" "forced=$([[ "$model" == "dxp4800s" ]] && echo true || echo false)" \
+        "model=$model" "channel=$channel" "pwm=$pwm" "forced=$([[ "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)" \
             "output=$output"
         return 1
     fi
@@ -373,7 +390,7 @@ bios_set_startup() {
     BIOS_LAST_ERROR=""
     bios_supported_model || { BIOS_LAST_ERROR="BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S 与 DXP480T Plus"; return 1; }
     model=$(bios_detected_profile)
-    [[ "$model" == "dxp4800s" ]] && args=(--force --apply)
+    [[ "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && args=(--force --apply)
     case "$policy" in
         on|off) upstream_policy="$policy" ;;
         last) upstream_policy="restore" ;;
@@ -387,5 +404,5 @@ bios_set_startup() {
     fi
     _bios_log_info "bios.startup_set" "来电启动策略写入成功" \
         "model=$model" "policy=$policy" "upstream_policy=$upstream_policy" \
-        "forced=$([[ "$model" == "dxp4800s" ]] && echo true || echo false)"
+        "forced=$([[ "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)"
 }

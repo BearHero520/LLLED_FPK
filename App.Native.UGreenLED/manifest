@@ -1,5 +1,5 @@
 appname               = App.Native.UGreenLED
-version               = 1.8.2
+version               = 1.8.3
 display_name          = 绿联 LED 灯控
 desc                  = 绿联 NAS LED 控制；灯光统一由内置 CLI 控制，并支持 BIOS 风扇与来电启动管理。
 platform              = x86
@@ -14,4 +14,4 @@ desktop_uidir         = ui
 desktop_applaunchname = App.Native.UGreenLED.Web
 service_port          = 5088
 checkport             = false
-changelog             = v1.8.2 修正 DXP480T Plus 无 it87 时的直控风扇路径：复现原厂共享 PWM 控制，不再猜测或写入 sys2；CPU/全部风扇直控要求 --force --apply、最低 PWM 40 并回读验证
+changelog             = v1.8.3 新增 DXP6800 Pro BIOS、CPU 风扇与成对系统风扇控制：基于 UGOS Pro 固件逆向，精确 DMI、风险确认、--force --apply、IT8613 校验和回读保护；尚待实机写入验证

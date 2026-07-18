@@ -20,7 +20,7 @@ LLLED_FPK/
 └── README.md
 ```
 
-应用 ID：`App.Native.UGreenLED` · 当前版本：**1.8.2**
+应用 ID：`App.Native.UGreenLED` · 当前版本：**1.8.3**
 
 ## 功能概览
 
@@ -34,7 +34,7 @@ LLLED_FPK/
 | 网络灯 | **外网**（海外检测点通）、**联网**（仅国内通）、**断网** |
 | 速度闪动 | 磁盘读写、网络上传下载超过阈值后闪动，速度越高闪动越快，两项可独立开关 |
 | 电源灯 | 智能 / 全开模式下可单独配色 |
-| BIOS 控制 | 直接集成 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 的 `ugreenctl`；DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 优先经 `it87` hwmon 控制；卸载 `it87` 后可使用受保护的 IT8613 直控兜底 |
+| BIOS 控制 | 直接集成 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 的 `ugreenctl`；DXP4800 Plus / Pro、DXP4800S、DXP480T Plus、DXP6800 Pro 优先经 `it87` hwmon 控制；卸载 `it87` 后可使用受保护的 IT8613 直控兜底 |
 | Web 配置 | 飞牛桌面 iframe 内配色预设、保存后自动进入智能模式 |
 | 分级诊断日志 | 统一记录服务、CGI、LED、BIOS、驱动与安装事件，包含请求 ID、源码位置、耗时、返回码和错误上下文，并自动脱敏、截断和轮转 |
 
@@ -80,7 +80,7 @@ python scripts/build_ugreenctl.py # 仅 x86 Linux；GitHub Actions 会自动执�
 python scripts/build_fpk.py
 ```
 
-`ugreenctl` 与 DXP4800 Plus / DXP4800S / DXP480T Plus 机型插件由 CI 在 Ubuntu 22.04 构建并随 FPK 分发；Windows 本地检出请通过 GitHub Actions 打包。`scripts/build_fpk_remote.py` 会在 NAS 端按需安装 CMake 和编译器再构建它。硬件源代码以 Git 子模块固定在 `App.Native.UGreenLED/app/server/vendor/UGREEN-NAS-Hardware`，克隆时请使用 `git clone --recurse-submodules`；升级时同步更新该子模块提交。
+`ugreenctl` 与 DXP4800 Plus / DXP4800S / DXP480T Plus / DXP6800 Pro 机型插件由 CI 在 Ubuntu 22.04 构建并随 FPK 分发；Windows 本地检出请通过 GitHub Actions 打包。`scripts/build_fpk_remote.py` 会在 NAS 端按需安装 CMake 和编译器再构建它。硬件源代码以 Git 子模块固定在 `App.Native.UGreenLED/app/server/vendor/UGREEN-NAS-Hardware`，克隆时请使用 `git clone --recurse-submodules`；升级时同步更新该子模块提交。
 
 输出目录为 `dist/`，其中包括：
 
@@ -95,8 +95,8 @@ python scripts/build_fpk.py
 `.github/workflows/release.yml` 会在推送 `v*.*.*` 标签时自动构建并发布 Release。标签版本必须与 `App.Native.UGreenLED/manifest` 中的 `version` 一致：
 
 ```bash
-git tag v1.8.2
-git push origin v1.8.2
+git tag v1.8.3
+git push origin v1.8.3
 ```
 
 也可以在 GitHub Actions 页面手动运行工作流，只生成可下载的构建产物而不创建 Release。Release 会同时上传带版本文件名、固定文件名以及 SHA256 校验文件。
@@ -154,9 +154,11 @@ DXP4800 GT 和 iDX6011 系列使用 `smbus-block`；iDX6011 Pro 的第二网络�
 
 DXP480T 系列与其他机型不同：它没有硬盘灯和网络灯，也不使用 `0x3a` RGB MCU。应用层只会调用内置 `ugreen_leds_cli` 的 `--dxp480t-power-probe` 和 `--dxp480t-power`，绝不直接访问 I²C。CLI 依据已验证的 [DXP480T Plus 控制方法](https://github.com/miskcoo/ugreen_leds_controller/issues/6#issuecomment-2156807225)，仅在 DMI 匹配 DXP480T、检测到 Intel I801 SMBus，并在 `0x31` 或 `0x26` 读到 `0x5a/0x5b = 0xa5/0xb5` 后执行写入；每个命令都会先清除 `0xa0=1`、`0xa0=2`，再以 `0xb1=1`（红）或 `0xb1=2`（白）选择通道，并用 `0x50` / `0x51` 设置常亮、快闪、慢闪或呼吸。关闭使用原协议的 `0xb1=3`。不会为该档案安装通用 `led-ugreen` DKMS 驱动。检测到专用后端后，“灯光设置”页面会自动替换为 480T 简化控制页；“网络活动”模式会复用电源灯，在总上传与下载速度超过页面设置的阈值后慢闪，达到阈值 4 倍后快闪。其他机型继续使用原来的完整 RGB 设置页。
 
-BIOS 控制直接集成 [BearHero520/UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 的 `ugreenctl` 与 DXP4800 Plus / DXP4800S / DXP480T Plus 插件（MIT）。该项目负责精确 DMI 匹配、IT8613 身份及原厂驱动冲突检查、进程锁和寄存器映射；本应用负责 Web API 与页面展示。三个机型优先使用动态 `name=it8613` hwmon 节点；若用户为释放通道而卸载 `it87`，会在无原厂接口、无 `it87` 占用、芯片 ID 匹配并取得进程锁后，回退到各机型独立的 IT8613 直控映射。直控写入仍须 `--force --apply`、最低 PWM 40 并逐项回读；4800 Plus / Pro、4800S 的直控写入仍待分别完成实机记录。DXP480T Plus 的 hwmon CPU/全部风扇路径已实机验证；没有 `it87` 时，CPU 与全部风扇会复现官方固件的共享 PWM 路径（`0x17/0x73`），三路转速仍可读取，但 sys2 没有原厂证明的独立 PWM 写入路径，页面会标记为仅测速。该共享直控 all 路径等待实机验证；普通 DXP480T 不会因手动机型档案选择而绕过精确 DMI 保护。
+BIOS 控制直接集成 [BearHero520/UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 的 `ugreenctl` 与 DXP4800 Plus / DXP4800S / DXP480T Plus / DXP6800 Pro 插件（MIT）。该项目负责精确 DMI 匹配、IT8613 身份及原厂驱动冲突检查、进程锁和寄存器映射；本应用负责 Web API 与页面展示。四个机型优先使用动态 `name=it8613` hwmon 节点；若用户为释放通道而卸载 `it87`，会在无原厂接口、无 `it87` 占用、芯片 ID 匹配并取得进程锁后，回退到各机型独立的 IT8613 直控映射。直控写入仍须 `--force --apply`、最低 PWM 40 并逐项回读；4800 Plus / Pro、4800S 与 6800 Pro 的直控写入仍待分别完成实机记录。DXP480T Plus 的 hwmon CPU/全部风扇路径已实机验证；没有 `it87` 时，CPU 与全部风扇会复现官方固件的共享 PWM 路径（`0x17/0x73`），三路转速仍可读取，但 sys2 没有原厂证明的独立 PWM 写入路径，页面会标记为仅测速。该共享直控 all 路径等待实机验证；普通 DXP480T 不会因手动机型档案选择而绕过精确 DMI 保护。
 
 DXP4800S 仅匹配精确 DMI `DXP4800S`。可读取 `sysfan1` 转速与当前 PWM，手动 PWM 只开放 `sys` 与 `40..255`，来电启动支持 `on/off/last`；只有手动模式会被报告为已知，原厂自动调速由 `hwmonitor` 用户态守护进程实现。由于这些写入来自 UGOS Pro `1.17.0.0095` 固件逆向且尚无实机验证，网页会要求显式风险确认，后端同时附加 `--force --apply`，并继续执行芯片 ID、原厂驱动冲突和进程锁保护。
+
+DXP6800 Pro 仅匹配精确 DMI `DXP6800 Pro`。UGOS Pro `1.17.0.0095` 的 `ug_it86x-cpufan` 模块证明其使用 IT8613：可读取 CPU、系统风扇 1、系统风扇 2；CPU 使用独立 PWM，`sys` 写入会按原厂寄存器顺序同步系统风扇 1/2。页面不会提供单独的 sys1/sys2 写入。来电启动支持 `on/off/last`。这些映射尚未实机验证，因此所有写入均需显式风险确认，并附加 `--force --apply`、最低 PWM 40、精确 DMI、芯片 ID、原厂驱动冲突、进程锁和回读保护。
 
 如果 LED 硬件或 `i2c-tools` 暂时不可用，应用仍会完成安装并开放 Web 管理页，不会因为灯控后端探测失败而让 fnOS 报整包安装失败。后台服务会继续重试，并在硬件状态区域显示诊断信息。
 
@@ -198,9 +200,9 @@ DXP4800S 仅匹配精确 DMI `DXP4800S`。可读取 `sysfan1` 转速与当前 PW
 | `/mapping` | 硬盘映射表 |
 | `/settings` | GET / POST 配置 |
 | `/hardware/status` | 机型档案、协议、后端、DKMS 与内核 headers 状态 |
-| `/bios/status` | DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 的 IT8613、风扇与来电启动状态及写入能力标记 |
-| `/bios/fan?channel=cpu\|sys\|all&pwm=40..255` | POST：设置风扇 PWM；480T 仅允许 `cpu` / `all`；4800S 仅允许 `sys`，并要求 `confirm=firmware-reversed`；若检测到已卸载 `it87` 的直控兜底，则 4800 Plus / 480T Plus 要求 `confirm=direct-superio` |
-| `/bios/startup?policy=on\|off\|last` | POST：设置来电启动策略；4800S 写入要求 `confirm=firmware-reversed` |
+| `/bios/status` | DXP4800 Plus / Pro、DXP4800S、DXP480T Plus、DXP6800 Pro 的 IT8613、风扇与来电启动状态及写入能力标记 |
+| `/bios/fan?channel=cpu\|sys\|all&pwm=40..255` | POST：设置风扇 PWM；480T 仅允许 `cpu` / `all`；4800S 仅允许 `sys`；6800 Pro 仅允许 `cpu` / 成对 `sys`（同步 sys1/sys2）；4800S 与 6800 Pro 要求 `confirm=firmware-reversed`；若检测到已卸载 `it87` 的直控兜底，则 4800 Plus / 480T Plus 要求 `confirm=direct-superio` |
+| `/bios/startup?policy=on\|off\|last` | POST：设置来电启动策略；4800S 与 6800 Pro 写入要求 `confirm=firmware-reversed` |
 | `/power26/apply` | POST：为 DXP480T / Plus 应用红白电源灯颜色、灯效或关闭 |
 | `/driver/install` | POST：确认后安装或重建本应用管理的实验驱动 |
 | `/driver/unload` | POST：卸载本应用管理的驱动并切回 CLI |

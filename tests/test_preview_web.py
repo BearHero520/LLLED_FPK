@@ -183,6 +183,48 @@ class PreviewApiTests(unittest.TestCase):
         self.assertEqual(payload, {"ok": False, "error": "invalid mode"})
         self.assertEqual(preview.STATE.mode, original_mode)
 
+    def test_dxp6800_bios_pair_requires_firmware_reversed_confirmation(self) -> None:
+        preview.STATE.configure_profile("dxp6800")
+
+        status, payload, _ = self.request("GET", "/bios/status")
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["supported"])
+        self.assertEqual(payload["model"], "dxp6800pro")
+        self.assertTrue(payload["write_confirmation_required"])
+        self.assertFalse(payload["fan_mode_writable"])
+        self.assertEqual(payload["sys2_rpm"], 820)
+
+        original_pair = (preview.STATE.bios_sys_pwm, preview.STATE.bios_sys2_pwm)
+        status, payload, _ = self.request("POST", "/bios/fan?channel=sys&pwm=120")
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["ok"])
+        self.assertEqual((preview.STATE.bios_sys_pwm, preview.STATE.bios_sys2_pwm), original_pair)
+
+        status, payload, _ = self.request(
+            "POST", "/bios/fan?channel=sys&pwm=120&confirm=firmware-reversed"
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertEqual((preview.STATE.bios_sys_pwm, preview.STATE.bios_sys2_pwm), (120, 120))
+
+        status, payload, _ = self.request(
+            "POST", "/bios/fan?channel=sys1&pwm=120&confirm=firmware-reversed"
+        )
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["ok"])
+
+        status, payload, _ = self.request("POST", "/bios/startup?policy=off")
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["ok"])
+        self.assertNotEqual(preview.STATE.bios_startup, "off")
+
+        status, payload, _ = self.request(
+            "POST", "/bios/startup?policy=off&confirm=firmware-reversed"
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(preview.STATE.bios_startup, "off")
+
     def test_unhandled_preview_exception_is_json(self) -> None:
         original: Callable[[str], None] = preview.STATE.set_mode
 
