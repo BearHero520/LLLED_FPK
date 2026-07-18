@@ -141,4 +141,24 @@ assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan 
 bios_set_startup on
 assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --apply power startup set on "
 
+BIOS_TEST_IT87_MODULE_PATH="$TMP/it87-unloaded"
+cat > "$STATUS" <<'EOF'
+model: dxp480tplus (UGREEN DXP480T Plus (hardware-verified))
+controller: ITE IT8613 Super I/O
+startup: on
+fan cpu: pwm=120 mode=manual tach=675 rpm=1000
+fan sys1: pwm=120 mode=manual tach=750 rpm=900
+fan sys2: pwm=unknown mode=unknown tach=450 rpm=1500
+EOF
+bios_read_status
+assert_eq "$BIOS_DIRECT_FAN_FALLBACK" "true"
+assert_eq "$BIOS_WRITE_CONFIRMATION_REQUIRED" "true"
+assert_eq "$BIOS_CPU_PWM" "120"
+assert_eq "$BIOS_SYS_PWM" "120"
+assert_eq "$BIOS_SYS2_PWM" "-1"
+assert_eq "$BIOS_SYS2_RPM" "1500"
+bios_set_fan all 100
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan set all 100 "
+unset BIOS_TEST_IT87_MODULE_PATH
+
 echo "BIOS control tests passed"

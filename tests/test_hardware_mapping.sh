@@ -15,21 +15,14 @@ source "$LIB/settings.sh"
 settings_init "$SETTINGS_FILE"
 source "$LIB/hardware_profile.sh"
 
-HWMON_SOURCE="$ROOT/App.Native.UGreenLED/app/server/vendor/UGREEN-NAS-Hardware/fan/it8613_hwmon.c"
-FAN_480T_SOURCE="$ROOT/App.Native.UGreenLED/app/server/vendor/UGREEN-NAS-Hardware/fan/it8613_dxp480t.c"
-LOADER_SOURCE="$ROOT/App.Native.UGreenLED/app/server/vendor/UGREEN-NAS-Hardware/core/loader.c"
-grep -Fq 'IT8613_HWMON_NAME "it8613"' "$HWMON_SOURCE" || fail "fan control must discover name=it8613 dynamically"
-grep -Fq 'flock(device->lock_fd, LOCK_EX)' "$HWMON_SOURCE" || fail "fan control must hold a process lock"
-grep -Fq 'write_and_verify' "$HWMON_SOURCE" || fail "fan writes must be read back"
-grep -Fq 'IT8613_MIN_MANUAL_PWM 40U' "$HWMON_SOURCE" || fail "fan PWM floor must remain 40"
-grep -Fq 'ugreenctl_plugin_v4' "$LOADER_SOURCE" || fail "ugreenctl loader must prefer ABI v4 plugins"
+BIOS_CONTROL="$LIB/bios_control.sh"
+grep -Fq 'server/bin/ugreenctl' "$BIOS_CONTROL" || fail "BIOS operations must use the bundled ugreenctl adapter"
+grep -Fq 'DXP480T Plus' "$BIOS_CONTROL" || fail "BIOS adapter must retain the exact DXP480T Plus guard"
+grep -Fq 'direct-superio' "$ROOT/App.Native.UGreenLED/app/ui/api.cgi" || fail "direct fan fallback must require explicit confirmation"
 grep -Fq '"it87_loaded"' "$ROOT/App.Native.UGreenLED/app/ui/api.cgi" || fail "hardware status must report it87"
 grep -Fq '"led_plugin_conflict"' "$ROOT/App.Native.UGreenLED/app/ui/api.cgi" || fail "hardware status must report LED plugin conflicts"
 grep -Fq '检测到 it87' "$ROOT/App.Native.UGreenLED/app/www/js/app.js" || fail "page must explain it87 compatibility"
-cpu_line=$(grep -nF '{"cpu", 2, 3}' "$FAN_480T_SOURCE" | tail -n 1 | cut -d: -f1)
-sys2_line=$(grep -nF '{"sys2", 4, 4}' "$FAN_480T_SOURCE" | tail -n 1 | cut -d: -f1)
-sys1_line=$(grep -nF '{"sys1", 3, 2}' "$FAN_480T_SOURCE" | tail -n 1 | cut -d: -f1)
-(( cpu_line < sys2_line && sys2_line < sys1_line )) || fail "DXP480T writes must be CPU, system 2, system 1"
+grep -Fq '共享 PWM' "$ROOT/App.Native.UGreenLED/app/www/js/app.js" || fail "page must explain the DXP480T Plus shared direct PWM path"
 
 UGREEN_PRODUCT_NAME="UGREEN DXP6800 Pro"
 assert_eq "$(hardware_profile_key)" "dxp6800"

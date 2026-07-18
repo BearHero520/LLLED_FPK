@@ -1430,7 +1430,9 @@
     $('biosAvailabilityText').textContent = !biosState.supported
       ? '此入口仅对 DXP4800 Plus / Pro、DXP4800S 与 DXP480T Plus 开放。'
       : available
-        ? `已动态找到 name=it8613 的 hwmon 节点，风扇通过现有 it87 驱动读取和写入；来电启动${startupAvailable ? '也可用' : `独立不可用：${biosState.startup_error || '读取失败'}`}。`
+        ? directFallback
+          ? `it87 已卸载，风扇通过 DXP480T Plus 原厂共享 Super I/O PWM 路径读取和写入；sys2 仅报告转速。来电启动${startupAvailable ? '也可用' : `独立不可用：${biosState.startup_error || '读取失败'}`}。`
+          : `已动态找到 name=it8613 的 hwmon 节点，风扇通过现有 it87 驱动读取和写入；来电启动${startupAvailable ? '也可用' : `独立不可用：${biosState.startup_error || '读取失败'}`}。`
         : startupAvailable
           ? `来电启动可用，但风扇 hwmon 不可用：${biosState.fan_error || biosState.error || '未找到 name=it8613 的节点'}。`
           : biosState.fan_error || biosState.error || '没有找到可用的 BIOS 控制接口。';
@@ -1439,7 +1441,9 @@
       : is480t ? 'DXP480T PLUS · IT8613 · VERIFIED' : `DXP4800 ${is4800Pro ? 'PRO' : 'PLUS'} · IT8613`;
     $('biosPwmRangeBadge').textContent = `${minPwm}–255`;
     $('biosFanSafetyText').textContent = is480t
-      ? '只开放手动 PWM。全部风扇按 CPU → 系统2 → 系统1 写入，每个节点都写后回读；PWM 最低为 40。'
+      ? directFallback
+        ? '当前未使用 it87。直控会复现 480T Plus 原厂的共享 PWM 路径；sys2 仅测速，不会单独写入。PWM 最低为 40。'
+        : '只开放手动 PWM。全部风扇通过现有 it87 hwmon 节点写入并回读；PWM 最低为 40。'
       : '只开放手动 PWM，写入后会回读校验，PWM 最低为 40。原厂自动调速是软件温控曲线，不会用 pwm*_enable=2 冒充。';
     $('biosProductName').textContent = biosState.product_name || '未读取到';
     $('biosChipId').textContent = biosState.chip_id
@@ -1456,11 +1460,21 @@
     $('sys2FanRpm').textContent = available ? String(biosState.sys2_rpm ?? 0) : '—';
     $('biosSys2RpmRow').hidden = !is480t;
     $('cpuFanCard').hidden = biosState.cpu_fan_present === false;
-    $('sysFanEyebrow').textContent = is480t ? 'ALL FANS' : 'SYSTEM FAN';
-    $('sysFanTitle').textContent = is480t ? '全部风扇' : is4800s ? '系统风扇 sysfan1' : '系统风扇';
+    $('cpuFanTitle').textContent = is480t && directFallback ? 'CPU / 共享输出' : 'CPU 风扇';
+    $('sysFanEyebrow').textContent = is480t && directFallback ? 'SHARED FAN PWM' : is480t ? 'ALL FANS' : 'SYSTEM FAN';
+    $('sysFanTitle').textContent = is480t && directFallback ? '共享风扇 PWM' : is480t ? '全部风扇' : is4800s ? '系统风扇 sysfan1' : '系统风扇';
     $('sysFanRpmLabel').textContent = is480t ? 'SYS 1 RPM' : 'RPM';
     setBiosPwmControl('cpu', biosState.cpu_pwm);
-    if (is480t) {
+    if (is480t && directFallback) {
+      const sharedPwm = biosPwmValue(biosState.sys_pwm) ?? biosPwmValue(biosState.cpu_pwm);
+      $('biosAllFanPwmRow').hidden = false;
+      $('allCpuFanPwm').textContent = biosPwmText(sharedPwm);
+      $('allSys1FanPwm').textContent = biosPwmText(sharedPwm);
+      $('allSys2FanPwm').textContent = '仅测速';
+      $('sysFanCurrentPwm').textContent = biosPwmText(sharedPwm);
+      if (sharedPwm !== null) setBiosPwmEditor('sys', sharedPwm);
+      $('sysFanMode').textContent = '原厂共享 PWM · sys2 不单独写入';
+    } else if (is480t) {
       const allPwmValues = [biosState.cpu_pwm, biosState.sys_pwm, biosState.sys2_pwm].map(biosPwmValue);
       const knownPwmValues = allPwmValues.filter((value) => value !== null);
       const allKnown = knownPwmValues.length === 3;
@@ -1483,11 +1497,13 @@
       $(id).min = String(minPwm);
       if (Number($(id).value) < minPwm) $(id).value = String(minPwm);
     });
-    $('cpuFanMode').textContent = '仅开放手动 PWM';
+    $('cpuFanMode').textContent = is480t && directFallback ? '原厂共享 PWM 输出' : '仅开放手动 PWM';
     if (!is480t) $('sysFanMode').textContent = '仅开放手动 PWM；原厂自动由软件温控曲线实现';
-    $('biosGuardTitle').textContent = directFallback ? 'IT8613 直控保护' : is4800s ? '4800S 固件逆向保护' : is480t ? '480T Plus 已验证保护' : '4800 系列专属保护';
+    $('biosGuardTitle').textContent = directFallback && is480t ? '480T Plus 原厂共享直控保护' : directFallback ? 'IT8613 直控保护' : is4800s ? '4800S 固件逆向保护' : is480t ? '480T Plus 已验证保护' : '4800 系列专属保护';
     $('biosGuardText').textContent = directFallback
-      ? '检测到 it87 已卸载：将仅在无原厂控制器占用、IT8613 芯片 ID 匹配并取得进程锁后使用直控兜底。写入附加 --force --apply、最低 PWM 40 并逐项回读；请先确认风险。'
+      ? is480t
+        ? '检测到 it87 已卸载：DXP480T Plus 只会复现原厂共享 PWM 输出，不会猜测 sys2 寄存器。无原厂控制器占用、IT8613 芯片 ID 匹配并取得进程锁后才允许写入；写入附加 --force --apply、最低 PWM 40 并回读。'
+        : '检测到 it87 已卸载：将仅在无原厂控制器占用、IT8613 芯片 ID 匹配并取得进程锁后使用直控兜底。写入附加 --force --apply、最低 PWM 40 并逐项回读；请先确认风险。'
       : is4800s
       ? '仅精确 DMI 为 DXP4800S 且动态 hwmon 名称为 it8613 时开放。写入附加 --force --apply，最低 PWM 40，并执行进程锁和回读校验。'
       : is480t
@@ -1498,12 +1514,16 @@
       ? '我已了解 IT8613 直控写入风险'
       : '我已了解固件逆向写入风险';
     $('biosExperimentalConfirmText').textContent = directFallback
-      ? '我已确认 it87 已主动卸载，已准备独立温度监控与恢复原控制方式，并接受该机型直控写入尚待实机记录。'
+      ? is480t
+        ? '我已确认 it87 已主动卸载，已准备独立温度监控与恢复原控制方式，并接受 DXP480T Plus 仅使用原厂共享 PWM 直控、sys2 不单独写入。'
+        : '我已确认 it87 已主动卸载，已准备独立温度监控与恢复原控制方式，并接受该机型直控写入尚待实机记录。'
       : '已准备独立温度监控与恢复原厂控制的方案，并接受当前尚无 DXP4800S 实机写入验证。';
     if (currentRoute === 'bios') $('pageDescription').textContent = is4800s
       ? 'DXP4800S 的单路系统风扇、固件逆向 PWM 与来电启动控制；写入前必须确认风险。'
       : is480t
-        ? 'DXP480T Plus 的 IT8613 三风扇状态、已验证 PWM 与来电启动控制。'
+        ? directFallback
+          ? 'DXP480T Plus 的三路转速与原厂共享 PWM 直控；sys2 仅测速。'
+          : 'DXP480T Plus 的 IT8613 三风扇状态、已验证 PWM 与来电启动控制。'
         : ROUTES.bios.description;
     document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
       input.checked = input.value === biosState.startup;
