@@ -39,17 +39,17 @@ ugreen_resolve_paths() {
     done
     WWW_DIR="${WWW_DIR:-${APP_ROOT}/www}"
 
-    UGREEN_CLI=""
-    for c in \
-        "${SERVER_DIR}/bin/ugreen_leds_cli" \
-        "${APP_ROOT}/target/server/bin/ugreen_leds_cli" \
-        /usr/bin/ugreen_leds_cli \
-        /opt/ugreen-led-controller/ugreen_leds_cli; do
-        if [[ -x "$c" ]]; then
-            UGREEN_CLI="$c"
-            break
-        fi
-    done
+    UGREEN_CLI="${UGREEN_CLI_OVERRIDE:-}"
+    if [[ -z "$UGREEN_CLI" ]]; then
+        for c in \
+            "${SERVER_DIR}/bin/ugreen_leds_cli" \
+            "${APP_ROOT}/target/server/bin/ugreen_leds_cli"; do
+            if [[ -x "$c" ]]; then
+                UGREEN_CLI="$c"
+                break
+            fi
+        done
+    fi
 
     LIB_DIR="${SERVER_DIR}/lib"
     ugreen_resolve_runtime || return 1

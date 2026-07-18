@@ -40,10 +40,13 @@ def run(c, cmd, wait=1.0, stdin_text=None, display_cmd=None, get_pty=False):
         stdin.channel.shutdown_write()
     time.sleep(wait)
     raw = (stdout.read() + stderr.read()).decode(errors="replace")
+    exit_status = stdout.channel.recv_exit_status()
     lines = [ln for ln in raw.splitlines() if "password for" not in ln.lower()]
     text = "\n".join(lines)
     if text.strip():
         print(text)
+    if exit_status != 0:
+        raise RuntimeError(f"remote command failed with exit status {exit_status}")
     return text
 
 
@@ -104,20 +107,31 @@ def main():
     print("\n=== build bundled UGREEN-NAS-Hardware control CLI ===")
     sudo(
         c,
-        "if ! command -v cmake >/dev/null 2>&1 || ! command -v cc >/dev/null 2>&1; then "
-        "apt-get update -qq && apt-get install -y -qq cmake build-essential; fi",
+        "if ! command -v cmake >/dev/null 2>&1 || ! command -v cc >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then "
+        "apt-get update -qq && apt-get install -y -qq cmake build-essential git; fi",
         password,
         5,
     )
+
+    print("\n=== build patched bundled LED CLI ===")
+    run(c, f"python3 {REMOTE_DIR}/scripts/build_ugreen_leds_cli.py", 8)
+
     hardware_source = f"{REMOTE_DIR}/app/server/vendor/UGREEN-NAS-Hardware"
     hardware_build = f"{REMOTE_DIR}/.ugreenctl-build"
     run(
         c,
         f"cmake -S {hardware_source} -B {hardware_build} -DCMAKE_BUILD_TYPE=Release && "
         f"cmake --build {hardware_build} --parallel && "
+        f"ctest --test-dir {hardware_build} --output-on-failure && "
+        f"model_list=\"$({hardware_build}/ugreenctl --plugin-dir {hardware_build}/models models)\" && "
+        f"printf '%s\\n' \"$model_list\" && "
+        f"printf '%s\\n' \"$model_list\" | grep -q '^dxp4800plus[[:space:]]' && "
+        f"printf '%s\\n' \"$model_list\" | grep -q '^dxp4800s[[:space:]]' && "
+        f"printf '%s\\n' \"$model_list\" | grep -q '^dxp480tplus[[:space:]]' && "
         f"mkdir -p {REMOTE_DIR}/app/server/bin {REMOTE_DIR}/app/server/lib/ugreenctl/models && "
         f"install -m 0755 {hardware_build}/ugreenctl {REMOTE_DIR}/app/server/bin/ugreenctl && "
-        f"install -m 0644 {hardware_build}/models/dxp4800plus.so {hardware_build}/models/dxp480tplus.so "
+        f"install -m 0644 {hardware_build}/models/dxp4800plus.so {hardware_build}/models/dxp4800s.so "
+        f"{hardware_build}/models/dxp480tplus.so "
         f"{REMOTE_DIR}/app/server/lib/ugreenctl/models/",
         8,
     )

@@ -7,7 +7,7 @@
   <title>绿联 LED 灯控</title>
   <base href="/cgi/ThirdParty/App.Native.UGreenLED/index.cgi/">
   <link rel="stylesheet" href="./vendor/bootstrap-icons/font/bootstrap-icons.min.css?v=1.11.3">
-  <link rel="stylesheet" href="./css/style.css?v=1.7.6">
+  <link rel="stylesheet" href="./css/style.css?v=1.8.1">
 </head>
 <body>
   <div class="app-shell">
@@ -43,7 +43,7 @@
 
       <div class="rail-footer">
         <span class="rail-state"><span class="status-dot" id="railStatusDot"></span><span id="railStatusText">正在连接</span></span>
-        <small>v1.7.6 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
+        <small>v1.8.1 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
       </div>
     </aside>
 
@@ -304,6 +304,7 @@
                   <option value="dxp4800">UGREEN DXP4800</option>
                   <option value="dxp4800_plus">UGREEN DXP4800 Plus</option>
                   <option value="dxp4800_pro">UGREEN DXP4800 Pro（待验证）</option>
+                  <option value="dxp4800s">UGREEN DXP4800S（BIOS 控制固件逆向）</option>
                   <option value="dxp4800_gt">UGREEN DXP4800 GT（实验性）</option>
                   <option value="dxp6800">UGREEN DXP6800 Pro</option>
                   <option value="dxp8800">UGREEN DXP8800 Plus</option>
@@ -317,7 +318,6 @@
                 <select id="hardwareBackend" class="hardware-select">
                   <option value="auto">自动选择（推荐）</option>
                   <option value="cli">内置 CLI</option>
-                  <option value="sysfs">led-ugreen 内核驱动</option>
                 </select>
               </label>
               <label class="hardware-field" for="hardwareWriteProtocol">
@@ -360,7 +360,7 @@
                   </div>
                   <div class="hardware-guide-item" data-backend-guide="power-0x26">
                     <div class="hardware-guide-item-head"><span><i class="bi bi-lightbulb" aria-hidden="true"></i><strong>DXP480T 专用后端</strong></span><small class="hardware-current-tag" hidden>当前使用</small></div>
-                    <p>用于 DXP480T / Plus 的 N76E003 控制器，按原厂驱动规则探测 <code>0x31</code> / <code>0x26</code> 与硬件签名；只支持红/白电源灯，不控制硬盘灯和网络灯。</p>
+                    <p>用于 DXP480T / Plus 的 N76E003 控制器，按原厂地址表探测 <code>0x31</code> / <code>0x26</code> 与硬件签名；只支持红/白电源灯，不控制硬盘灯和网络灯。</p>
                   </div>
                 </div>
                 <div class="hardware-protocol-note">
@@ -402,7 +402,7 @@
             </div>
             <div class="update-content">
               <div class="update-copy">
-                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.7.6</strong></div>
+                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.8.1</strong></div>
                 <h3 id="updateTitle">检查 GitHub Release 获取新版本</h3>
                 <p class="surface-help" id="updateDescription">发现新版本后，可下载安装包并在 fnOS 应用中心手动升级。</p>
                 <small id="updateCheckedAt">不会自动安装，也不会在后台静默升级。</small>
@@ -427,6 +427,51 @@
             <summary class="diagnostics-summary"><span><span class="section-kicker">DIAGNOSTICS</span><strong>LED 原始状态</strong></span><i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
             <pre class="status-console" id="statusBar">正在读取状态…</pre>
           </details>
+
+          <article class="glass-surface log-surface" aria-labelledby="logViewerTitle">
+            <div class="section-heading log-heading">
+              <div>
+                <span class="section-kicker">TROUBLESHOOTING LOG</span>
+                <h2 id="logViewerTitle">应用诊断日志</h2>
+                <p class="surface-help">包含组件、事件、PID、请求 ID、源码位置、耗时和错误上下文；自动脱敏、截断并轮转。</p>
+              </div>
+              <span class="soft-badge" id="logStatusBadge">尚未读取</span>
+            </div>
+            <div class="log-toolbar">
+              <label for="logFilterLevel"><span>查看级别</span>
+                <select id="logFilterLevel" class="hardware-select">
+                  <option value="all">全部</option>
+                  <option value="error">仅 ERROR</option>
+                  <option value="warn">仅 WARN</option>
+                  <option value="info">仅 INFO</option>
+                  <option value="debug">仅 DEBUG</option>
+                </select>
+              </label>
+              <label for="logLineCount"><span>最近行数</span>
+                <select id="logLineCount" class="hardware-select">
+                  <option value="200">200 行</option>
+                  <option value="500" selected>500 行</option>
+                  <option value="1000">1000 行</option>
+                </select>
+              </label>
+              <label for="logWriteLevel"><span>记录级别</span>
+                <select id="logWriteLevel" class="hardware-select">
+                  <option value="info">INFO（日常）</option>
+                  <option value="debug">DEBUG（详细排错）</option>
+                  <option value="warn">WARN</option>
+                  <option value="error">ERROR</option>
+                </select>
+              </label>
+              <button type="button" class="secondary-button" id="btnSaveLogLevel"><i class="bi bi-sliders" aria-hidden="true"></i>应用级别</button>
+              <button type="button" class="secondary-button" id="btnRefreshLogs"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i>刷新</button>
+              <button type="button" class="secondary-button" id="btnCopyLogs"><i class="bi bi-clipboard" aria-hidden="true"></i>复制</button>
+              <button type="button" class="secondary-button" id="btnDownloadLogs"><i class="bi bi-download" aria-hidden="true"></i>下载当前日志</button>
+              <button type="button" class="secondary-button" id="btnDownloadDiagnostics"><i class="bi bi-file-earmark-arrow-down" aria-hidden="true"></i>一键下载诊断包</button>
+              <button type="button" class="danger-button" id="btnClearLogs"><i class="bi bi-trash3" aria-hidden="true"></i>清空</button>
+            </div>
+            <pre class="log-console" id="logConsole" tabindex="0">打开“设备与高级”后会读取最近 500 行应用日志。</pre>
+            <div class="log-footnote"><span id="logMeta">“一键下载诊断包”会即时采集硬件状态并附带最近应用日志，无需 SSH。</span><span>DEBUG 用完后建议恢复 INFO。</span></div>
+          </article>
         </div>
       </section>
 
@@ -494,7 +539,7 @@
 
           <article class="glass-surface bios-fan-surface">
             <div class="section-heading">
-              <div><span class="section-kicker">AUTO / MANUAL PWM</span><h2>风扇控制</h2></div>
+              <div><span class="section-kicker">MANUAL PWM</span><h2>风扇控制</h2></div>
               <span class="soft-badge" id="biosPwmRangeBadge">40–255</span>
             </div>
             <div class="bios-safety-note" id="biosFanSafetyNote" role="note">
@@ -502,22 +547,13 @@
               <p id="biosFanSafetyText">写入 PWM 会将对应风扇切换到手动模式。请先确认温度监控正常，PWM 最低为 40。</p>
             </div>
             <div class="bios-fan-grid">
-              <section class="bios-fan-card" aria-labelledby="cpuFanTitle">
+              <section class="bios-fan-card" id="cpuFanCard" aria-labelledby="cpuFanTitle">
                 <div class="bios-fan-head">
                   <span class="bios-fan-icon"><i class="bi bi-cpu" aria-hidden="true"></i></span>
                   <div><small>CPU FAN</small><strong id="cpuFanTitle">CPU 风扇</strong></div>
                   <span class="bios-rpm"><strong id="cpuFanRpm">—</strong><small>RPM</small></span>
                 </div>
                 <div class="bios-control-state"><span>当前 PWM</span><strong id="cpuFanCurrentPwm">—</strong><small id="cpuFanMode">读取中</small></div>
-                <div class="bios-mode-control">
-                  <span>控制模式</span>
-                  <label class="bios-mode-switch" for="cpuFanManualSwitch">
-                    <span class="bios-mode-label">自动</span>
-                    <input type="checkbox" id="cpuFanManualSwitch" aria-label="CPU 风扇自动或手动模式" aria-describedby="cpuFanMode">
-                    <span class="bios-mode-track" aria-hidden="true"><span></span></span>
-                    <span class="bios-mode-label">手动</span>
-                  </label>
-                </div>
                 <div class="bios-pwm-control">
                   <input type="range" id="cpuFanPwmRange" min="40" max="255" step="1" value="120" aria-label="CPU 风扇 PWM" aria-describedby="biosFanSafetyNote">
                 </div>
@@ -539,15 +575,6 @@
                   <span><small>系统 2 PWM</small><strong id="allSys2FanPwm">—</strong></span>
                 </div>
                 <div class="bios-control-state"><span>当前 PWM</span><strong id="sysFanCurrentPwm">—</strong><small id="sysFanMode">读取中</small></div>
-                <div class="bios-mode-control">
-                  <span>控制模式</span>
-                  <label class="bios-mode-switch" for="sysFanManualSwitch">
-                    <span class="bios-mode-label">自动</span>
-                    <input type="checkbox" id="sysFanManualSwitch" aria-label="系统风扇自动或手动模式" aria-describedby="sysFanMode">
-                    <span class="bios-mode-track" aria-hidden="true"><span></span></span>
-                    <span class="bios-mode-label">手动</span>
-                  </label>
-                </div>
                 <div class="bios-pwm-control">
                   <input type="range" id="sysFanPwmRange" min="40" max="255" step="1" value="100" aria-label="系统风扇 PWM" aria-describedby="biosFanSafetyNote">
                 </div>
@@ -563,7 +590,7 @@
               <div><span class="section-kicker">AC POWER RECOVERY</span><h2>来电启动策略</h2></div>
               <span class="soft-badge" id="biosStartupBadge">读取中</span>
             </div>
-            <p class="surface-help">设置交流电恢复后设备的启动行为。该设置写入 IT8613 的 BIOS/Super I/O 配置寄存器。</p>
+            <p class="surface-help" id="biosStartupHelp">设置交流电恢复后设备的启动行为。该能力与风扇 hwmon 控制独立检测。</p>
             <div class="bios-policy-grid" role="radiogroup" aria-label="来电启动策略">
               <label class="bios-policy-choice">
                 <input type="radio" name="biosStartupPolicy" value="on">
@@ -592,6 +619,10 @@
               <span class="section-kicker">MODEL GUARD</span>
               <h2 id="biosGuardTitle">支持机型保护</h2>
               <p id="biosGuardText">页面和写入接口只对已映射机型启用，并校验 IT8613 芯片 ID。其他机型不会显示此入口。</p>
+              <label class="bios-experimental-confirm" id="biosExperimentalConfirm" hidden>
+                <input type="checkbox" id="biosExperimentalConfirmInput">
+                <span><strong id="biosExperimentalConfirmTitle">我已了解固件逆向写入风险</strong><small id="biosExperimentalConfirmText">已准备独立温度监控与恢复原厂控制的方案，并接受当前尚无 DXP4800S 实机写入验证。</small></span>
+              </label>
             </div>
           </aside>
         </div>
@@ -680,6 +711,6 @@
     <button type="button" class="mode-button primary" data-mode="smart"><i class="bi bi-stars" aria-hidden="true"></i><span>智能模式</span></button>
   </div>
 
-  <script src="./js/app.js?v=1.7.6"></script>
+  <script src="./js/app.js?v=1.8.1"></script>
 </body>
 </html>

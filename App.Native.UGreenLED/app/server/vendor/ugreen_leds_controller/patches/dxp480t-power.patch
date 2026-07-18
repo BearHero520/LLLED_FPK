@@ -1,0 +1,463 @@
+diff --git a/cli/Makefile b/cli/Makefile
+index 1d28ba9..bb0e79d 100644
+--- a/cli/Makefile
++++ b/cli/Makefile
+@@ -1,8 +1,8 @@
+
+ CC = g++
+ CFLAGS = -I. -O2 -Wall -static
+-DEPS = i2c.h ugreen_leds.h
+-OBJ = i2c.o ugreen_leds.o
++DEPS = i2c.h ugreen_leds.h dxp480t_power.h
++OBJ = i2c.o ugreen_leds.o dxp480t_power.o
+
+ %.o: %.cpp $(DEPS)
+	$(CC) -c -o $@ $< $(CFLAGS)
+diff --git a/cli/dxp480t_power.cpp b/cli/dxp480t_power.cpp
+new file mode 100644
+index 0000000..e9153ac
+--- /dev/null
++++ b/cli/dxp480t_power.cpp
+@@ -0,0 +1,149 @@
++#include "dxp480t_power.h"
++
++#include <algorithm>
++#include <array>
++#include <cctype>
++#include <filesystem>
++#include <fstream>
++#include <sstream>
++#include <string>
++
++#include <unistd.h>
++
++namespace {
++
++constexpr const char *I2C_DEV_PATH = "/sys/class/i2c-dev";
++constexpr uint8_t N76E003_SIGNATURE_HIGH = 0xa5;
++constexpr uint8_t N76E003_SIGNATURE_LOW = 0xb5;
++
++std::string read_first_line(const std::filesystem::path &path) {
++    std::ifstream input(path);
++    std::string line;
++    std::getline(input, line);
++    return line;
++}
++
++std::string uppercase(std::string value) {
++    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
++        return static_cast<char>(std::toupper(c));
++    });
++    return value;
++}
++
++} // namespace
++
++void dxp480t_power_t::set_error(const std::string &message) {
++    _last_error = message;
++}
++
++bool dxp480t_power_t::is_dxp480t_family() const {
++    static constexpr std::array<const char *, 2> product_paths = {
++        "/sys/class/dmi/id/product_name",
++        "/sys/devices/virtual/dmi/id/product_name",
++    };
++    for (const char *path : product_paths) {
++        const auto product = uppercase(read_first_line(path));
++        if (product.find("DXP480T") != std::string::npos) return true;
++    }
++    return false;
++}
++
++bool dxp480t_power_t::is_i801_adapter(const std::string &name) const {
++    return uppercase(name).find("SMBUS I801") != std::string::npos;
++}
++
++int dxp480t_power_t::start() {
++    namespace fs = std::filesystem;
++
++    _i2c.close();
++    _last_error.clear();
++    _bus_name.clear();
++    _address = 0;
++
++    if (!is_dxp480t_family()) {
++        set_error("DXP480T power protocol requires a DXP480T-family DMI product name");
++        return -1;
++    }
++    if (!fs::exists(I2C_DEV_PATH)) {
++        set_error("i2c-dev is unavailable: /sys/class/i2c-dev does not exist");
++        return -1;
++    }
++
++    for (const auto &entry : fs::directory_iterator(I2C_DEV_PATH)) {
++        if (!entry.is_directory()) continue;
++
++        auto adapter_name = read_first_line(entry.path() / "name");
++        if (adapter_name.empty()) adapter_name = read_first_line(entry.path() / "device" / "name");
++        if (!is_i801_adapter(adapter_name)) continue;
++
++        const auto bus = entry.path().filename().string();
++        const auto device = "/dev/" + bus;
++        for (const uint8_t address : { static_cast<uint8_t>(0x31), static_cast<uint8_t>(0x26) }) {
++            if (_i2c.start(device.c_str(), address) != 0) continue;
++
++            uint8_t high = 0;
++            uint8_t low = 0;
++            if (_i2c.read_byte_data(0x5a, high) == 0 &&
++                _i2c.read_byte_data(0x5b, low) == 0 &&
++                high == N76E003_SIGNATURE_HIGH && low == N76E003_SIGNATURE_LOW) {
++                _bus_name = bus;
++                _address = address;
++                return 0;
++            }
++        }
++    }
++
++    _i2c.close();
++    set_error("DXP480T N76E003 MCU not found on SMBus I801 (checked 0x31/0x26 for signature 0xa5b5)");
++    return -1;
++}
++
++int dxp480t_power_t::write_byte(uint8_t reg, uint8_t value) {
++    const int rc = _i2c.write_byte_data(reg, value);
++    if (rc != 0) {
++        std::ostringstream output;
++        output << "DXP480T N76E003 write failed at register 0x" << std::hex
++               << static_cast<int>(reg) << " value 0x" << static_cast<int>(value);
++        set_error(output.str());
++        return rc;
++    }
++
++    // The vendor driver performs sequential byte writes.  Retaining a small
++    // gap prevents a later write from being coalesced by an SMBus adapter.
++    usleep(30000);
++    return 0;
++}
++
++int dxp480t_power_t::set_power(color_t color, effect_t effect) {
++    if (_address == 0 && start() != 0) return -1;
++
++    // Community-verified sequence from miskcoo/ugreen_leds_controller#6:
++    // 0xa0 clears red and white selectors, 0xb1 chooses red(1)/white(2),
++    // 0x50 selects steady/fast/breath and 0x51 enables slow flash.
++    if (write_byte(0xa0, 1) != 0 || write_byte(0xa0, 2) != 0) return -1;
++
++    if (effect == effect_t::off) {
++        if (write_byte(0x50, 0) != 0 || write_byte(0x51, 0) != 0) return -1;
++        return write_byte(0xb1, 3);
++    }
++
++    if (write_byte(0x50, 0) != 0) return -1;
++    if (write_byte(0xb1, color == color_t::red ? 1 : 2) != 0) return -1;
++
++    if (effect == effect_t::slow) {
++        if (write_byte(0x50, 0) != 0) return -1;
++        return write_byte(0x51, 1);
++    }
++
++    if (write_byte(0x51, 0) != 0) return -1;
++    switch (effect) {
++        case effect_t::steady: return write_byte(0x50, 0);
++        case effect_t::fast: return write_byte(0x50, 1);
++        case effect_t::breath: return write_byte(0x50, 2);
++        case effect_t::off:
++        case effect_t::slow: break;
++    }
++
++    set_error("invalid DXP480T power effect");
++    return -1;
++}
+diff --git a/cli/dxp480t_power.h b/cli/dxp480t_power.h
+new file mode 100644
+index 0000000..1787218
+--- /dev/null
++++ b/cli/dxp480t_power.h
+@@ -0,0 +1,35 @@
++#ifndef __UGREEN_DXP480T_POWER_H__
++#define __UGREEN_DXP480T_POWER_H__
++
++#include <cstdint>
++#include <string>
++
++#include "i2c.h"
++
++// The DXP480T family does not use the normal 0x3a RGB MCU.  Its power lamp is
++// controlled by an N76E003-compatible MCU on the SMBus I801 adapter.
++class dxp480t_power_t {
++public:
++    enum class color_t : uint8_t { red, white };
++    enum class effect_t : uint8_t { off, steady, fast, slow, breath };
++
++    int start();
++    int set_power(color_t color, effect_t effect);
++
++    const std::string &last_error() const { return _last_error; }
++    const std::string &bus_name() const { return _bus_name; }
++    uint8_t address() const { return _address; }
++
++private:
++    bool is_dxp480t_family() const;
++    bool is_i801_adapter(const std::string &name) const;
++    int write_byte(uint8_t reg, uint8_t value);
++    void set_error(const std::string &message);
++
++    i2c_device_t _i2c;
++    std::string _last_error;
++    std::string _bus_name;
++    uint8_t _address = 0;
++};
++
++#endif
+diff --git a/cli/i2c.cpp b/cli/i2c.cpp
+index 4a8f48d..601a1e0 100644
+--- a/cli/i2c.cpp
++++ b/cli/i2c.cpp
+@@ -10,35 +10,43 @@
+
+
+ i2c_device_t::~i2c_device_t() {
+-    if (_fd) close(_fd);
++    close();
+ }
+
+ int i2c_device_t::start(const char *filename, uint16_t addr) {
++    close();
+     _fd = open(filename, O_RDWR);
+
+     if (_fd < 0) {
+         int rc = _fd;
+-        _fd = 0;
++        _fd = -1;
+         return rc;
+     }
+
+     int rc = ioctl(_fd, I2C_SLAVE, addr);
+     if (rc < 0) {
+-        close(_fd);
+-        _fd = 0;
++        ::close(_fd);
++        _fd = -1;
+         return rc;
+     }
+
+     return 0;
+ };
+
++void i2c_device_t::close() {
++    if (_fd >= 0) {
++        ::close(_fd);
++        _fd = -1;
++    }
++}
++
+ std::vector<uint8_t> i2c_device_t::read_block_data(uint8_t command, uint32_t size) {
+-    if (!_fd) return { };
++    if (_fd < 0) return { };
+
+     if (size > I2C_SMBUS_BLOCK_MAX)
+         return { };
+
+-    i2c_smbus_data smbus_data;
++    i2c_smbus_data smbus_data { };
+     smbus_data.block[0] = size;
+
+     i2c_smbus_ioctl_data ioctl_data;
+@@ -59,13 +67,13 @@ std::vector<uint8_t> i2c_device_t::read_block_data(uint8_t command, uint32_t siz
+ }
+
+ int i2c_device_t::write_block_data(uint8_t command, std::vector<uint8_t> data) {
+-    if (!_fd) return -1;
++    if (_fd < 0) return -1;
+
+     uint32_t size = data.size();
+     if (size > I2C_SMBUS_BLOCK_MAX)
+         size = I2C_SMBUS_BLOCK_MAX;
+
+-    i2c_smbus_data smbus_data;
++    i2c_smbus_data smbus_data { };
+     smbus_data.block[0] = size;
+     for (uint32_t i = 0; i < size; ++i)
+         smbus_data.block[i + 1] = data[i];
+@@ -81,10 +89,10 @@ int i2c_device_t::write_block_data(uint8_t command, std::vector<uint8_t> data) {
+     return rc;
+ }
+
+-uint8_t i2c_device_t::read_byte_data(uint8_t command) {
+-    if (!_fd) return { };
++int i2c_device_t::read_byte_data(uint8_t command, uint8_t &data) {
++    if (_fd < 0) return -1;
+
+-    i2c_smbus_data smbus_data;
++    i2c_smbus_data smbus_data { };
+
+     i2c_smbus_ioctl_data ioctl_data;
+     ioctl_data.size = I2C_SMBUS_BYTE_DATA;
+@@ -94,7 +102,23 @@ uint8_t i2c_device_t::read_byte_data(uint8_t command) {
+
+     int rc = ioctl(_fd, I2C_SMBUS, &ioctl_data);
+
+-    if (rc < 0) return { };
++    if (rc < 0) return rc;
++
++    data = smbus_data.byte & 0xff;
++    return 0;
++}
++
++int i2c_device_t::write_byte_data(uint8_t command, uint8_t data) {
++    if (_fd < 0) return -1;
++
++    i2c_smbus_data smbus_data { };
++    smbus_data.byte = data;
++
++    i2c_smbus_ioctl_data ioctl_data;
++    ioctl_data.size = I2C_SMBUS_BYTE_DATA;
++    ioctl_data.read_write = I2C_SMBUS_WRITE;
++    ioctl_data.command = command;
++    ioctl_data.data = &smbus_data;
+
+-    return smbus_data.byte & 0xff;
++    return ioctl(_fd, I2C_SMBUS, &ioctl_data);
+ }
+diff --git a/cli/i2c.h b/cli/i2c.h
+index 1013719..8901cf3 100644
+--- a/cli/i2c.h
++++ b/cli/i2c.h
+@@ -7,15 +7,17 @@
+ class i2c_device_t {
+
+ private:
+-    int _fd;
++    int _fd = -1;
+
+ public:
+     ~i2c_device_t();
+
+     int start(const char *filename, uint16_t addr);
++    void close();
+     std::vector<uint8_t> read_block_data(uint8_t command, uint32_t size);
+     int write_block_data(uint8_t command, std::vector<uint8_t> data);
+-    uint8_t read_byte_data(uint8_t command);
++    int read_byte_data(uint8_t command, uint8_t &data);
++    int write_byte_data(uint8_t command, uint8_t data);
+
+ };
+
+diff --git a/cli/ugreen_leds.cpp b/cli/ugreen_leds.cpp
+index a4ef012..358bcee 100644
+--- a/cli/ugreen_leds.cpp
++++ b/cli/ugreen_leds.cpp
+@@ -126,7 +126,8 @@ int ugreen_leds_t::set_brightness(led_type_t id, uint8_t brightness) {
+ }
+
+ bool ugreen_leds_t::is_last_modification_successful() {
+-    return _i2c.read_byte_data(0x80) == 1;
++    uint8_t status = 0;
++    return _i2c.read_byte_data(0x80, status) == 0 && status == 1;
+ }
+
+ int ugreen_leds_t::set_blink(led_type_t id, uint16_t t_on, uint16_t t_off) {
+diff --git a/cli/ugreen_leds_cli.cpp b/cli/ugreen_leds_cli.cpp
+index 63a23d6..4e79d0d 100644
+--- a/cli/ugreen_leds_cli.cpp
++++ b/cli/ugreen_leds_cli.cpp
+@@ -7,6 +7,7 @@
+ #include <map>
+ #include <functional>
+
++#include "dxp480t_power.h"
+ #include "ugreen_leds.h"
+
+ #define MAX_RETRY_COUNT 5
+@@ -93,9 +94,12 @@ void show_help() {
+            "                    T_ON and T_OFF should belong to [0, 65535].\n"
+            "       -color:      set the color of corresponding LEDs.\n"
+            "                    R, G and B should belong to [0, 255].\n"
+-           "       -brightness: set the brightness of corresponding LEDs.\n"
+-           "                    BRIGHTNESS should belong to [0, 255].\n"
+-           "       -status:     display the status of corresponding LEDs.\n"
++            "       -brightness: set the brightness of corresponding LEDs.\n"
++            "                    BRIGHTNESS should belong to [0, 255].\n"
++            "       -status:     display the status of corresponding LEDs.\n\n"
++            "DXP480T-family power LED:\n"
++            "       --dxp480t-power-probe\n"
++            "       --dxp480t-power <red|white> <off|steady|fast|slow|breath>\n"
+         << std::endl;
+ }
+
+@@ -130,6 +134,54 @@ int parse_integer(const std::string& str, int low = 0, int high = 0xffff) {
+     return x;
+ }
+
++int run_dxp480t_power_probe() {
++    dxp480t_power_t controller;
++    if (controller.start() != 0) {
++        std::cerr << "Err: " << controller.last_error() << std::endl;
++        return -1;
++    }
++
++    std::cout << "DXP480T power controller ready: " << controller.bus_name()
++              << " address 0x" << std::hex << static_cast<int>(controller.address()) << std::dec
++              << std::endl;
++    return 0;
++}
++
++int run_dxp480t_power(const std::string &color_name, const std::string &effect_name) {
++    dxp480t_power_t::color_t color;
++    if (color_name == "red") {
++        color = dxp480t_power_t::color_t::red;
++    } else if (color_name == "white") {
++        color = dxp480t_power_t::color_t::white;
++    } else {
++        std::cerr << "Err: DXP480T power color must be red or white" << std::endl;
++        return -1;
++    }
++
++    dxp480t_power_t::effect_t effect;
++    if (effect_name == "off") {
++        effect = dxp480t_power_t::effect_t::off;
++    } else if (effect_name == "steady") {
++        effect = dxp480t_power_t::effect_t::steady;
++    } else if (effect_name == "fast") {
++        effect = dxp480t_power_t::effect_t::fast;
++    } else if (effect_name == "slow") {
++        effect = dxp480t_power_t::effect_t::slow;
++    } else if (effect_name == "breath") {
++        effect = dxp480t_power_t::effect_t::breath;
++    } else {
++        std::cerr << "Err: DXP480T power effect must be off, steady, fast, slow, or breath" << std::endl;
++        return -1;
++    }
++
++    dxp480t_power_t controller;
++    if (controller.start() != 0 || controller.set_power(color, effect) != 0) {
++        std::cerr << "Err: " << controller.last_error() << std::endl;
++        return -1;
++    }
++    return 0;
++}
++
+ int main(int argc, char *argv[])
+ {
+
+@@ -138,6 +190,20 @@ int main(int argc, char *argv[])
+         return 0;
+     }
+
++    const std::string command = argv[1];
++    if (command == "--dxp480t-power-probe") {
++        if (argc != 2) {
++            show_help_and_exit();
++        }
++        return run_dxp480t_power_probe();
++    }
++    if (command == "--dxp480t-power") {
++        if (argc != 4) {
++            show_help_and_exit();
++        }
++        return run_dxp480t_power(argv[2], argv[3]);
++    }
++
+     ugreen_leds_t leds_controller;
+     if (leds_controller.start() != 0) {
+         std::cerr << "Err: fail to open the I2C device." << std::endl;

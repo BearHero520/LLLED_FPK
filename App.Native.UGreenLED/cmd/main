@@ -12,58 +12,151 @@ for d in "${APP_ROOT}/server" "${APP_ROOT}/target/server"; do
     fi
 done
 SERVER_DIR="${SERVER_DIR:-${APP_ROOT}/server}"
-source "${SERVER_DIR}/lib/app_paths.sh"
-ugreen_resolve_runtime || exit 1
+LOG_DIR="${VAR_DIR}/log"
+UGREEN_LOG_COMPONENT="service"
+export APP_ROOT VAR_DIR SERVER_DIR LOG_DIR UGREEN_LOG_COMPONENT TARGET="${APP_ROOT}"
 
+install_logging_fallbacks() {
+    ugreen_log_debug() { :; }
+    ugreen_log_info() { :; }
+    ugreen_log_warn() { :; }
+    ugreen_log_error() { :; }
+    ugreen_log_configure_from_settings() { :; }
+    ugreen_log_rotate_file() { :; }
+    ugreen_log_run_raw() { shift 4; "$@" >/dev/null 2>&1; }
+}
+
+if [[ ! -f "${SERVER_DIR}/lib/logging.sh" ]] || ! source "${SERVER_DIR}/lib/logging.sh"; then
+    install_logging_fallbacks
+fi
+
+if [[ ! -f "${SERVER_DIR}/lib/app_paths.sh" ]] || ! source "${SERVER_DIR}/lib/app_paths.sh"; then
+    ugreen_log_error "service.bootstrap_failed" "无法加载应用路径解析库" \
+        "path=${SERVER_DIR}/lib/app_paths.sh" "app_root=$APP_ROOT" "var_dir=$VAR_DIR"
+    exit 1
+fi
+if ! declare -F ugreen_resolve_runtime >/dev/null || ! ugreen_resolve_runtime; then
+    ugreen_log_error "service.runtime_failed" "无法创建应用运行时目录" \
+        "requested_runtime=${UGREEN_RUNTIME_DIR:-/run/${APP_NAME}}" "fallback_runtime=${TMPDIR:-/tmp}/${APP_NAME}"
+    exit 1
+fi
 export APP_ROOT VAR_DIR RUNTIME_DIR SERVER_DIR TARGET="${APP_ROOT}"
 
 SETTINGS_FILE="${VAR_DIR}/settings.conf"
 UGREEN_CLI=""
-for c in "${SERVER_DIR}/bin/ugreen_leds_cli" "${APP_ROOT}/target/server/bin/ugreen_leds_cli" /usr/bin/ugreen_leds_cli; do
+for c in "${SERVER_DIR}/bin/ugreen_leds_cli" "${APP_ROOT}/target/server/bin/ugreen_leds_cli"; do
     [[ -x "$c" ]] && UGREEN_CLI="$c" && break
 done
 export SETTINGS_FILE UGREEN_CLI LED_API_CACHE_DIR="${RUNTIME_DIR}/led_cache"
-source "${SERVER_DIR}/lib/settings.sh"
-source "${SERVER_DIR}/lib/hardware_profile.sh"
-source "${SERVER_DIR}/lib/driver_manager.sh"
-source "${SERVER_DIR}/lib/led_api.sh"
-settings_init "$SETTINGS_FILE"
+for library in settings hardware_profile driver_manager led_api; do
+    if ! source "${SERVER_DIR}/lib/${library}.sh"; then
+        ugreen_log_error "service.library_source_failed" "服务依赖库加载失败" \
+            "library=$library" "path=${SERVER_DIR}/lib/${library}.sh"
+        exit 1
+    fi
+done
+if ! settings_init "$SETTINGS_FILE"; then
+    ugreen_log_error "settings.init_failed" "应用配置初始化失败" "settings_file=$SETTINGS_FILE"
+fi
+ugreen_log_configure_from_settings "$SETTINGS_FILE"
+
+recover_managed_driver() {
+    echo "kernel LED backends are disabled; use bundled ugreen_leds_cli" >&2
+    return 1
+}
 
 case "$1" in
 start)
-    modprobe i2c-dev 2>/dev/null || true
     mkdir -p "${VAR_DIR}/log" "$RUNTIME_DIR"
+    ugreen_log_info "service.start_requested" "收到应用启动请求" \
+        "app_root=$APP_ROOT" "var_dir=$VAR_DIR" "runtime_dir=$RUNTIME_DIR" \
+        "server_dir=$SERVER_DIR" "uid=$(id -u 2>/dev/null || echo unknown)" \
+        "kernel=$(uname -r 2>/dev/null || echo unknown)" "cli=${UGREEN_CLI:-missing}"
+    if modprobe i2c-dev 2>/dev/null; then
+        ugreen_log_debug "kernel.i2c_dev_ready" "i2c-dev 模块已就绪"
+    else
+        ugreen_log_warn "kernel.i2c_dev_failed" "无法加载 i2c-dev，灯控后端可能不可用"
+    fi
     configured_backend=$(led_backend_configured)
-    if [[ "$configured_backend" != "cli" ]] && driver_managed_by_app && ! driver_sysfs_ready; then
-        if driver_dkms_installed && driver_probe >> "${VAR_DIR}/log/driver.log" 2>&1; then
+    ugreen_log_info "backend.configured" "读取灯控后端配置" "configured_backend=$configured_backend"
+    if false && [[ "$configured_backend" != "cli" ]] && driver_managed_by_app && ! driver_sysfs_ready; then
+        DRIVER_LOG="${VAR_DIR}/log/driver.log"
+        DRIVER_OPERATION_ID="driver-recover-$(date +%s 2>/dev/null || echo 0)-${BASHPID:-$$}"
+        if ugreen_log_run_raw "$DRIVER_LOG" 10485760 3 "$DRIVER_OPERATION_ID" recover_managed_driver; then
+            driver_rc=0
+        else
+            driver_rc=$?
+        fi
+        if [[ "$driver_rc" -eq 0 ]]; then
+            ugreen_log_info "driver.recovered" "实验驱动已为当前内核恢复" "operation_id=$DRIVER_OPERATION_ID"
             led_backend_reset
         elif [[ "$configured_backend" == "sysfs" ]]; then
             # 内核升级后 DKMS/headers 可能暂时不可用；优先恢复内置 CLI，避免应用无法启动。
             settings_set "$SETTINGS_FILE" hardware backend cli
             led_backend_reset
-            echo "实验驱动恢复失败，已安全回退到内置 CLI；请在 Web 页面重建驱动" >> "${VAR_DIR}/log/driver.log"
+            echo "实验驱动恢复失败，已安全回退到内置 CLI；请在 Web 页面重建驱动" >> "$DRIVER_LOG"
+            ugreen_log_error "driver.recovery_failed" "实验驱动恢复失败，已回退到内置 CLI" \
+                "operation_id=$DRIVER_OPERATION_ID" "exit_code=$driver_rc" "configured_backend=$configured_backend"
+        else
+            ugreen_log_warn "driver.recovery_skipped" "实验驱动未恢复，将继续自动选择后端" \
+                "operation_id=$DRIVER_OPERATION_ID" "exit_code=$driver_rc" "configured_backend=$configured_backend"
         fi
     fi
-    if ! ensure_led_backend; then
+    backend_rc=0
+    ensure_led_backend || backend_rc=$?
+    if [[ "$backend_rc" -ne 0 ]]; then
         # fnOS 会把 start 的非零退出码当成安装失败。硬件或依赖暂时不可用时，
         # 仍允许应用和 Web 管理页启动，由守护进程持续重试并在页面显示诊断。
-        echo "LED 控制后端暂不可用；应用继续启动，请在 Web 页面检查硬件与依赖" | \
-            tee -a "${VAR_DIR}/log/driver.log" >&2
+        backend_message="LED 控制后端暂不可用；应用继续启动，请在 Web 页面检查硬件与依赖"
+        ugreen_log_run_raw "${VAR_DIR}/log/driver.log" 10485760 3 "backend-unavailable" \
+            printf '%s\n' "$backend_message" || true
+        printf '%s\n' "$backend_message" >&2
+        ugreen_log_error "backend.unavailable" "LED 控制后端暂不可用，应用将继续启动并重试" \
+            "exit_code=$backend_rc" "configured_backend=$configured_backend" "error=${LED_LAST_ERROR:-unknown}"
+    else
+        ugreen_log_info "backend.ready" "LED 控制后端已就绪" "backend=${LED_BACKEND_ACTIVE:-unknown}"
     fi
-    bash "${SERVER_DIR}/led_daemon.sh" start
+    DAEMON_LAUNCH_LOG="${VAR_DIR}/log/daemon-launch.log"
+    if ugreen_log_run_raw "$DAEMON_LAUNCH_LOG" 1048576 2 "daemon-start" \
+        bash "${SERVER_DIR}/led_daemon.sh" start; then
+        ugreen_log_info "daemon.started" "LED 守护进程启动命令已完成" \
+            "pid_file=${RUNTIME_DIR}/led_daemon.pid" "raw_log=daemon-launch.log"
+    else
+        daemon_rc=$?
+        ugreen_log_error "daemon.start_failed" "LED 守护进程启动失败" \
+            "exit_code=$daemon_rc" "raw_log=daemon-launch.log"
+    fi
     exit 0
     ;;
 stop)
-    bash "${SERVER_DIR}/led_daemon.sh" stop 2>/dev/null
+    ugreen_log_info "service.stop_requested" "收到应用停止请求"
+    if daemon_output=$(bash "${SERVER_DIR}/led_daemon.sh" stop 2>&1); then
+        ugreen_log_info "daemon.stopped" "LED 守护进程已停止" "output=$daemon_output"
+    else
+        daemon_rc=$?
+        ugreen_log_warn "daemon.stop_failed" "LED 守护进程停止命令返回失败" "exit_code=$daemon_rc" "output=$daemon_output"
+    fi
     # 清理由旧版本自动启动的独立 5088 API；Web 管理页实际使用 fnOS CGI。
-    bash "${SERVER_DIR}/http_api.sh" stop 2>/dev/null
+    if legacy_output=$(bash "${SERVER_DIR}/http_api.sh" stop 2>&1); then
+        ugreen_log_debug "legacy_api.stopped" "旧版 5088 API 清理完成" "output=$legacy_output"
+    else
+        legacy_rc=$?
+        ugreen_log_debug "legacy_api.stop_skipped" "旧版 5088 API 未运行或清理失败" "exit_code=$legacy_rc" "output=$legacy_output"
+    fi
     exit 0
     ;;
 status)
-    bash "${SERVER_DIR}/led_daemon.sh" status 2>/dev/null
-    exit $?
+    if bash "${SERVER_DIR}/led_daemon.sh" status 2>/dev/null; then
+        ugreen_log_debug "service.status" "LED 守护进程正在运行" "status=running"
+        exit 0
+    else
+        status_rc=$?
+        ugreen_log_debug "service.status" "LED 守护进程未运行" "status=stopped" "exit_code=$status_rc"
+        exit "$status_rc"
+    fi
     ;;
 *)
+    ugreen_log_warn "service.invalid_action" "收到未知应用控制命令" "action=${1:-<empty>}"
     exit 1
     ;;
 esac

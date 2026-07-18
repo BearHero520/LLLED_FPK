@@ -1,0 +1,47 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Validate shell, CGI, JavaScript and Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in App.Native.UGreenLED/cmd/* App.Native.UGreenLED/app/server/*.sh App.Native.UGreenLED/app/server/lib/*.sh App.Native.UGreenLED/app/ui/*.cgi tests/*.sh; do
+            bash -n "$file"
+          done
+          node --check App.Native.UGreenLED/app/www/js/app.js
+          python3 -m py_compile scripts/preview_web.py
+
+      - name: Run tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test_file in tests/test_*.sh; do
+            echo "==> $test_file"
+            bash "$test_file"
+          done
+
+      - name: Smoke-build bundled controller and FPK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/build_ugreen_leds_cli.py
+          python3 scripts/build_ugreenctl.py
+          python3 scripts/build_fpk.py --output-dir "$RUNNER_TEMP/llled-fpk-smoke"

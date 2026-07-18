@@ -8,7 +8,7 @@
     lighting: { title: '灯光设置', description: '配置硬盘、网络和电源灯的状态颜色。' },
     activity: { title: '活动提示', description: '控制磁盘读写和网络流量的速度闪动。' },
     devices: { title: '设备与高级', description: '管理盘位映射、监测频率、后台服务与诊断状态。' },
-    bios: { title: 'BIOS 控制', description: 'DXP4800 Plus / Pro / DXP480T Plus 的 IT8613 风扇、系统信息与来电启动控制。' },
+    bios: { title: 'BIOS 控制', description: 'DXP4800 Plus / Pro、DXP4800S 与 DXP480T Plus 的 IT8613 风扇、系统信息与来电启动控制。' },
     lab: { title: '实验室', description: '未经验证的高级硬件功能，请确认风险后谨慎使用。' },
   };
 
@@ -122,24 +122,107 @@
   let labDraft = {};
   let labIdentifying = '';
   let labStatusPromise = null;
+  let logsLoaded = false;
+  let logContent = '';
+  let clientErrorTimestamps = [];
 
   function $(id) { return document.getElementById(id); }
+
+  function createRequestId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    return `web-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  function requestError(message, context) {
+    const error = new Error(message);
+    Object.assign(error, context || {});
+    return error;
+  }
+
+  function reportClientError(kind, error, extra) {
+    const now = Date.now();
+    clientErrorTimestamps = clientErrorTimestamps.filter((timestamp) => now - timestamp < 60000);
+    if (clientErrorTimestamps.length >= 10) return;
+    clientErrorTimestamps.push(now);
+    const sourceError = error instanceof Error ? error : new Error(String(error || 'unknown client error'));
+    const payload = JSON.stringify({
+      kind: String(kind || 'runtime').slice(0, 40),
+      route: currentRoute,
+      message: String(sourceError.message || sourceError).slice(0, 600),
+      stack: String(sourceError.stack || '').slice(0, 2400),
+      related_request_id: String(sourceError.requestId || extra?.requestId || '').slice(0, 64),
+      source: String(extra?.source || '').split('/').pop().split('?')[0].slice(0, 120),
+      line: Number(extra?.line) || 0,
+      column: Number(extra?.column) || 0,
+      browser_time: new Date(now).toISOString(),
+    });
+    fetch(`${API}/logs/client`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain', 'X-Request-ID': createRequestId() },
+      body: payload,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      keepalive: true,
+    }).catch(() => {});
+  }
+
+  window.addEventListener('error', (event) => {
+    reportClientError('window.error', event.error || event.message, {
+      source: event.filename,
+      line: event.lineno,
+      column: event.colno,
+    });
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    reportClientError('unhandledrejection', event.reason);
+  });
 
   function api(path, opts) {
     const options = opts || {};
     const url = API + path + (options.query ? '?' + options.query : '');
+    const method = options.method || 'GET';
+    const clientRequestId = createRequestId();
+    const startedAt = performance.now();
+    const headers = { 'X-Request-ID': clientRequestId };
+    if (options.body !== undefined) headers['Content-Type'] = 'text/plain';
     return fetch(url, {
-      method: options.method || 'GET',
-      headers: options.body ? { 'Content-Type': 'text/plain' } : {},
+      method,
+      headers,
       body: options.body,
       credentials: 'same-origin',
       cache: 'no-store',
     }).then(async (response) => {
       const text = await response.text();
+      const requestId = response.headers.get('X-Request-ID') || clientRequestId;
+      const durationMs = Math.round(performance.now() - startedAt);
       let data;
-      try { data = JSON.parse(text); } catch (_) { throw new Error(text.slice(0, 160) || `HTTP ${response.status}`); }
-      if (data && data.ok === false) throw new Error(data.error || '请求失败');
+      try {
+        data = JSON.parse(text);
+      } catch (_) {
+        console.error('[UGreenLED] API returned non-JSON', {
+          method, path, status: response.status, requestId, durationMs,
+          responsePreview: text.replace(/[\r\n\t]+/g, ' ').slice(0, 240),
+        });
+        throw requestError(`服务器返回异常响应（HTTP ${response.status}）`, {
+          method, path, status: response.status, requestId, durationMs, code: 'INVALID_RESPONSE',
+        });
+      }
+      if (!response.ok || (data && data.ok === false)) {
+        throw requestError(data?.error || `请求失败（HTTP ${response.status}）`, {
+          method, path, status: response.status, requestId, durationMs, code: data?.code || 'API_ERROR',
+        });
+      }
+      if (data && typeof data === 'object') data.requestId = requestId;
       return data;
+    }).catch((error) => {
+      if (!error.requestId) {
+        error.requestId = clientRequestId;
+        error.method = method;
+        error.path = path;
+        error.durationMs = Math.round(performance.now() - startedAt);
+        error.code = error.code || 'NETWORK_ERROR';
+      }
+      throw error;
     });
   }
 
@@ -152,9 +235,24 @@
   }
 
   function showError(error) {
-    const message = error && error.message ? error.message : String(error);
+    const base = error && error.message ? error.message : String(error);
+    const message = error?.requestId ? `${base}（请求 ID：${error.requestId}）` : base;
+    if (!error?.requestId || ['NETWORK_ERROR', 'INVALID_RESPONSE'].includes(error?.code)) {
+      reportClientError(error?.code ? 'handled.transport_error' : 'handled.runtime_error', error, {
+        requestId: error?.requestId,
+      });
+    }
     showMessage(message, 'err');
-    console.error('[UGreenLED]', error);
+    console.error('[UGreenLED]', {
+      message: base,
+      requestId: error?.requestId,
+      method: error?.method,
+      path: error?.path,
+      status: error?.status,
+      code: error?.code,
+      durationMs: error?.durationMs,
+      error,
+    });
   }
 
   function setBusy(button, busy) {
@@ -183,7 +281,7 @@
   }
 
   function isPower26Profile() {
-    return hardwareState.backend_active === 'power-0x26';
+    return hardwareState.profile === 'dxp480t_plus';
   }
 
   function applyHardwareRouting() {
@@ -724,6 +822,7 @@
     $('appMain').scrollTo({ top: 0, behavior: 'smooth' });
     if (next === 'lab') loadLabMappingStatus();
     if (next === 'bios') loadBiosStatus();
+    if (next === 'devices' && !logsLoaded) loadLogs();
   }
 
   function setLightingPanel(panel) {
@@ -889,7 +988,7 @@
     $('networkBlinkThreshold').value = positiveInt(currentIni.activity?.network_threshold_kbps, ACTIVITY_DEFAULTS.network_threshold_kbps);
     $('diskPowerProbeInterval').value = boundedInt(currentIni.daemon?.disk_power_probe_interval, 10, 3600, DAEMON_DEFAULTS.disk_power_probe_interval);
     $('hotplugCheckInterval').value = boundedInt(currentIni.daemon?.hotplug_check_interval, 5, 3600, DAEMON_DEFAULTS.hotplug_check_interval);
-    $('hardwareBackend').value = ['auto', 'cli', 'sysfs'].includes(currentIni.hardware?.backend) ? currentIni.hardware.backend : 'auto';
+    $('hardwareBackend').value = ['auto', 'cli'].includes(currentIni.hardware?.backend) ? currentIni.hardware.backend : 'cli';
     $('hardwareWriteProtocol').value = ['auto', 'legacy', 'smbus-block'].includes(currentIni.hardware?.write_protocol) ? currentIni.hardware.write_protocol : 'auto';
     const selectedProfile = currentIni.hardware?.profile || 'auto';
     $('hardwareProfile').value = Array.from($('hardwareProfile').options).some((option) => option.value === selectedProfile) ? selectedProfile : 'auto';
@@ -967,7 +1066,7 @@
   function saveSettings(button, lines, successMessage) {
     setBusy(button, true);
     return api('/settings', { method: 'POST', body: lines.join('\n') })
-      .then(() => api('/daemon/start'))
+      .then(() => api('/daemon/start', { method: 'POST', body: '' }))
       .then(() => {
         showMessage(successMessage, 'ok');
         return loadSettings();
@@ -988,7 +1087,7 @@
   function setMode(mode) {
     if (!MODE_LABELS[mode]) return;
     showMessage(`正在切换到${MODE_LABELS[mode]}…`, 'ok');
-    return api('/mode', { query: `mode=${encodeURIComponent(mode)}` })
+    return api('/mode', { method: 'POST', query: `mode=${encodeURIComponent(mode)}`, body: '' })
       .then((data) => {
         currentMode = data.mode || mode;
         updateModeUi();
@@ -1061,6 +1160,119 @@
     $('overviewDiskCount').textContent = `${mapping.length} 块`;
     fillDiskTable('overviewDiskTable', mapping);
     fillDiskTable('deviceMapTable', mapping);
+  }
+
+  function formatBytes(value) {
+    const bytes = Math.max(0, Number(value) || 0);
+    if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+    return `${bytes} B`;
+  }
+
+  function renderLogs(data) {
+    logContent = String(data.content || '');
+    logsLoaded = true;
+    $('logConsole').textContent = logContent || '当前筛选条件下暂无日志。';
+    const writeLevel = String(data.write_level || 'info').toLowerCase();
+    if (Array.from($('logWriteLevel').options).some((option) => option.value === writeLevel)) {
+      $('logWriteLevel').value = writeLevel;
+    }
+    $('logStatusBadge').textContent = `${writeLevel.toUpperCase()} · ${data.requested_lines || 0} 行上限`;
+    const updated = Number(data.updated_at) > 0 ? new Date(Number(data.updated_at) * 1000).toLocaleString() : '尚无日志';
+    $('logMeta').textContent = `app.log · ${formatBytes(data.size_bytes)} · 更新于 ${updated}${data.clipped ? ' · 输出已截断' : ''}`;
+  }
+
+  function loadLogs(button) {
+    if (button) setBusy(button, true);
+    const level = $('logFilterLevel')?.value || 'all';
+    const lines = $('logLineCount')?.value || '500';
+    return api('/logs', { query: `source=application&level=${encodeURIComponent(level)}&lines=${encodeURIComponent(lines)}` })
+      .then(renderLogs)
+      .catch(showError)
+      .finally(() => { if (button) setBusy(button, false); });
+  }
+
+  function saveLogLevel(button) {
+    const level = $('logWriteLevel').value;
+    setBusy(button, true);
+    return api('/logs/config', { method: 'POST', query: `level=${encodeURIComponent(level)}`, body: '' })
+      .then((data) => {
+        showMessage(data.message || `日志级别已切换为 ${level.toUpperCase()}`, 'ok');
+        logsLoaded = false;
+        return loadLogs();
+      })
+      .catch(showError)
+      .finally(() => setBusy(button, false));
+  }
+
+  async function copyLogs() {
+    if (!logContent) {
+      showMessage('当前没有可复制的日志', 'err');
+      return;
+    }
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(logContent);
+      } else {
+        const area = document.createElement('textarea');
+        area.value = logContent;
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand('copy');
+        area.remove();
+      }
+      showMessage('日志已复制到剪贴板', 'ok');
+    } catch (error) {
+      showError(error);
+    }
+  }
+
+  function triggerTextDownload(content, filename) {
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadLogs() {
+    if (!logContent) {
+      showMessage('当前没有可下载的日志', 'err');
+      return;
+    }
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    triggerTextDownload(logContent + '\n', `ugreen-led-application-${stamp}.log`);
+  }
+
+  function downloadHardwareDiagnostics(button) {
+    setBusy(button, true);
+    return api('/hardware/diagnostics')
+      .then((data) => {
+        if (!data.content) throw new Error('诊断包内容为空');
+        triggerTextDownload(data.content + '\n', data.filename || 'ugreen-led-diagnostics.txt');
+        showMessage('硬件诊断包已生成并开始下载', 'ok');
+      })
+      .catch(showError)
+      .finally(() => setBusy(button, false));
+  }
+
+  function clearLogs(button) {
+    if (!window.confirm('确定清空 app.log 及其轮转历史吗？此操作无法撤销。')) return;
+    setBusy(button, true);
+    return api('/logs/clear', { method: 'POST', query: 'confirm=clear-logs', body: '' })
+      .then((data) => {
+        showMessage(data.message || '应用诊断日志已清空', 'ok');
+        logsLoaded = false;
+        return loadLogs();
+      })
+      .catch(showError)
+      .finally(() => setBusy(button, false));
   }
 
   function biosBackendLabel(backend) {
@@ -1143,15 +1355,19 @@
     return pwm === null ? '—' : String(pwm);
   }
 
-  function setBiosModeSelection(prefix, manual, mixed) {
-    const modeSwitch = $(`${prefix}FanManualSwitch`);
-    modeSwitch.indeterminate = Boolean(mixed);
-    modeSwitch.checked = !mixed && Boolean(manual);
-  }
-
   function biosFanTarget(prefix) {
     if (prefix === 'cpu') return 'cpu';
     return biosState.fan_write_target === 'all' ? 'all' : 'sys';
+  }
+
+  function biosWriteConfirmed() {
+    return !biosState.write_confirmation_required || Boolean($('biosExperimentalConfirmInput').checked);
+  }
+
+  function biosWriteQuery(query) {
+    return biosState.write_confirmation_required && biosWriteConfirmed()
+      ? `${query}&confirm=${biosState.direct_fan_fallback && biosState.model !== 'dxp4800s' ? 'direct-superio' : 'firmware-reversed'}`
+      : query;
   }
 
   function setBiosFanWriteStatus(prefix, state, message) {
@@ -1171,35 +1387,30 @@
   }
 
   function resetBiosFanWriteStatus(prefix) {
-    const modeSwitch = $(`${prefix}FanManualSwitch`);
     if (!biosState.available) {
       setBiosFanWriteStatus(prefix, '', '当前不可写入');
-    } else if (modeSwitch.indeterminate) {
-      setBiosFanWriteStatus(prefix, '', '选择自动或手动后立即应用');
-    } else if (modeSwitch.checked) {
-      setBiosFanWriteStatus(prefix, '', '调整 PWM 后自动应用');
+    } else if (!biosWriteConfirmed()) {
+      setBiosFanWriteStatus(prefix, '', '请先确认固件逆向写入风险');
     } else {
-      setBiosFanWriteStatus(prefix, '', '硬件自动调速已启用');
+      setBiosFanWriteStatus(prefix, '', '调整后写入手动 PWM，并由 hwmon 回读校验');
     }
   }
 
   function updateBiosFanEditorState(prefix) {
     const available = Boolean(biosState.available);
     const writeState = biosFanWrites[prefix];
-    const modeSwitch = $(`${prefix}FanManualSwitch`);
-    const manual = modeSwitch.checked && !modeSwitch.indeterminate;
-    const writable = available && !writeState.busy;
-    modeSwitch.disabled = !writable;
-    $(`${prefix}FanPwmRange`).disabled = !writable || !manual;
+    const fanPresent = prefix !== 'cpu' || biosState.cpu_fan_present !== false;
+    const writable = available && fanPresent && biosWriteConfirmed() && !writeState.busy;
+    $(`${prefix}FanPwmRange`).disabled = !writable;
   }
 
   function updateBiosWriteAvailability() {
-    const available = Boolean(biosState.available);
+    const startupAvailable = Boolean(biosState.startup_available) && biosWriteConfirmed();
     updateBiosFanEditorState('cpu');
     updateBiosFanEditorState('sys');
-    $('btnApplyBiosStartup').disabled = !available;
+    $('btnApplyBiosStartup').disabled = !startupAvailable;
     document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
-      input.disabled = !available;
+      input.disabled = !startupAvailable;
     });
   }
 
@@ -1207,38 +1418,48 @@
     biosState = Object.assign({ loaded: true, supported: false, available: false }, data || {}, { loaded: true });
     applyBiosRouting();
     const available = Boolean(biosState.available);
+    const startupAvailable = Boolean(biosState.startup_available);
     const is480t = biosState.model === 'dxp480t_plus';
+    const is4800s = biosState.model === 'dxp4800s';
+    const directFallback = Boolean(biosState.direct_fan_fallback);
     const is4800Pro = biosState.model === 'dxp4800_pro';
     const minPwm = Math.max(0, Number(biosState.min_pwm) || 0);
-    $('biosAvailabilityBadge').textContent = !biosState.supported ? '非适用机型' : available ? '控制器就绪' : '控制器不可用';
+    $('biosAvailabilityBadge').textContent = !biosState.supported
+      ? '非适用机型'
+      : available ? '风扇 hwmon 就绪' : startupAvailable ? '仅来电启动就绪' : '控制器不可用';
     $('biosAvailabilityText').textContent = !biosState.supported
-      ? '此入口仅对 DXP4800 Plus / Pro 与 DXP480T Plus 开放。'
+      ? '此入口仅对 DXP4800 Plus / Pro、DXP4800S 与 DXP480T Plus 开放。'
       : available
-        ? is480t
-          ? 'IT8613 芯片校验通过。三路风扇转速、PWM 与模式可读取，CPU / 全部风扇及来电启动控制已通过实机验证。'
-          : 'IT8613 芯片校验通过，可以读取和写入风扇及来电启动设置。'
-        : biosState.error || '没有找到可用的 BIOS 控制接口。';
-    $('biosModelKicker').textContent = is480t ? 'DXP480T PLUS · IT8613 · VERIFIED' : `DXP4800 ${is4800Pro ? 'PRO' : 'PLUS'} · IT8613`;
+        ? `已动态找到 name=it8613 的 hwmon 节点，风扇通过现有 it87 驱动读取和写入；来电启动${startupAvailable ? '也可用' : `独立不可用：${biosState.startup_error || '读取失败'}`}。`
+        : startupAvailable
+          ? `来电启动可用，但风扇 hwmon 不可用：${biosState.fan_error || biosState.error || '未找到 name=it8613 的节点'}。`
+          : biosState.fan_error || biosState.error || '没有找到可用的 BIOS 控制接口。';
+    $('biosModelKicker').textContent = is4800s
+      ? 'DXP4800S · IT8613 · FIRMWARE-REVERSED'
+      : is480t ? 'DXP480T PLUS · IT8613 · VERIFIED' : `DXP4800 ${is4800Pro ? 'PRO' : 'PLUS'} · IT8613`;
     $('biosPwmRangeBadge').textContent = `${minPwm}–255`;
     $('biosFanSafetyText').textContent = is480t
-      ? '模式切换会立即生效，PWM 调整完成后自动写入。DXP480T Plus 只开放 CPU 与全部风扇操作，PWM 最低为 40。'
-      : '模式切换会立即生效，PWM 调整完成后自动写入。请先确认温度监控正常，PWM 最低为 40。';
+      ? '只开放手动 PWM。全部风扇按 CPU → 系统2 → 系统1 写入，每个节点都写后回读；PWM 最低为 40。'
+      : '只开放手动 PWM，写入后会回读校验，PWM 最低为 40。原厂自动调速是软件温控曲线，不会用 pwm*_enable=2 冒充。';
     $('biosProductName').textContent = biosState.product_name || '未读取到';
     $('biosChipId').textContent = biosState.chip_id
       ? `${biosState.chip_id} · Rev ${biosState.revision ?? 0}`
       : '未读取';
     $('biosBackendName').textContent = biosBackendLabel(biosState.backend);
-    $('biosStartupSummary').textContent = biosStartupLabel(biosState.startup);
-    $('biosStartupBadge').textContent = biosStartupLabel(biosState.startup);
+    $('biosStartupSummary').textContent = startupAvailable ? biosStartupLabel(biosState.startup) : '不可用';
+    $('biosStartupBadge').textContent = startupAvailable ? biosStartupLabel(biosState.startup) : '独立不可用';
+    $('biosStartupHelp').textContent = startupAvailable
+      ? '来电启动与风扇控制独立读取和写入。该设置使用 UGREEN-NAS-Hardware 的受保护 Super I/O 路径。'
+      : `来电启动当前不可用，但不会影响风扇控制：${biosState.startup_error || '读取失败'}。`;
     $('cpuFanRpm').textContent = available ? String(biosState.cpu_rpm ?? 0) : '—';
     $('sysFanRpm').textContent = available ? String(biosState.sys_rpm ?? 0) : '—';
     $('sys2FanRpm').textContent = available ? String(biosState.sys2_rpm ?? 0) : '—';
     $('biosSys2RpmRow').hidden = !is480t;
+    $('cpuFanCard').hidden = biosState.cpu_fan_present === false;
     $('sysFanEyebrow').textContent = is480t ? 'ALL FANS' : 'SYSTEM FAN';
-    $('sysFanTitle').textContent = is480t ? '全部风扇' : '系统风扇';
+    $('sysFanTitle').textContent = is480t ? '全部风扇' : is4800s ? '系统风扇 sysfan1' : '系统风扇';
     $('sysFanRpmLabel').textContent = is480t ? 'SYS 1 RPM' : 'RPM';
     setBiosPwmControl('cpu', biosState.cpu_pwm);
-    setBiosModeSelection('cpu', biosState.cpu_manual, false);
     if (is480t) {
       const allPwmValues = [biosState.cpu_pwm, biosState.sys_pwm, biosState.sys2_pwm].map(biosPwmValue);
       const knownPwmValues = allPwmValues.filter((value) => value !== null);
@@ -1250,37 +1471,40 @@
       $('allSys2FanPwm').textContent = biosPwmText(biosState.sys2_pwm);
       $('sysFanCurrentPwm').textContent = allSame ? String(knownPwmValues[0]) : allKnown ? '多值' : '未提供';
       if (knownPwmValues.length > 0) setBiosPwmEditor('sys', Math.max(...knownPwmValues));
-      const allManual = Boolean(biosState.cpu_manual && biosState.sys_manual && biosState.sys2_manual);
-      const allAuto = !biosState.cpu_manual && !biosState.sys_manual && !biosState.sys2_manual;
-      const mixedMode = !allManual && !allAuto;
-      setBiosModeSelection('sys', allManual, mixedMode);
-      const modeText = mixedMode ? '三路当前为混合模式' : allManual ? '三路手动 PWM 模式' : '三路硬件自动模式';
       const pwmText = allSame
         ? 'PWM 一致'
         : allKnown ? 'PWM 不同，手动应用后将统一' : 'PWM 读取不完整';
-      $('sysFanMode').textContent = `${modeText} · ${pwmText}`;
+      $('sysFanMode').textContent = `仅开放手动 PWM · ${pwmText}`;
     } else {
       $('biosAllFanPwmRow').hidden = true;
       setBiosPwmControl('sys', biosState.sys_pwm);
-      setBiosModeSelection('sys', biosState.sys_manual, false);
     }
     ['cpuFanPwmRange', 'sysFanPwmRange'].forEach((id) => {
       $(id).min = String(minPwm);
       if (Number($(id).value) < minPwm) $(id).value = String(minPwm);
     });
-    $('cpuFanMode').textContent = biosState.backend === 'proc'
-      ? '由原厂内核接口管理'
-      : biosState.cpu_manual ? '手动 PWM 模式' : '硬件自动模式';
-    if (!is480t) $('sysFanMode').textContent = biosState.backend === 'proc'
-      ? '由原厂内核接口管理'
-      : biosState.sys_manual ? '手动 PWM 模式' : '硬件自动模式';
-    $('biosGuardTitle').textContent = is480t ? '480T Plus 已验证保护' : '4800 系列专属保护';
-    $('biosGuardText').textContent = is480t
-      ? '仅精确 DMI 识别为 DXP480T Plus 且芯片 ID 为 0x8613 时开放；检测到原厂 /proc/it86 驱动会拒绝并发访问，PWM 低于 40 会被后端拒绝。'
-      : '页面和写入接口只在 DMI 识别为 DXP4800 Plus / Pro 时启用，并校验 IT8613 芯片 ID。其他机型不会显示此入口。';
-    if (currentRoute === 'bios') $('pageDescription').textContent = is480t
-      ? 'DXP480T Plus 的 IT8613 三风扇状态、已验证 PWM 与来电启动控制。'
-      : ROUTES.bios.description;
+    $('cpuFanMode').textContent = '仅开放手动 PWM';
+    if (!is480t) $('sysFanMode').textContent = '仅开放手动 PWM；原厂自动由软件温控曲线实现';
+    $('biosGuardTitle').textContent = directFallback ? 'IT8613 直控保护' : is4800s ? '4800S 固件逆向保护' : is480t ? '480T Plus 已验证保护' : '4800 系列专属保护';
+    $('biosGuardText').textContent = directFallback
+      ? '检测到 it87 已卸载：将仅在无原厂控制器占用、IT8613 芯片 ID 匹配并取得进程锁后使用直控兜底。写入附加 --force --apply、最低 PWM 40 并逐项回读；请先确认风险。'
+      : is4800s
+      ? '仅精确 DMI 为 DXP4800S 且动态 hwmon 名称为 it8613 时开放。写入附加 --force --apply，最低 PWM 40，并执行进程锁和回读校验。'
+      : is480t
+        ? '仅精确 DMI 识别为 DXP480T Plus 且动态 hwmon 名称为 it8613 时开放；保留 it87，不卸载模块，PWM 低于 40 会被拒绝。'
+        : '页面和写入接口只在 DMI 精确匹配且找到 name=it8613 的 hwmon 节点时启用；保留现有 it87 驱动。';
+    $('biosExperimentalConfirm').hidden = !biosState.write_confirmation_required;
+    $('biosExperimentalConfirmTitle').textContent = directFallback
+      ? '我已了解 IT8613 直控写入风险'
+      : '我已了解固件逆向写入风险';
+    $('biosExperimentalConfirmText').textContent = directFallback
+      ? '我已确认 it87 已主动卸载，已准备独立温度监控与恢复原控制方式，并接受该机型直控写入尚待实机记录。'
+      : '已准备独立温度监控与恢复原厂控制的方案，并接受当前尚无 DXP4800S 实机写入验证。';
+    if (currentRoute === 'bios') $('pageDescription').textContent = is4800s
+      ? 'DXP4800S 的单路系统风扇、固件逆向 PWM 与来电启动控制；写入前必须确认风险。'
+      : is480t
+        ? 'DXP480T Plus 的 IT8613 三风扇状态、已验证 PWM 与来电启动控制。'
+        : ROUTES.bios.description;
     document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
       input.checked = input.value === biosState.startup;
       input.closest('.bios-policy-choice')?.classList.toggle('active', input.checked);
@@ -1354,22 +1578,6 @@
       });
   }
 
-  function applyBiosFanMode(prefix) {
-    const writeState = biosFanWrites[prefix];
-    const modeSwitch = $(`${prefix}FanManualSwitch`);
-    clearTimeout(writeState.timer);
-    writeState.timer = null;
-    modeSwitch.indeterminate = false;
-    const channel = biosFanTarget(prefix);
-    const mode = modeSwitch.checked ? 'manual' : 'auto';
-    const modeLabel = mode === 'manual' ? '手动 PWM 模式已启用' : '硬件自动调速已启用';
-    queueBiosFanWrite(
-      prefix,
-      () => api('/bios/fan/mode', { method: 'POST', query: `channel=${channel}&mode=${mode}` }),
-      modeLabel,
-    ).catch(() => {});
-  }
-
   function scheduleBiosFanPwm(prefix, delay, strict) {
     const writeState = biosFanWrites[prefix];
     const input = $(`${prefix}FanPwmRange`);
@@ -1391,7 +1599,7 @@
       const channel = biosFanTarget(prefix);
       queueBiosFanWrite(
         prefix,
-        () => api('/bios/fan', { method: 'POST', query: `channel=${channel}&pwm=${pwm}` }),
+        () => api('/bios/fan', { method: 'POST', query: biosWriteQuery(`channel=${channel}&pwm=${pwm}`) }),
         `PWM ${pwm} 已应用`,
       ).catch(() => {});
     }, Math.max(0, delay));
@@ -1416,6 +1624,8 @@
       ? '驱动已加载'
       : data.dkms_ready && data.headers_ready ? '可安装驱动' : 'CLI 模式';
     const messages = [];
+    if (data.it87_loaded) messages.push('检测到 it87：这是 BIOS 风扇控制的正常依赖，会保留且不会被本应用卸载。若另装第三方灯光插件后出现灯光或部分功能不可用，请先停用该插件，避免同时占用 LED 控制器。');
+    if (data.led_plugin_conflict) messages.push(`检测到可能占用 LED 控制器的内核模块：${data.led_plugin_modules || '未知模块'}。灯光仅由 bundled ugreen_leds_cli 控制；请停用该插件后重启灯光服务。`);
     if (data.driver_conflict) messages.push('检测到厂商 LED 内核模块，实验驱动安装已禁用。');
     if (data.driver_loaded && data.driver_managed) messages.push('修改机型档案或写入协议后，请点击“安装 / 重建实验驱动”让模块参数生效。');
     if (!data.headers_ready) messages.push('当前内核 headers 不可用，不能编译 DKMS；内置 CLI 不受影响。');
@@ -1424,7 +1634,7 @@
     if (data.backend_active === 'unavailable') messages.push('所选后端不可用或 CLI 与内核驱动发生冲突。');
     $('hardwareMessage').textContent = messages.join(' ');
     const sysfsOption = Array.from($('hardwareBackend').options).find((option) => option.value === 'sysfs');
-    if (sysfsOption) sysfsOption.disabled = !data.sysfs_ready;
+    if (sysfsOption) sysfsOption.disabled = true;
     document.querySelectorAll('[data-backend-guide]').forEach((item) => {
       const active = item.dataset.backendGuide === data.backend_active;
       item.classList.toggle('is-active', active);
@@ -1519,11 +1729,11 @@
   });
   $('btnSaveHardware').addEventListener('click', function () {
     if ($('hardwareBackend').value === 'cli' && hardwareState.driver_loaded) {
-      showMessage('内核驱动仍在占用 MCU，请先点击“卸载驱动并切回 CLI”', 'error');
+      showMessage('内核驱动仍在占用 MCU，请先点击“卸载驱动并切回 CLI”', 'err');
       return;
     }
     if ($('hardwareBackend').value === 'sysfs' && !hardwareState.sysfs_ready) {
-      showMessage('sysfs 后端尚未就绪，请先安装并成功探测实验驱动', 'error');
+      showMessage('sysfs 后端尚未就绪，请先安装并成功探测实验驱动', 'err');
       return;
     }
     saveSettings(this, collectHardwareLines(), '硬件设置已保存');
@@ -1537,14 +1747,22 @@
     runAction(this, api('/driver/unload', { method: 'POST', query: 'confirm=unload-driver', body: '' }), '已切回 CLI 后端');
   });
   $('btnRemap').addEventListener('click', function () {
-    runAction(this, api('/remap'), '硬盘映射已更新');
+    runAction(this, api('/remap', { method: 'POST', body: '' }), '硬盘映射已更新');
   });
   $('btnDaemonStart').addEventListener('click', function () {
-    runAction(this, api('/daemon/start'), '后台服务已启动');
+    runAction(this, api('/daemon/start', { method: 'POST', body: '' }), '后台服务已启动');
   });
   $('btnDaemonStop').addEventListener('click', function () {
-    runAction(this, api('/daemon/stop'), '后台服务已停止');
+    runAction(this, api('/daemon/stop', { method: 'POST', body: '' }), '后台服务已停止');
   });
+  $('btnRefreshLogs').addEventListener('click', function () { loadLogs(this); });
+  $('btnSaveLogLevel').addEventListener('click', function () { saveLogLevel(this); });
+  $('btnCopyLogs').addEventListener('click', copyLogs);
+  $('btnDownloadLogs').addEventListener('click', downloadLogs);
+  $('btnDownloadDiagnostics').addEventListener('click', function () { downloadHardwareDiagnostics(this); });
+  $('btnClearLogs').addEventListener('click', function () { clearLogs(this); });
+  $('logFilterLevel').addEventListener('change', () => loadLogs());
+  $('logLineCount').addEventListener('change', () => loadLogs());
   $('btnCheckUpdate').addEventListener('click', function () {
     checkForUpdates(true, this);
   });
@@ -1561,18 +1779,19 @@
       scheduleBiosFanPwm(prefix, 0, true);
     });
   });
-  ['cpu', 'sys'].forEach((prefix) => {
-    $(`${prefix}FanManualSwitch`).addEventListener('change', function () {
-      applyBiosFanMode(prefix);
-    });
-  });
   $('btnApplyBiosStartup').addEventListener('click', function () {
     const selected = document.querySelector('input[name="biosStartupPolicy"]:checked');
     if (!selected) {
-      showMessage('请选择来电启动策略', 'error');
+      showMessage('请选择来电启动策略', 'err');
       return;
     }
-    runBiosAction(this, api('/bios/startup', { method: 'POST', query: `policy=${selected.value}` }));
+    runBiosAction(this, api('/bios/startup', { method: 'POST', query: biosWriteQuery(`policy=${selected.value}`) }));
+  });
+  $('biosExperimentalConfirmInput').addEventListener('change', () => {
+    updateBiosWriteAvailability();
+    ['cpu', 'sys'].forEach((prefix) => {
+      if (!biosFanWrites[prefix].busy) resetBiosFanWriteStatus(prefix);
+    });
   });
   document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
     input.addEventListener('change', () => {

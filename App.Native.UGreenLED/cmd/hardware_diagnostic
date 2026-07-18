@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -u
+
+APP_NAME="App.Native.UGreenLED"
+APP_ROOT="${TRIM_APPDEST:-/var/apps/${APP_NAME}}"
+CMD_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)
+COLLECTOR=""
+
+for candidate in \
+    "${APP_ROOT}/server/nas_hardware_collect.sh" \
+    "${APP_ROOT}/target/server/nas_hardware_collect.sh" \
+    "${CMD_DIR}/../server/nas_hardware_collect.sh" \
+    "${CMD_DIR}/../target/server/nas_hardware_collect.sh" \
+    "${CMD_DIR}/../app/server/nas_hardware_collect.sh"; do
+    if [[ -f "$candidate" ]]; then
+        COLLECTOR="$candidate"
+        break
+    fi
+done
+
+if [[ -z "$COLLECTOR" ]]; then
+    printf '找不到 NAS 硬件诊断采集器，请重新安装或升级应用。\n' >&2
+    exit 1
+fi
+
+exec /bin/bash "$COLLECTOR" "$@"

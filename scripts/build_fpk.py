@@ -18,7 +18,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PROJECT = ROOT / "App.Native.UGreenLED"
 APP_NAME = "App.Native.UGreenLED"
-BUNDLED_CLI_SHA256 = "415ef659b0cf5569184abe7f946dbda90ef7c03db4043fbe84e382127b928723"
 TEXT_SUFFIXES = {".c", ".cgi", ".conf", ".css", ".h", ".html", ".js", ".md", ".py", ".sh"}
 TEXT_NAMES = {
     "config",
@@ -145,17 +144,25 @@ def validate_project() -> None:
         PROJECT / "ICON.PNG",
         PROJECT / "ICON_256.PNG",
         PROJECT / "app" / "server" / "bin" / "ugreen_leds_cli",
+        PROJECT / "app" / "server" / "bin" / "ugreen_leds_cli.sha256",
         PROJECT / "app" / "server" / "bin" / "ugreenctl",
+        PROJECT / "app" / "server" / "nas_hardware_collect.sh",
+        PROJECT / "app" / "server" / "lib" / "logging.sh",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp4800plus.so",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp4800s.so",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp480tplus.so",
         PROJECT / "app" / "server" / "vendor" / "UGREEN-NAS-Hardware" / "LICENSE",
-        PROJECT / "app" / "server" / "driver" / "led-ugreen" / "led-ugreen.c",
+        PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dxp480t-power.patch",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
     if missing:
         raise SystemExit("缺少打包文件：" + ", ".join(missing))
     cli = PROJECT / "app" / "server" / "bin" / "ugreen_leds_cli"
-    if hashlib.sha256(cli.read_bytes()).hexdigest() != BUNDLED_CLI_SHA256:
+    cli_hash_file = cli.with_name(f"{cli.name}.sha256")
+    expected = cli_hash_file.read_text(encoding="ascii").split(maxsplit=1)[0].lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", expected):
+        raise SystemExit("内置 ugreen_leds_cli SHA256 清单格式无效")
+    if hashlib.sha256(cli.read_bytes()).hexdigest() != expected:
         raise SystemExit("内置 ugreen_leds_cli SHA256 不匹配")
 
 
@@ -184,11 +191,14 @@ def verify_package(package: Path, *, expected_checksum: str, expected_version: s
                 "ui",
                 "www",
                 "server/bin/ugreen_leds_cli",
+                "server/bin/ugreen_leds_cli.sha256",
                 "server/bin/ugreenctl",
+                "server/nas_hardware_collect.sh",
+                "server/lib/logging.sh",
                 "server/lib/ugreenctl/models/dxp4800plus.so",
+                "server/lib/ugreenctl/models/dxp4800s.so",
                 "server/lib/ugreenctl/models/dxp480tplus.so",
                 "server/vendor/UGREEN-NAS-Hardware/LICENSE",
-                "server/driver/led-ugreen/led-ugreen.c",
             }.issubset(app_names):
                 raise SystemExit("FPK app.tgz 结构校验失败")
 

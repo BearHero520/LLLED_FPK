@@ -7,6 +7,7 @@ import argparse
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -15,12 +16,34 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCE = ROOT / "App.Native.UGreenLED" / "app" / "server" / "vendor" / "UGREEN-NAS-Hardware"
 DEFAULT_BINARY = ROOT / "App.Native.UGreenLED" / "app" / "server" / "bin" / "ugreenctl"
 DEFAULT_PLUGIN_DIR = ROOT / "App.Native.UGreenLED" / "app" / "server" / "lib" / "ugreenctl" / "models"
-MODELS = ("dxp4800plus", "dxp480tplus")
+MODELS = ("dxp4800plus", "dxp4800s", "dxp480tplus")
 
 
 def run(command: list[str]) -> None:
     print("+", " ".join(command))
     subprocess.run(command, check=True)
+
+
+def verify_model_plugins(binary: Path, plugin_dir: Path) -> None:
+    command = [str(binary), "--plugin-dir", str(plugin_dir), "models"]
+    print("+", " ".join(command))
+    result = subprocess.run(command, check=True, capture_output=True, text=True)
+    if result.stdout:
+        print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
+    if result.stderr:
+        print(result.stderr, end="" if result.stderr.endswith("\n") else "\n", file=sys.stderr)
+
+    discovered = {
+        line.split(maxsplit=1)[0]
+        for line in result.stdout.splitlines()
+        if line.strip()
+    }
+    missing = [model for model in MODELS if model not in discovered]
+    if missing:
+        raise SystemExit(
+            "UGREEN-NAS-Hardware build could not load required model plugins: "
+            + ", ".join(missing)
+        )
 
 
 def build(source: Path, binary: Path, plugin_dir: Path) -> None:
@@ -38,6 +61,7 @@ def build(source: Path, binary: Path, plugin_dir: Path) -> None:
         source_binary = build_dir / "ugreenctl"
         if not source_binary.is_file():
             raise SystemExit("UGREEN-NAS-Hardware build did not produce ugreenctl")
+        verify_model_plugins(source_binary, build_dir / "models")
         binary.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_binary, binary)
         binary.chmod(0o755)

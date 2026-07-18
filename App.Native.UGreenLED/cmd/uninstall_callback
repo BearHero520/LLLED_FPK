@@ -6,11 +6,32 @@ SERVER_DIR=""
 for d in "${APP_ROOT}/server" "${APP_ROOT}/target/server"; do
     [[ -f "${d}/lib/driver_manager.sh" ]] && SERVER_DIR="$d" && break
 done
-if [[ -n "$SERVER_DIR" && -f "${VAR_DIR}/driver-managed" ]]; then
+LOG_DIR="${VAR_DIR}/log"
+UGREEN_LOG_COMPONENT="uninstall"
+export LOG_DIR UGREEN_LOG_COMPONENT
+install_logging_fallbacks() {
+    ugreen_log_info() { :; }
+    ugreen_log_warn() { :; }
+    ugreen_log_rotate_file() { :; }
+    ugreen_log_run_raw() { shift 4; "$@" >/dev/null 2>&1; }
+}
+if [[ -z "$SERVER_DIR" || ! -f "${SERVER_DIR}/lib/logging.sh" ]] || ! source "${SERVER_DIR}/lib/logging.sh"; then
+    install_logging_fallbacks
+fi
+ugreen_log_info "uninstall.started" "开始执行应用卸载清理" "app_root=$APP_ROOT" "var_dir=$VAR_DIR"
+if false && [[ -n "$SERVER_DIR" && -f "${VAR_DIR}/driver-managed" ]]; then
     SETTINGS_FILE="${VAR_DIR}/settings.conf"
     source "${SERVER_DIR}/lib/settings.sh" 2>/dev/null
     source "${SERVER_DIR}/lib/hardware_profile.sh" 2>/dev/null
     source "${SERVER_DIR}/lib/driver_manager.sh" 2>/dev/null
-    driver_remove >> "${VAR_DIR}/log/driver.log" 2>&1 || true
+    DRIVER_LOG="${VAR_DIR}/log/driver.log"
+    if ugreen_log_run_raw "$DRIVER_LOG" 10485760 3 "driver-remove-uninstall" driver_remove; then
+        ugreen_log_info "uninstall.driver_removed" "本应用管理的实验驱动已清理"
+    else
+        driver_rc=$?
+        ugreen_log_warn "uninstall.driver_remove_failed" "实验驱动清理失败，卸载流程将继续" \
+            "exit_code=$driver_rc" "raw_log=driver.log"
+    fi
 fi
+ugreen_log_info "uninstall.completed" "应用卸载回调已完成"
 exit 0

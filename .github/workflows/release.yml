@@ -18,8 +18,30 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Validate shell, CGI, JavaScript and Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in App.Native.UGreenLED/cmd/* App.Native.UGreenLED/app/server/*.sh App.Native.UGreenLED/app/server/lib/*.sh App.Native.UGreenLED/app/ui/*.cgi tests/*.sh; do
+            bash -n "$file"
+          done
+          node --check App.Native.UGreenLED/app/www/js/app.js
+          python3 -m py_compile scripts/preview_web.py
+
+      - name: Run tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test_file in tests/test_*.sh; do
+            echo "==> $test_file"
+            bash "$test_file"
+          done
+
       - name: Build bundled UGREEN-NAS-Hardware control CLI
         run: python3 scripts/build_ugreenctl.py
+
+      - name: Build patched bundled LED CLI
+        run: python3 scripts/build_ugreen_leds_cli.py
 
       - name: Resolve version
         id: version

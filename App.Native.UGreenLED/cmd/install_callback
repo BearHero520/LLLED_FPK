@@ -2,8 +2,6 @@
 APP_ROOT="${TRIM_APPDEST:-/var/apps/App.Native.UGreenLED}"
 VAR_DIR="${TRIM_PKGVAR:-${APP_ROOT}/var}"
 RUNTIME_DIR="${UGREEN_RUNTIME_DIR:-/run/App.Native.UGreenLED}"
-CLI_URL="https://github.com/miskcoo/ugreen_leds_controller/releases/download/v0.4-beta/ugreen_leds_cli"
-CLI_SHA256="415ef659b0cf5569184abe7f946dbda90ef7c03db4043fbe84e382127b928723"
 
 SERVER_DIR=""
 for d in "${APP_ROOT}/server" "${APP_ROOT}/target/server"; do
@@ -11,19 +9,61 @@ for d in "${APP_ROOT}/server" "${APP_ROOT}/target/server"; do
 done
 SERVER_DIR="${SERVER_DIR:-${APP_ROOT}/server}"
 CLI_DEST="${SERVER_DIR}/bin/ugreen_leds_cli"
+CLI_SHA256_FILE="${SERVER_DIR}/bin/ugreen_leds_cli.sha256"
 
 mkdir -p "${VAR_DIR}/log" "$RUNTIME_DIR" "$(dirname "$CLI_DEST")"
 chmod 0755 "$RUNTIME_DIR" 2>/dev/null || true
+LOG_DIR="${VAR_DIR}/log"
+UGREEN_LOG_COMPONENT="install"
+export LOG_DIR UGREEN_LOG_COMPONENT
+install_logging_fallbacks() {
+    ugreen_log_debug() { :; }
+    ugreen_log_info() { :; }
+    ugreen_log_warn() { :; }
+    ugreen_log_error() { :; }
+    ugreen_log_rotate_file() { :; }
+    ugreen_log_run_raw() { shift 4; "$@" >/dev/null 2>&1; }
+}
+if [[ ! -f "${SERVER_DIR}/lib/logging.sh" ]] || ! source "${SERVER_DIR}/lib/logging.sh"; then
+    install_logging_fallbacks
+fi
+INSTALL_LOG="${LOG_DIR}/install.log"
+CLI_SHA256=$(awk 'NF { print $1; exit }' "$CLI_SHA256_FILE" 2>/dev/null || true)
+if ! [[ "$CLI_SHA256" =~ ^[[:xdigit:]]{64}$ ]]; then
+    ugreen_log_error "install.cli_checksum_manifest_invalid" "Bundled LED CLI checksum manifest is invalid" \
+        "checksum_file=$CLI_SHA256_FILE"
+    echo "ERROR: bundled LED CLI checksum manifest is invalid" >&2
+    exit 1
+fi
+CLI_SHA256="${CLI_SHA256,,}"
+ugreen_log_info "install.started" "开始准备绿联 LED 灯控运行环境" \
+    "app_root=$APP_ROOT" "var_dir=$VAR_DIR" "runtime_dir=$RUNTIME_DIR" \
+    "server_dir=$SERVER_DIR" "uid=$(id -u 2>/dev/null || echo unknown)" \
+    "kernel=$(uname -r 2>/dev/null || echo unknown)"
 
 MISSING_PACKAGES=()
 command -v i2cdetect >/dev/null 2>&1 || MISSING_PACKAGES+=(i2c-tools)
 command -v hdparm >/dev/null 2>&1 || MISSING_PACKAGES+=(hdparm)
 command -v ip >/dev/null 2>&1 || MISSING_PACKAGES+=(iproute2)
 if [[ ${#MISSING_PACKAGES[@]} -gt 0 ]] && command -v apt-get >/dev/null 2>&1; then
-    apt-get install -y -qq "${MISSING_PACKAGES[@]}" 2>/dev/null || \
+    if ugreen_log_run_raw "$INSTALL_LOG" 10485760 3 "dependency-install" \
+        apt-get install -y -qq "${MISSING_PACKAGES[@]}"; then
+        ugreen_log_info "install.dependencies_ready" "缺失的系统依赖已安装" "packages=${MISSING_PACKAGES[*]}"
+    else
+        apt_rc=$?
+        ugreen_log_warn "install.dependencies_failed" "部分系统依赖安装失败，请检查 apt 软件源" \
+            "packages=${MISSING_PACKAGES[*]}" "exit_code=$apt_rc" "raw_log=install.log"
         echo "WARN: 部分系统依赖安装失败，请检查 apt 软件源" >&2
+    fi
+elif [[ ${#MISSING_PACKAGES[@]} -gt 0 ]]; then
+    ugreen_log_warn "install.package_manager_missing" "检测到缺失依赖，但系统没有可用的 apt-get" \
+        "packages=${MISSING_PACKAGES[*]}"
+else
+    ugreen_log_info "install.dependencies_ready" "系统依赖检查通过"
 fi
-modprobe i2c-dev 2>/dev/null || true
+if ! modprobe i2c-dev 2>/dev/null; then
+    ugreen_log_warn "install.i2c_module_failed" "无法加载 i2c-dev 内核模块"
+fi
 
 cli_checksum_ok() {
     local f="$1" actual
@@ -34,14 +74,17 @@ cli_checksum_ok() {
         actual=$(openssl dgst -sha256 "$f" | awk '{print $NF}')
     else
         echo "ERROR: 系统缺少 sha256sum/openssl，无法校验灯控程序" >&2
+        ugreen_log_error "install.checksum_tool_missing" "系统缺少 sha256sum/openssl，无法校验灯控程序" "file=$f"
         return 1
     fi
+    ugreen_log_debug "install.checksum_checked" "已校验 LED CLI 文件" \
+        "file=$f" "actual_sha256=$actual" "expected_sha256=$CLI_SHA256"
     [[ "${actual,,}" == "$CLI_SHA256" ]]
 }
 
 # FPK 已内置固定版本 CLI；系统路径与网络下载仅作为兼容回退。
 CLI_READY=""
-for candidate in "$CLI_DEST" /usr/bin/ugreen_leds_cli /opt/ugreen-led-controller/ugreen_leds_cli; do
+for candidate in "$CLI_DEST"; do
     if cli_checksum_ok "$candidate"; then
         CLI_READY="$candidate"
         break
@@ -49,27 +92,61 @@ for candidate in "$CLI_DEST" /usr/bin/ugreen_leds_cli /opt/ugreen-led-controller
 done
 
 if [[ -z "$CLI_READY" ]]; then
+    ugreen_log_error "install.cli_bundled_invalid" "Bundled LED CLI is missing or does not match its checksum" \
+        "destination=$CLI_DEST" "checksum_file=$CLI_SHA256_FILE"
+    echo "ERROR: bundled LED CLI is missing or does not match its checksum" >&2
+    exit 1
     CLI_TMP="${CLI_DEST}.download.$$"
     rm -f "$CLI_TMP"
-    wget -q -O "$CLI_TMP" "$CLI_URL" 2>/dev/null || \
-        curl -fsSL -o "$CLI_TMP" "$CLI_URL" 2>/dev/null || true
+    download_method=""
+    if command -v wget >/dev/null 2>&1 && \
+        ugreen_log_run_raw "$INSTALL_LOG" 10485760 3 "cli-download-wget" wget -O "$CLI_TMP" "$CLI_URL"; then
+        download_method="wget"
+    elif command -v curl >/dev/null 2>&1 && \
+        ugreen_log_run_raw "$INSTALL_LOG" 10485760 3 "cli-download-curl" curl -fsSL -o "$CLI_TMP" "$CLI_URL"; then
+        download_method="curl"
+    fi
     if ! cli_checksum_ok "$CLI_TMP"; then
         rm -f "$CLI_TMP"
+        ugreen_log_error "install.cli_download_failed" "ugreen_leds_cli 下载失败或 SHA256 校验不通过" \
+            "url=$CLI_URL" "download_method=${download_method:-none}" "destination=$CLI_DEST" "raw_log=install.log"
         echo "ERROR: ugreen_leds_cli 下载失败或 SHA256 校验不通过" >&2
         exit 1
     fi
-    mv "$CLI_TMP" "$CLI_DEST"
+    if ! mv "$CLI_TMP" "$CLI_DEST"; then
+        rm -f "$CLI_TMP" 2>/dev/null || true
+        ugreen_log_error "install.cli_place_failed" "无法把 LED CLI 写入应用目录" "destination=$CLI_DEST"
+        exit 1
+    fi
     CLI_READY="$CLI_DEST"
+    ugreen_log_info "install.cli_downloaded" "已下载并校验 LED CLI" \
+        "method=$download_method" "destination=$CLI_DEST"
+else
+    ugreen_log_info "install.cli_ready" "已找到并校验 LED CLI" "cli=$CLI_READY"
 fi
-chmod +x "$CLI_READY" 2>/dev/null || true
+if ! chmod +x "$CLI_READY" 2>/dev/null; then
+    ugreen_log_error "install.cli_chmod_failed" "无法为 LED CLI 设置执行权限" "cli=$CLI_READY"
+    exit 1
+fi
 
 if [[ ! -f "${VAR_DIR}/settings.conf" && -f "${SERVER_DIR}/default_settings.conf" ]]; then
-    cp "${SERVER_DIR}/default_settings.conf" "${VAR_DIR}/settings.conf"
+    if cp "${SERVER_DIR}/default_settings.conf" "${VAR_DIR}/settings.conf"; then
+        ugreen_log_info "install.settings_created" "已创建默认应用配置" "settings_file=${VAR_DIR}/settings.conf"
+    else
+        ugreen_log_error "install.settings_failed" "无法创建默认应用配置" "settings_file=${VAR_DIR}/settings.conf"
+        exit 1
+    fi
+else
+    ugreen_log_info "install.settings_preserved" "保留现有应用配置" "settings_file=${VAR_DIR}/settings.conf"
 fi
 
-chmod +x "${SERVER_DIR}/"*.sh "${SERVER_DIR}/lib/"*.sh 2>/dev/null || true
-chmod +x "${APP_ROOT}/ui/"*.cgi 2>/dev/null || true
-chmod +x "${APP_ROOT}/cmd/"* 2>/dev/null || true
+chmod +x "${SERVER_DIR}/"*.sh "${SERVER_DIR}/lib/"*.sh 2>/dev/null || \
+    ugreen_log_warn "install.permissions_partial" "部分服务脚本执行权限设置失败" "server_dir=$SERVER_DIR"
+chmod +x "${APP_ROOT}/ui/"*.cgi 2>/dev/null || \
+    ugreen_log_warn "install.permissions_partial" "CGI 执行权限设置失败" "ui_dir=${APP_ROOT}/ui"
+chmod +x "${APP_ROOT}/cmd/"* 2>/dev/null || \
+    ugreen_log_warn "install.permissions_partial" "生命周期脚本执行权限设置失败" "cmd_dir=${APP_ROOT}/cmd"
 
 # 安装/升级回调只准备依赖与配置。服务启动由 fnOS 应用中心在文件切换完成后调用 cmd/main。
+ugreen_log_info "install.completed" "绿联 LED 灯控运行环境准备完成" "cli=$CLI_READY"
 exit 0

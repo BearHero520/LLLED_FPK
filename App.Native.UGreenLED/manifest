@@ -1,7 +1,7 @@
 appname               = App.Native.UGreenLED
-version               = 1.7.6
-display_name          = 绿联LED灯控
-desc                  = 绿联 NAS LED 控制。内置 v0.4-beta CLI，支持多机型档案、多控制后端与 2/4/6/8 盘位映射。
+version               = 1.8.1
+display_name          = 绿联 LED 灯控
+desc                  = 绿联 NAS LED 控制；灯光统一由内置 CLI 控制，并支持 BIOS 风扇与来电启动管理。
 platform              = x86
 source                = thirdparty
 maintainer            = BearHero520
@@ -14,4 +14,4 @@ desktop_uidir         = ui
 desktop_applaunchname = App.Native.UGreenLED.Web
 service_port          = 5088
 checkport             = false
-changelog             = v1.7.6 风扇模式与 PWM 改为调整后立即写入，移除二次应用按钮并增加实时写入状态反馈
+changelog             = v1.8.1 为 DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 增加 IT8613 直控风扇兜底：仅在 it87 hwmon 节点不存在且控制器无人占用时启用，直控写入要求 --force --apply、最低 PWM 40 并回读验证

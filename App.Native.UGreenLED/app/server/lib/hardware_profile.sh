@@ -31,6 +31,7 @@ hardware_profile_from_name() {
         *DXP2800*GT*) echo "dxp2800_gt" ;;
         *DXP2800*) echo "dxp2800" ;;
         *DXP4800*GT*) echo "dxp4800_gt" ;;
+        *DXP4800S*) echo "dxp4800s" ;;
         *DXP4800*PLUS*) echo "dxp4800_plus" ;;
         *DXP4800*PRO*) echo "dxp4800_pro" ;;
         *DXP4800*) echo "dxp4800" ;;
@@ -48,7 +49,7 @@ hardware_profile_key() {
         override=$(settings_get "$SETTINGS_FILE" hardware profile "auto")
     fi
     case "$override" in
-        dx4600|dx4700|dxp2800|dxp2800_gt|dxp4800|dxp4800_plus|dxp4800_pro|dxp4800_gt|dxp6800|dxp8800|dxp480t_plus|idx6011|idx6011_pro|idx6012)
+        dx4600|dx4700|dxp2800|dxp2800_gt|dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp4800_gt|dxp6800|dxp8800|dxp480t_plus|idx6011|idx6011_pro|idx6012)
             echo "$override"
             ;;
         *)
@@ -66,6 +67,7 @@ hardware_profile_display_name() {
         dxp4800) echo "UGREEN DXP4800" ;;
         dxp4800_plus) echo "UGREEN DXP4800 Plus" ;;
         dxp4800_pro) echo "UGREEN DXP4800 Pro" ;;
+        dxp4800s) echo "UGREEN DXP4800S" ;;
         dxp4800_gt) echo "UGREEN DXP4800 GT" ;;
         dxp6800) echo "UGREEN DXP6800 Pro" ;;
         dxp8800) echo "UGREEN DXP8800 Plus" ;;
@@ -80,7 +82,7 @@ hardware_profile_display_name() {
 hardware_support_level() {
     case "${1:-$(hardware_profile_key)}" in
         dx4600|dx4700|dxp2800|dxp4800|dxp4800_plus|dxp6800|dxp8800) echo "stable" ;;
-        dxp4800_gt|idx6011|idx6011_pro|idx6012) echo "experimental" ;;
+        dxp4800s|dxp4800_gt|idx6011|idx6011_pro|idx6012) echo "experimental" ;;
         dxp2800_gt|dxp4800_pro) echo "unverified" ;;
         dxp480t_plus) echo "limited" ;;
         *) echo "unknown" ;;
@@ -104,7 +106,7 @@ hardware_write_protocol() {
 hardware_disk_count() {
     case "${1:-$(hardware_profile_key)}" in
         dxp2800|dxp2800_gt) echo 2 ;;
-        dx4600|dx4700|dxp4800|dxp4800_plus|dxp4800_pro|dxp4800_gt) echo 4 ;;
+        dx4600|dx4700|dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp4800_gt) echo 4 ;;
         dxp6800|idx6011|idx6011_pro|idx6012) echo 6 ;;
         dxp8800) echo 8 ;;
         dxp480t_plus) echo 0 ;;
@@ -170,6 +172,7 @@ dxp2800_gt|UGREEN DXP2800 GT（待验证）
 dxp4800|UGREEN DXP4800
 dxp4800_plus|UGREEN DXP4800 Plus
 dxp4800_pro|UGREEN DXP4800 Pro（待验证）
+dxp4800s|UGREEN DXP4800S（BIOS 控制固件逆向）
 dxp4800_gt|UGREEN DXP4800 GT（实验性）
 dxp6800|UGREEN DXP6800 Pro
 dxp8800|UGREEN DXP8800 Plus

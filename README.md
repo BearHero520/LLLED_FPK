@@ -1,6 +1,6 @@
 # 绿联 LED 灯控（飞牛 fnOS 原生应用）
 
-在飞牛 **fnOS** 上控制绿联 NAS 机箱 LED。应用内置上游 **v0.4-beta `ugreen_leds_cli`**，支持 `0x3a` legacy / SMBus block-write 协议、CLI / sysfs 后端、DXP480T N76E003 电源灯后端、机型预设以及 2/4/6/8 盘位映射。
+在飞牛 **fnOS** 上控制绿联 NAS 机箱 LED。应用内置基于上游 `ugreen_leds_controller` 固定提交构建的 `ugreen_leds_cli`，支持 `0x3a` legacy / SMBus block-write 协议、CLI / sysfs 后端、DXP480T N76E003 电源灯后端、机型预设以及 2/4/6/8 盘位映射。
 
 - **本仓库**：[LLLED_FPK](https://github.com/BearHero520/LLLED_FPK) — 飞牛应用源码与打包说明  
 - **命令行版**：[LLLED](https://github.com/BearHero520/LLLED) — 不装飞牛包时的 Shell 方案  
@@ -20,7 +20,7 @@ LLLED_FPK/
 └── README.md
 ```
 
-应用 ID：`App.Native.UGreenLED` · 当前版本：**1.7.6**
+应用 ID：`App.Native.UGreenLED` · 当前版本：**1.8.1**
 
 ## 功能概览
 
@@ -34,8 +34,9 @@ LLLED_FPK/
 | 网络灯 | **外网**（海外检测点通）、**联网**（仅国内通）、**断网** |
 | 速度闪动 | 磁盘读写、网络上传下载超过阈值后闪动，速度越高闪动越快，两项可独立开关 |
 | 电源灯 | 智能 / 全开模式下可单独配色 |
-| BIOS 控制 | 直接集成 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 的 `ugreenctl`；DXP4800 Plus / Pro 支持 CPU、系统风扇 PWM，DXP480T Plus 可读三路转速/PWM/模式，并已验证 CPU/全部风扇 PWM 与来电启动策略 |
+| BIOS 控制 | 直接集成 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 的 `ugreenctl`；DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 优先经 `it87` hwmon 控制；卸载 `it87` 后可使用受保护的 IT8613 直控兜底 |
 | Web 配置 | 飞牛桌面 iframe 内配色预设、保存后自动进入智能模式 |
+| 分级诊断日志 | 统一记录服务、CGI、LED、BIOS、驱动与安装事件，包含请求 ID、源码位置、耗时、返回码和错误上下文，并自动脱敏、截断和轮转 |
 
 > 硬件限制：灯处于 **off** 时不能直接改色，须先 `-on` 再设色。`app/server/lib/led_api.sh` 已自动处理。
 
@@ -46,7 +47,7 @@ LLLED_FPK/
 ### 环境要求
 
 - fnOS **≥ 0.9.27**，平台 **x86**
-- 安装需 **root**（访问 I2C）；FPK 已内置并校验 v0.4-beta `ugreen_leds_cli`，安装回调会安装缺少的 `i2c-tools` / `hdparm` 并加载 `i2c-dev`
+- 安装需 **root**（访问 I2C）；FPK 已内置并校验 `ugreen_leds_cli`，安装回调会安装缺少的 `i2c-tools` / `hdparm` 并加载 `i2c-dev`
 - 实验性内核驱动不会自动安装；主动启用时需要 `dkms` 和当前内核对应的 headers
 
 ### 使用 fnpack 打包
@@ -79,7 +80,7 @@ python scripts/build_ugreenctl.py # 仅 x86 Linux；GitHub Actions 会自动执�
 python scripts/build_fpk.py
 ```
 
-`ugreenctl` 与 DXP4800 Plus / DXP480T Plus 机型插件由 CI 在 Ubuntu 22.04 构建并随 FPK 分发；Windows 本地检出请通过 GitHub Actions 打包。`scripts/build_fpk_remote.py` 会在 NAS 端按需安装 CMake 和编译器再构建它。硬件源代码以 Git 子模块固定在 `App.Native.UGreenLED/app/server/vendor/UGREEN-NAS-Hardware`，克隆时请使用 `git clone --recurse-submodules`；升级时同步更新该子模块提交。
+`ugreenctl` 与 DXP4800 Plus / DXP4800S / DXP480T Plus 机型插件由 CI 在 Ubuntu 22.04 构建并随 FPK 分发；Windows 本地检出请通过 GitHub Actions 打包。`scripts/build_fpk_remote.py` 会在 NAS 端按需安装 CMake 和编译器再构建它。硬件源代码以 Git 子模块固定在 `App.Native.UGreenLED/app/server/vendor/UGREEN-NAS-Hardware`，克隆时请使用 `git clone --recurse-submodules`；升级时同步更新该子模块提交。
 
 输出目录为 `dist/`，其中包括：
 
@@ -94,8 +95,8 @@ python scripts/build_fpk.py
 `.github/workflows/release.yml` 会在推送 `v*.*.*` 标签时自动构建并发布 Release。标签版本必须与 `App.Native.UGreenLED/manifest` 中的 `version` 一致：
 
 ```bash
-git tag v1.7.6
-git push origin v1.7.6
+git tag v1.8.1
+git push origin v1.8.1
 ```
 
 也可以在 GitHub Actions 页面手动运行工作流，只生成可下载的构建产物而不创建 Release。Release 会同时上传带版本文件名、固定文件名以及 SHA256 校验文件。
@@ -145,15 +146,17 @@ python App.Native.UGreenLED/scripts/process_logo.py
 | 状态 | 机型 |
 |------|------|
 | 已验证 | DX4600 Pro、DX4700+、DXP2800、DXP4800、DXP4800 Plus、DXP6800 Pro、DXP8800 Plus |
-| 实验性 | DXP4800 GT、iDX6011 / iDX6011 Pro |
+| 实验性 | DXP4800S（BIOS 控制固件逆向）、DXP4800 GT、iDX6011 / iDX6011 Pro |
 | 待验证 | DXP2800 GT、DXP4800 Pro |
 | 受限支持 | DXP480T / DXP480T Plus（独立 N76E003 控制器，仅红/白电源灯） |
 
 DXP4800 GT 和 iDX6011 系列使用 `smbus-block`；iDX6011 Pro 的第二网络灯与六个硬盘灯会通过逻辑 LED 别名校正。实验性机型建议先在“实验室”逐灯验证。
 
-DXP480T 系列与其他机型不同：它没有硬盘灯和网络灯，也不使用 `0x3a` RGB MCU。应用按原厂 `leds-mcu-n76e003` 驱动的规则，在可用 I²C 总线上探测地址 `0x31`、`0x26`，并读取 `0x5a/0x5b` 验证 `0xa5b5` 签名后才允许写入。红/白通道、常亮、快闪、慢闪、呼吸和关闭均使用固件恢复的 SMBus byte-data 寄存器序列；不会为该档案安装通用 `led-ugreen` DKMS 驱动。检测到专用后端后，“灯光设置”页面会自动替换为 480T 简化控制页；“网络活动”模式会复用电源灯，在总上传与下载速度超过页面设置的阈值后慢闪，达到阈值 4 倍后快闪。其他机型继续使用原来的完整 RGB 设置页。
+DXP480T 系列与其他机型不同：它没有硬盘灯和网络灯，也不使用 `0x3a` RGB MCU。应用层只会调用内置 `ugreen_leds_cli` 的 `--dxp480t-power-probe` 和 `--dxp480t-power`，绝不直接访问 I²C。CLI 依据已验证的 [DXP480T Plus 控制方法](https://github.com/miskcoo/ugreen_leds_controller/issues/6#issuecomment-2156807225)，仅在 DMI 匹配 DXP480T、检测到 Intel I801 SMBus，并在 `0x31` 或 `0x26` 读到 `0x5a/0x5b = 0xa5/0xb5` 后执行写入；每个命令都会先清除 `0xa0=1`、`0xa0=2`，再以 `0xb1=1`（红）或 `0xb1=2`（白）选择通道，并用 `0x50` / `0x51` 设置常亮、快闪、慢闪或呼吸。关闭使用原协议的 `0xb1=3`。不会为该档案安装通用 `led-ugreen` DKMS 驱动。检测到专用后端后，“灯光设置”页面会自动替换为 480T 简化控制页；“网络活动”模式会复用电源灯，在总上传与下载速度超过页面设置的阈值后慢闪，达到阈值 4 倍后快闪。其他机型继续使用原来的完整 RGB 设置页。
 
-BIOS 控制直接集成 [BearHero520/UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 的 `ugreenctl` 与 DXP4800 Plus / DXP480T Plus 插件（MIT）。该项目负责精确 DMI 匹配、IT8613 身份及原厂驱动冲突检查、进程锁和寄存器映射；本应用负责 Web API 与页面展示。DXP480T Plus 的风扇和来电启动路径来自原厂固件 `1.17.0.95` 静态逆向，并已在实机验证：页面可读取 CPU、系统风扇 1、系统风扇 2 的转速、PWM 和自动/手动模式；写入仍只开放 CPU 或全部风扇，PWM 强制最低 40。全部风扇按原厂顺序写入 CPU、系统风扇 2、系统风扇 1，不开放单独系统风扇写入。普通 DXP480T 不会因手动机型档案选择而绕过精确 DMI 保护。
+BIOS 控制直接集成 [BearHero520/UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 的 `ugreenctl` 与 DXP4800 Plus / DXP4800S / DXP480T Plus 插件（MIT）。该项目负责精确 DMI 匹配、IT8613 身份及原厂驱动冲突检查、进程锁和寄存器映射；本应用负责 Web API 与页面展示。三个机型优先使用动态 `name=it8613` hwmon 节点；若用户为释放通道而卸载 `it87`，会在无原厂接口、无 `it87` 占用、芯片 ID 匹配并取得进程锁后，回退到各机型独立的 IT8613 直控映射。直控写入仍须 `--force --apply`、最低 PWM 40 并逐项回读；4800 Plus / Pro、4800S 与 480T Plus 的直控写入仍待分别完成实机记录。DXP480T Plus 的原 hwmon CPU/全部风扇路径已实机验证，全部风扇按原厂顺序写入 CPU、系统风扇 2、系统风扇 1；普通 DXP480T 不会因手动机型档案选择而绕过精确 DMI 保护。
+
+DXP4800S 仅匹配精确 DMI `DXP4800S`。可读取 `sysfan1` 转速与当前 PWM，手动 PWM 只开放 `sys` 与 `40..255`，来电启动支持 `on/off/last`；只有手动模式会被报告为已知，原厂自动调速由 `hwmonitor` 用户态守护进程实现。由于这些写入来自 UGOS Pro `1.17.0.0095` 固件逆向且尚无实机验证，网页会要求显式风险确认，后端同时附加 `--force --apply`，并继续执行芯片 ID、原厂驱动冲突和进程锁保护。
 
 如果 LED 硬件或 `i2c-tools` 暂时不可用，应用仍会完成安装并开放 Web 管理页，不会因为灯控后端探测失败而让 fnOS 报整包安装失败。后台服务会继续重试，并在硬件状态区域显示诊断信息。
 
@@ -162,7 +165,7 @@ BIOS 控制直接集成 [BearHero520/UGREEN-NAS-Hardware](https://github.com/Bea
 - `backend=auto`：检测到可用的 `led-ugreen` sysfs 设备时使用驱动，否则使用内置 CLI。
 - `backend=cli`：强制使用内置 CLI；如果内核驱动仍占用 MCU，会拒绝启动，避免同时访问 I2C。
 - `backend=sysfs`：强制使用内核驱动；不可用时明确报错。
-- DXP480T 系列在 `auto` / `cli` 设置下会自动使用专用 `power-0x26` 后端，不调用通用 CLI。
+- DXP480T 系列在 `auto` / `cli` 设置下会自动使用 `ugreen_leds_cli` 内置的专用 `power-0x26` 子命令，不调用通用 RGB 命令。
 - `write_protocol=auto` 默认跟随机型档案；未知硬件可手动强制 `legacy` 或 `smbus-block`，避免完全依赖 DMI 名称。
 - FPK 携带上游驱动源码，但只有用户在 Web 页面确认后才会通过 DKMS 编译；缺少 headers、存在厂商 LED 模块或已有非本应用管理的驱动时会拒绝覆盖。
 - 随包驱动基于上游 v0.4-beta `kmod` 源码，仅增加状态读取的数组边界保护；上游许可证原样保留在驱动目录中。
@@ -187,34 +190,98 @@ BIOS 控制直接集成 [BearHero520/UGREEN-NAS-Hardware](https://github.com/Bea
 
 基址：`/cgi/ThirdParty/App.Native.UGreenLED/api.cgi`
 
+所有响应都会返回 `X-Request-ID`，并按结果使用 2xx / 4xx / 5xx HTTP 状态；错误响应会把同一状态码、请求 ID、脱敏客户端地址和截断后的 User-Agent 写入 `app.log` 便于关联排查。
+
 | 路径 | 说明 |
 |------|------|
 | `/status` | 守护进程与 LED 状态 |
 | `/mapping` | 硬盘映射表 |
 | `/settings` | GET / POST 配置 |
 | `/hardware/status` | 机型档案、协议、后端、DKMS 与内核 headers 状态 |
-| `/bios/status` | DXP4800 Plus / Pro / DXP480T Plus 的 IT8613、风扇 PWM/转速/模式与来电启动状态 |
-| `/bios/fan?channel=cpu\|sys\|all&pwm=40..255` | POST：设置风扇 PWM；480T 仅允许 `cpu` / `all` |
-| `/bios/startup?policy=on\|off\|last` | POST：设置来电启动策略 |
+| `/bios/status` | DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 的 IT8613、风扇与来电启动状态及写入能力标记 |
+| `/bios/fan?channel=cpu\|sys\|all&pwm=40..255` | POST：设置风扇 PWM；480T 仅允许 `cpu` / `all`；4800S 仅允许 `sys`，并要求 `confirm=firmware-reversed`；若检测到已卸载 `it87` 的直控兜底，则 4800 Plus / 480T Plus 要求 `confirm=direct-superio` |
+| `/bios/startup?policy=on\|off\|last` | POST：设置来电启动策略；4800S 写入要求 `confirm=firmware-reversed` |
 | `/power26/apply` | POST：为 DXP480T / Plus 应用红白电源灯颜色、灯效或关闭 |
 | `/driver/install` | POST：确认后安装或重建本应用管理的实验驱动 |
 | `/driver/unload` | POST：卸载本应用管理的驱动并切回 CLI |
 | `/update/check?force=1` | 检查 GitHub 最新 Release；`force=1` 忽略 6 小时缓存 |
-| `/mode?mode=off\|on\|smart` | 切换模式 |
-| `/daemon/start` · `/daemon/stop` | 启停守护进程 |
-| `/remap` | 重新 HCTL 映射 |
+| `/mode?mode=off\|on\|smart` | POST：切换模式 |
+| `/daemon/start` · `/daemon/stop` | POST：启停守护进程 |
+| `/remap` | POST：重新 HCTL 映射 |
 | `/lab/mapping/status` | 查询实验室检测状态、盘位和硬盘清单 |
-| `/lab/mapping/start` · `/lab/mapping/highlight` | 开始检测并逐 LED 通道闪烁识别 |
-| `/lab/mapping/save` | 保存按硬盘序列号绑定 |
-| `/lab/position/save` | 保存按 HCTL 位置绑定 |
-| `/lab/mapping/cancel` | 放弃当前检测 |
-| `/lab/mapping/reset` | 恢复自动 HCTL 映射 |
-| `/led/set?led=disk1&r=255&g=0&b=0` | 手动设色 |
-| `/led/off?led=disk1` | 手动关闭单个灯 |
+| `/lab/mapping/start` · `/lab/mapping/highlight` | POST：开始检测并逐 LED 通道闪烁识别 |
+| `/lab/mapping/save` | POST：保存按硬盘序列号绑定 |
+| `/lab/position/save` | POST：保存按 HCTL 位置绑定 |
+| `/lab/mapping/cancel` | POST：放弃当前检测 |
+| `/lab/mapping/reset` | POST：恢复自动 HCTL 映射 |
+| `/led/set?led=disk1&r=255&g=0&b=0` | POST：手动设色 |
+| `/led/off?led=disk1` | POST：手动关闭单个灯 |
+| `/logs?level=all&lines=500` | 读取受限的应用诊断日志，固定来源、最多 1000 行 / 128 KiB 日志内容 |
+| `/hardware/diagnostics` | GET：即时生成硬件采集与最近应用日志组成的一键下载诊断包 |
+| `/logs/config?level=debug\|info\|warn\|error` | POST：切换日志记录级别并通知守护进程重载 |
+| `/logs/clear?confirm=clear-logs` | POST：清空 `app.log` 及轮转历史 |
+| `/logs/client` | POST：接收受限、脱敏并限频的 Web 运行时错误，关联页面请求 ID |
 
 Web 管理页使用 fnOS CGI，不再自动启动旧版 5088 端口服务，减少无鉴权端口暴露和无效后台进程。
 
 “设备与高级 → 应用更新”会在打开管理页时检查 GitHub Release。发现新版后，用户可以查看更新说明并下载固定名称的 FPK；为避免依赖未公开的 fnOS 内部安装接口，应用不会静默安装，仍需在应用中心手动确认升级。
+
+## 日志与排错
+
+应用日志统一保存在持久化数据目录，不会写入升级时会被替换的包目录：
+
+```text
+${TRIM_PKGVAR:-/var/apps/App.Native.UGreenLED/var}/log/
+├── app.log          # 服务、守护进程、CGI、LED、BIOS、配置和驱动摘要
+├── app.log.1 ...    # 自动轮转历史
+├── driver.log       # DKMS / 内核驱动操作的原始命令输出
+├── install.log      # 依赖安装、CLI 下载和校验的原始输出
+├── daemon-launch.log # 守护进程启动阶段的原始输出
+├── daemon-runtime.log # 守护进程异常退出时的运行期原始输出
+└── service-control.log # Web 启停后台服务时的原始输出
+```
+
+每条 `app.log` 都带有时间、级别、组件、PID、事件名、源码位置；Web/API 操作还会带请求 ID、HTTP 状态和耗时。底层 LED CLI、I²C、sysfs、BIOS 与驱动失败会记录返回码和截断后的 stderr，方便从一次页面报错追到具体硬件命令。浏览器运行时异常，以及网络失败、无效响应等缺少服务端结构化日志的页面错误也会限频上报，并保留关联请求 ID。
+
+默认级别为 `INFO`：记录启动停止、配置/模式/硬件状态变化、写操作和全部警告错误，不会每 5 秒记录一次稳定守护循环，也不会把每 10 秒的页面轮询写入 INFO。需要深度排错时，可在 **设备与高级 → 应用诊断日志 → 记录级别** 临时切换为 `DEBUG`；排查结束后建议恢复 `INFO`。
+
+默认 `app.log` 达到 5 MiB 后轮转并保留 5 份历史。对应配置位于 `settings.conf`：
+
+```ini
+[logging]
+level=info
+max_size_kb=5120
+retained_files=5
+```
+
+Web 日志面板只读取固定的 `app.log`，限制为最近 1000 行和 128 KiB 日志内容，不接受任意文件路径，也不会直接暴露驱动编译原始输出。日志字段会移除换行和控制字符，并自动隐藏 password、token、secret、Authorization、Cookie 等敏感值；但 DEBUG 仍可能包含设备路径、机型和硬件状态，分享前请先检查内容。
+
+SSH 常用排错命令：
+
+```bash
+LOG=/var/apps/App.Native.UGreenLED/var/log
+
+# 最近 200 行，以及最近的警告/错误
+sudo tail -n 200 "$LOG/app.log"
+sudo grep -E '\[(WARN|ERROR)\]' "$LOG/app.log" | tail -n 200
+
+# 实时跟踪统一日志；驱动、安装或服务启停问题再查看原始输出
+sudo tail -F "$LOG/app.log"
+sudo tail -n 300 "$LOG/driver.log"
+sudo tail -n 300 "$LOG/install.log"
+sudo tail -n 300 "$LOG/daemon-launch.log"
+sudo tail -n 300 "$LOG/daemon-runtime.log"
+sudo tail -n 300 "$LOG/service-control.log"
+```
+
+需要让远程测试者采集 DXP480T Plus 的 `it87` 绑定、hwmon 节点、I/O 端口、
+I²C/SMBus、DKMS 来源及最近应用日志时，只需在 **设备与高级 → 应用诊断日志**
+点击 **一键下载诊断包**，浏览器会直接下载可分享的文本文件，不需要 SSH 或额外命令。
+采集器不会加载或卸载模块，不会执行 PWM、来电策略或 I²C 数据写入，也不会收集
+硬件序列号、UUID、IP 或 MAC；DXP480T 系列的 `0x31` / `0x26` 探测仅执行定点读取，
+不使用强制访问。
+
+页面错误会显示“请求 ID”。可直接在日志面板搜索该 ID，把同一次请求的入口、底层命令和最终错误串联起来。
 
 ## 常见问题
 
@@ -229,6 +296,14 @@ Web 管理页使用 fnOS CGI，不再自动启动旧版 5088 端口服务，减�
 
 **为什么“安装实验驱动”按钮不可用？**
 当前内核缺少 headers、系统未安装 DKMS、检测到厂商 LED 模块，或已有非本应用管理的 `led-ugreen`。这些情况下继续使用内置 CLI 即可，应用不会为启用实验功能自动修改系统编译环境。
+
+**日志在哪里，为什么看不到 DEBUG？**
+
+常见路径是 `/var/apps/App.Native.UGreenLED/var/log/app.log`。默认只写 INFO 及以上级别；在“设备与高级 → 应用诊断日志”切换为 DEBUG 后会记录只读 API、后端选择和成功的底层 LED 操作。切换会立即写入配置并向守护进程发送重载信号。
+
+**日志目录不可写或日志增长太快怎么办？**
+
+日志失败不会改变应用启停返回码，也不会污染 CGI JSON；请检查应用数据目录权限与可用空间。增长过快时先恢复 INFO，再按需降低 `max_size_kb` / `retained_files`，随后重启应用或再次切换日志级别使守护进程重载配置。
 
 ## 许可证
 
