@@ -25,3 +25,4 @@ App.Native.UGreenLED/app/server/driver/led-ugreen/Makefile text eol=lf
 *.fpk binary
 *.zip binary
 App.Native.UGreenLED/app/server/bin/ugreen_leds_cli binary
+App.Native.UGreenLED/app/server/vendor/ugreen_leds_controller/patches/*.patch text eol=lf whitespace=-trailing-space,-space-before-tab

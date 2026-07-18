@@ -3,16 +3,16 @@ index 1d28ba9..bb0e79d 100644
 --- a/cli/Makefile
 +++ b/cli/Makefile
 @@ -1,8 +1,8 @@
-
+ 
  CC = g++
  CFLAGS = -I. -O2 -Wall -static
 -DEPS = i2c.h ugreen_leds.h
--OBJ = i2c.o ugreen_leds.o
+-OBJ = i2c.o ugreen_leds.o 
 +DEPS = i2c.h ugreen_leds.h dxp480t_power.h
 +OBJ = i2c.o ugreen_leds.o dxp480t_power.o
-
+ 
  %.o: %.cpp $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
+ 	$(CC) -c -o $@ $< $(CFLAGS)
 diff --git a/cli/dxp480t_power.cpp b/cli/dxp480t_power.cpp
 new file mode 100644
 index 0000000..e9153ac
@@ -214,24 +214,24 @@ index 4a8f48d..601a1e0 100644
 --- a/cli/i2c.cpp
 +++ b/cli/i2c.cpp
 @@ -10,35 +10,43 @@
-
-
+ 
+ 
  i2c_device_t::~i2c_device_t() {
 -    if (_fd) close(_fd);
 +    close();
  }
-
+ 
  int i2c_device_t::start(const char *filename, uint16_t addr) {
 +    close();
      _fd = open(filename, O_RDWR);
-
+ 
      if (_fd < 0) {
          int rc = _fd;
 -        _fd = 0;
 +        _fd = -1;
          return rc;
      }
-
+ 
      int rc = ioctl(_fd, I2C_SLAVE, addr);
      if (rc < 0) {
 -        close(_fd);
@@ -240,10 +240,10 @@ index 4a8f48d..601a1e0 100644
 +        _fd = -1;
          return rc;
      }
-
+ 
      return 0;
  };
-
+ 
 +void i2c_device_t::close() {
 +    if (_fd >= 0) {
 +        ::close(_fd);
@@ -254,26 +254,26 @@ index 4a8f48d..601a1e0 100644
  std::vector<uint8_t> i2c_device_t::read_block_data(uint8_t command, uint32_t size) {
 -    if (!_fd) return { };
 +    if (_fd < 0) return { };
-
+ 
      if (size > I2C_SMBUS_BLOCK_MAX)
          return { };
-
+ 
 -    i2c_smbus_data smbus_data;
 +    i2c_smbus_data smbus_data { };
      smbus_data.block[0] = size;
-
+ 
      i2c_smbus_ioctl_data ioctl_data;
 @@ -59,13 +67,13 @@ std::vector<uint8_t> i2c_device_t::read_block_data(uint8_t command, uint32_t siz
  }
-
+ 
  int i2c_device_t::write_block_data(uint8_t command, std::vector<uint8_t> data) {
 -    if (!_fd) return -1;
 +    if (_fd < 0) return -1;
-
+ 
      uint32_t size = data.size();
      if (size > I2C_SMBUS_BLOCK_MAX)
          size = I2C_SMBUS_BLOCK_MAX;
-
+ 
 -    i2c_smbus_data smbus_data;
 +    i2c_smbus_data smbus_data { };
      smbus_data.block[0] = size;
@@ -282,21 +282,21 @@ index 4a8f48d..601a1e0 100644
 @@ -81,10 +89,10 @@ int i2c_device_t::write_block_data(uint8_t command, std::vector<uint8_t> data) {
      return rc;
  }
-
+ 
 -uint8_t i2c_device_t::read_byte_data(uint8_t command) {
 -    if (!_fd) return { };
 +int i2c_device_t::read_byte_data(uint8_t command, uint8_t &data) {
 +    if (_fd < 0) return -1;
-
+ 
 -    i2c_smbus_data smbus_data;
 +    i2c_smbus_data smbus_data { };
-
+ 
      i2c_smbus_ioctl_data ioctl_data;
      ioctl_data.size = I2C_SMBUS_BYTE_DATA;
 @@ -94,7 +102,23 @@ uint8_t i2c_device_t::read_byte_data(uint8_t command) {
-
+ 
      int rc = ioctl(_fd, I2C_SMBUS, &ioctl_data);
-
+ 
 -    if (rc < 0) return { };
 +    if (rc < 0) return rc;
 +
@@ -315,7 +315,7 @@ index 4a8f48d..601a1e0 100644
 +    ioctl_data.read_write = I2C_SMBUS_WRITE;
 +    ioctl_data.command = command;
 +    ioctl_data.data = &smbus_data;
-
+ 
 -    return smbus_data.byte & 0xff;
 +    return ioctl(_fd, I2C_SMBUS, &ioctl_data);
  }
@@ -325,14 +325,14 @@ index 1013719..8901cf3 100644
 +++ b/cli/i2c.h
 @@ -7,15 +7,17 @@
  class i2c_device_t {
-
+ 
  private:
 -    int _fd;
 +    int _fd = -1;
-
+ 
  public:
      ~i2c_device_t();
-
+ 
      int start(const char *filename, uint16_t addr);
 +    void close();
      std::vector<uint8_t> read_block_data(uint8_t command, uint32_t size);
@@ -340,22 +340,22 @@ index 1013719..8901cf3 100644
 -    uint8_t read_byte_data(uint8_t command);
 +    int read_byte_data(uint8_t command, uint8_t &data);
 +    int write_byte_data(uint8_t command, uint8_t data);
-
+ 
  };
-
+ 
 diff --git a/cli/ugreen_leds.cpp b/cli/ugreen_leds.cpp
 index a4ef012..358bcee 100644
 --- a/cli/ugreen_leds.cpp
 +++ b/cli/ugreen_leds.cpp
 @@ -126,7 +126,8 @@ int ugreen_leds_t::set_brightness(led_type_t id, uint8_t brightness) {
  }
-
+ 
  bool ugreen_leds_t::is_last_modification_successful() {
 -    return _i2c.read_byte_data(0x80) == 1;
 +    uint8_t status = 0;
 +    return _i2c.read_byte_data(0x80, status) == 0 && status == 1;
  }
-
+ 
  int ugreen_leds_t::set_blink(led_type_t id, uint16_t t_on, uint16_t t_off) {
 diff --git a/cli/ugreen_leds_cli.cpp b/cli/ugreen_leds_cli.cpp
 index 63a23d6..4e79d0d 100644
@@ -364,10 +364,10 @@ index 63a23d6..4e79d0d 100644
 @@ -7,6 +7,7 @@
  #include <map>
  #include <functional>
-
+ 
 +#include "dxp480t_power.h"
  #include "ugreen_leds.h"
-
+ 
  #define MAX_RETRY_COUNT 5
 @@ -93,9 +94,12 @@ void show_help() {
             "                    T_ON and T_OFF should belong to [0, 65535].\n"
@@ -384,11 +384,11 @@ index 63a23d6..4e79d0d 100644
 +            "       --dxp480t-power <red|white> <off|steady|fast|slow|breath>\n"
          << std::endl;
  }
-
+ 
 @@ -130,6 +134,54 @@ int parse_integer(const std::string& str, int low = 0, int high = 0xffff) {
      return x;
  }
-
+ 
 +int run_dxp480t_power_probe() {
 +    dxp480t_power_t controller;
 +    if (controller.start() != 0) {
@@ -439,11 +439,11 @@ index 63a23d6..4e79d0d 100644
 +
  int main(int argc, char *argv[])
  {
-
+ 
 @@ -138,6 +190,20 @@ int main(int argc, char *argv[])
          return 0;
      }
-
+ 
 +    const std::string command = argv[1];
 +    if (command == "--dxp480t-power-probe") {
 +        if (argc != 2) {

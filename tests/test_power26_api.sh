@@ -53,6 +53,7 @@ if grep -Eq 'i2c(get|set)|LED_I2C_DEV_ROOT|/sys/class/leds' "$ROOT/App.Native.UG
 fi
 
 PATCH="$ROOT/App.Native.UGreenLED/app/server/vendor/ugreen_leds_controller/patches/dxp480t-power.patch"
+git apply --numstat "$PATCH" >/dev/null || fail "DXP480T LED patch is not valid unified-diff syntax"
 grep -Fq 'write_byte(0xa0, 1)' "$PATCH" || fail "patched CLI does not clear the red selector"
 grep -Fq 'write_byte(0xa0, 2)' "$PATCH" || fail "patched CLI does not clear the white selector"
 grep -Fq 'case effect_t::fast: return write_byte(0x50, 1);' "$PATCH" || fail "patched CLI does not implement fast flash"
