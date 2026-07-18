@@ -10,7 +10,9 @@ assert_contains() { [[ "$1" == *"$2"* ]] || fail "missing [$2] in [$1]"; }
 
 BIN="$TMP/ugreenctl"; PLUGINS="$TMP/models"; CALLS="$TMP/calls"
 mkdir -p "$PLUGINS"
+: > "$PLUGINS/dxp4800plus.so"
 : > "$PLUGINS/dxp4800s.so"
+: > "$PLUGINS/dxp480tplus.so"
 cat > "$BIN" <<'EOF'
 #!/bin/sh
 printf 'CALL' >> "$UGREENCTL_CALLS"
