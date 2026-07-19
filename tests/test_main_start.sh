@@ -21,6 +21,7 @@ EOF
 cat > "$SERVER_DIR/lib/settings.sh" <<'EOF'
 settings_init() { :; }
 settings_set() { :; }
+settings_get() { printf '%s\n' "${4:-}"; }
 EOF
 cat > "$SERVER_DIR/lib/hardware_profile.sh" <<'EOF'
 :
@@ -34,6 +35,10 @@ cat > "$SERVER_DIR/lib/led_api.sh" <<'EOF'
 led_backend_configured() { echo auto; }
 ensure_led_backend() { return 1; }
 led_backend_reset() { :; }
+EOF
+cat > "$SERVER_DIR/lib/bios_control.sh" <<'EOF'
+bios_fan_curve_restore() { :; }
+bios_fan_curve_stop() { :; }
 EOF
 cat > "$SERVER_DIR/led_daemon.sh" <<'EOF'
 #!/bin/bash
@@ -54,7 +59,12 @@ if timeout 15 bash "$ROOT/App.Native.UGreenLED/cmd/main" start >"$TMP/main.stdou
 else
     main_rc=$?
 fi
-[[ "$main_rc" -eq 0 ]] || { echo "FAIL: main start returned $main_rc" >&2; exit 1; }
+if [[ "$main_rc" -ne 0 ]]; then
+    echo "FAIL: main start returned $main_rc" >&2
+    [[ -s "$TMP/main.stdout" ]] && { echo '--- main stdout ---' >&2; cat "$TMP/main.stdout" >&2; }
+    [[ -s "$TMP/main.stderr" ]] && { echo '--- main stderr ---' >&2; cat "$TMP/main.stderr" >&2; }
+    exit 1
+fi
 [[ -f "$LOG_FILE" ]] || { echo "FAIL: daemon was not started" >&2; exit 1; }
 [[ "$(cat "$LOG_FILE")" == "start" ]] || { echo "FAIL: unexpected daemon action" >&2; exit 1; }
 [[ -f "$BG_PID_FILE" ]] || { echo "FAIL: daemon background child was not created" >&2; exit 1; }
