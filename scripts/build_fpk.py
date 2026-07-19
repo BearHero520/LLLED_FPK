@@ -89,6 +89,7 @@ def is_executable(relative: Path, *, command_tree: bool) -> bool:
     return relative.suffix.lower() in {".cgi", ".sh"} or relative.as_posix() in {
         "server/bin/ugreen_leds_cli",
         "server/bin/ugreenctl",
+        "server/bin/ugreenctl-fand",
     }
 
 
@@ -146,6 +147,7 @@ def validate_project() -> None:
         PROJECT / "app" / "server" / "bin" / "ugreen_leds_cli",
         PROJECT / "app" / "server" / "bin" / "ugreen_leds_cli.sha256",
         PROJECT / "app" / "server" / "bin" / "ugreenctl",
+        PROJECT / "app" / "server" / "bin" / "ugreenctl-fand",
         PROJECT / "app" / "server" / "nas_hardware_collect.sh",
         PROJECT / "app" / "server" / "lib" / "logging.sh",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp4800plus.so",
@@ -194,6 +196,7 @@ def verify_package(package: Path, *, expected_checksum: str, expected_version: s
                 "server/bin/ugreen_leds_cli",
                 "server/bin/ugreen_leds_cli.sha256",
                 "server/bin/ugreenctl",
+                "server/bin/ugreenctl-fand",
                 "server/nas_hardware_collect.sh",
                 "server/lib/logging.sh",
                 "server/lib/ugreenctl/models/dxp4800plus.so",

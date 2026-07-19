@@ -7,7 +7,7 @@
   <title>绿联 LED 灯控</title>
   <base href="/cgi/ThirdParty/App.Native.UGreenLED/index.cgi/">
   <link rel="stylesheet" href="./vendor/bootstrap-icons/font/bootstrap-icons.min.css?v=1.11.3">
-  <link rel="stylesheet" href="./css/style.css?v=1.8.3">
+  <link rel="stylesheet" href="./css/style.css?v=1.8.7">
 </head>
 <body>
   <div class="app-shell">
@@ -43,7 +43,7 @@
 
       <div class="rail-footer">
         <span class="rail-state"><span class="status-dot" id="railStatusDot"></span><span id="railStatusText">正在连接</span></span>
-        <small>v1.8.3 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
+        <small>v1.8.7 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
       </div>
     </aside>
 
@@ -402,7 +402,7 @@
             </div>
             <div class="update-content">
               <div class="update-copy">
-                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.8.3</strong></div>
+                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.8.7</strong></div>
                 <h3 id="updateTitle">检查 GitHub Release 获取新版本</h3>
                 <p class="surface-help" id="updateDescription">发现新版本后，可下载安装包并在 fnOS 应用中心手动升级。</p>
                 <small id="updateCheckedAt">不会自动安装，也不会在后台静默升级。</small>
@@ -537,14 +537,90 @@
             </div>
           </article>
 
-          <article class="glass-surface bios-fan-surface">
+          <article class="glass-surface fan-curve-surface" aria-labelledby="fanCurveTitle">
             <div class="section-heading">
-              <div><span class="section-kicker">MANUAL PWM</span><h2>风扇控制</h2></div>
+              <div><span class="section-kicker">FAN OPERATION MODE</span><h2 id="fanCurveTitle">风扇运行模式</h2></div>
+              <span class="soft-badge" id="fanCurveBadge">未启动</span>
+            </div>
+            <p class="surface-help" id="fanCurveHelp">原厂自动和自定义自动会持续按温度调速；固定转速不看温度，按指定 PWM 持续运行。三种模式互斥，切换到固定转速会停止自动温控。</p>
+
+            <div class="fan-curve-live" aria-live="polite">
+              <div><span>CPU</span><strong id="fanCurveCpuTemp">—</strong><small>°C</small></div>
+              <div><span>HDD</span><strong id="fanCurveHddTemp">—</strong><small>°C</small></div>
+              <div><span>NVMe</span><strong id="fanCurveSsdTemp">—</strong><small>°C</small></div>
+              <div><span>目标 PWM</span><strong id="fanCurveDesiredPwm">—</strong><small id="fanCurveAppliedPwm">未写入</small></div>
+            </div>
+
+            <section class="fan-telemetry" aria-labelledby="fanTelemetryTitle">
+              <div class="fan-telemetry-heading"><div><span class="section-kicker">LIVE TELEMETRY</span><h3 id="fanTelemetryTitle">温度与转速趋势</h3></div><small id="fanTelemetryRange">本次页面会话</small></div>
+              <canvas id="fanTelemetryChart" class="fan-chart" role="img" aria-label="最近温度、目标 PWM 与已写入 PWM 趋势图"></canvas>
+              <div class="fan-chart-legend" aria-label="趋势图图例"><span class="is-cpu">CPU 温度</span><span class="is-hdd">HDD 温度</span><span class="is-ssd">NVMe 温度</span><span class="is-target">目标 PWM</span><span class="is-applied">已写入 PWM</span></div>
+            </section>
+
+            <fieldset class="fan-curve-mode-group" id="fanCurveModeGroup">
+              <legend>选择运行模式</legend>
+              <label class="bios-policy-choice" id="fanCurveStockChoice"><input type="radio" name="fanCurveMode" value="stock"><span><strong id="fanCurveStockTitle">原厂自动</strong><small id="fanCurveStockDescription">使用对应机型固件中恢复的原厂温度阈值和 PWM 档位。</small></span></label>
+              <label class="bios-policy-choice active"><input type="radio" name="fanCurveMode" value="custom" checked><span><strong>自定义自动</strong><small>按下方可视化温度—PWM 曲线自动调速，草稿会保留。</small></span></label>
+              <label class="bios-policy-choice" id="fanFixedChoice"><input type="radio" name="fanCurveMode" value="fixed"><span><strong>固定转速</strong><small>不看温度，按下方 CPU / 系统 PWM 持续运行。</small></span></label>
+            </fieldset>
+
+            <section class="fan-stock-curve" id="fanStockCurveReadout" aria-labelledby="fanStockCurveTitle" hidden>
+              <div class="fan-stock-curve-heading">
+                <div><span class="section-kicker">STOCK FAN CURVE</span><h3 id="fanStockCurveTitle">原厂温度—PWM 参数</h3></div>
+                <span class="soft-badge">只读</span>
+              </div>
+              <div class="fan-curve-table-wrap">
+                <table class="fan-curve-table fan-stock-curve-table">
+                  <thead><tr><th>温度源</th><th>停转阈值</th><th>启动</th><th>中速</th><th>全速</th><th>安全满速</th></tr></thead>
+                  <tbody>
+                    <tr><th>CPU</th><td id="fanStockCpuStop">—</td><td id="fanStockCpuStart">—</td><td id="fanStockCpuMid">—</td><td id="fanStockCpuFull">—</td><td id="fanStockCpuMax">—</td></tr>
+                    <tr><th>HDD</th><td id="fanStockHddStop">—</td><td id="fanStockHddStart">—</td><td id="fanStockHddMid">—</td><td id="fanStockHddFull">—</td><td id="fanStockHddMax">—</td></tr>
+                    <tr><th>NVMe</th><td id="fanStockSsdStop">—</td><td id="fanStockSsdStart">—</td><td id="fanStockSsdMid">—</td><td id="fanStockSsdFull">—</td><td id="fanStockSsdMax">—</td></tr>
+                    <tr class="fan-curve-pwm-row"><th>PWM 档位</th><td><span>下限 <b id="fanStockMinimum">—</b></span></td><td id="fanStockPwmIdle">—</td><td id="fanStockPwmMid">—</td><td id="fanStockPwmFull">—</td><td id="fanStockPwmMax">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="fan-stock-curve-note">温度单位为 °C；PWM 数值范围为 40–255。原厂自动模式只读取这些固件恢复参数，不提供编辑。</p>
+            </section>
+
+            <div class="fan-curve-settings" id="fanCurveSettings">
+              <div class="fan-curve-timing">
+                <label><span>检测间隔</span><input type="number" id="fanCurveInterval" min="2" max="300" step="1" value="10"><small>秒</small></label>
+                <label><span>降速保持</span><input type="number" id="fanCurveDownshift" min="0" max="3600" step="1" value="60"><small>秒</small></label>
+                <label><span>最低 PWM</span><input type="number" id="fanCurveMinimum" min="40" max="255" step="1" value="64"><small>40–255</small></label>
+              </div>
+              <section class="fan-curve-graph" aria-labelledby="fanCurveGraphTitle">
+                <div class="fan-curve-graph-heading"><div><h3 id="fanCurveGraphTitle">温度—PWM 曲线</h3><small>拖动图中的圆点即可调节；下方表格可精确输入数值。</small></div><output id="fanCurveGraphReadout">等待编辑</output></div>
+                <canvas id="fanCurveEditorChart" class="fan-chart fan-curve-editor-chart" tabindex="0" role="img" aria-label="可交互的 CPU、HDD、NVMe 温度与 PWM 曲线编辑图"></canvas>
+                <div class="fan-chart-legend" aria-label="曲线图图例"><span class="is-cpu">CPU</span><span class="is-hdd">HDD</span><span class="is-ssd">NVMe</span><span class="is-target">共享 PWM 档位</span></div>
+              </section>
+              <div class="fan-curve-table-wrap">
+                <table class="fan-curve-table">
+                  <thead><tr><th>温度源</th><th>停转阈值</th><th>启动</th><th>中速</th><th>全速</th><th>安全满速</th></tr></thead>
+                  <tbody>
+                    <tr><th>CPU</th><td><input id="fanCurveCpuStop" type="number" min="0" max="125" value="50"></td><td><input id="fanCurveCpuStart" type="number" min="0" max="125" value="55"></td><td><input id="fanCurveCpuMid" type="number" min="0" max="125" value="75"></td><td><input id="fanCurveCpuFull" type="number" min="0" max="125" value="80"></td><td><input id="fanCurveCpuMax" type="number" min="0" max="125" value="90"></td></tr>
+                    <tr><th>HDD</th><td><input id="fanCurveHddStop" type="number" min="0" max="125" value="40"></td><td><input id="fanCurveHddStart" type="number" min="0" max="125" value="45"></td><td><input id="fanCurveHddMid" type="number" min="0" max="125" value="50"></td><td><input id="fanCurveHddFull" type="number" min="0" max="125" value="55"></td><td><input id="fanCurveHddMax" type="number" min="0" max="125" value="70"></td></tr>
+                    <tr><th>NVMe</th><td><input id="fanCurveSsdStop" type="number" min="0" max="125" value="45"></td><td><input id="fanCurveSsdStart" type="number" min="0" max="125" value="50"></td><td><input id="fanCurveSsdMid" type="number" min="0" max="125" value="60"></td><td><input id="fanCurveSsdFull" type="number" min="0" max="125" value="65"></td><td><input id="fanCurveSsdMax" type="number" min="0" max="125" value="70"></td></tr>
+                    <tr class="fan-curve-pwm-row"><th>PWM 档位</th><td><span>安全下限</span></td><td><input id="fanCurvePwmIdle" type="number" min="40" max="255" value="64"></td><td><input id="fanCurvePwmMid" type="number" min="40" max="255" value="128"></td><td><input id="fanCurvePwmFull" type="number" min="40" max="255" value="204"></td><td><input id="fanCurvePwmMax" type="number" min="40" max="255" value="255"></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <label class="fan-curve-storage-check"><input type="checkbox" id="fanCurveRequireStorage"><span><strong>存储温度缺失时保护性满速</strong><small>开启后，未读取到任意 HDD/NVMe 温度时会写入 PWM 255；无存储盘或无对应 hwmon 驱动时请保持关闭。</small></span></label>
+            </div>
+            <div class="fan-curve-actions">
+              <span class="fan-curve-status" id="fanCurveStatus" role="status" aria-live="polite">尚未启用自动温控</span>
+              <div><button type="button" class="secondary-button" id="btnStopFanCurve"><i class="bi bi-stop-circle" aria-hidden="true"></i><span>停止自动温控</span></button><button type="button" class="primary-button" id="btnStartFanCurve"><i class="bi bi-play-circle" aria-hidden="true"></i><span id="btnStartFanCurveText">应用并启动自动</span></button></div>
+            </div>
+          </article>
+
+          <article class="glass-surface bios-fan-surface fan-fixed-surface" id="fanFixedSettings" aria-labelledby="fanFixedTitle">
+            <div class="section-heading">
+              <div><span class="section-kicker">FIXED FAN SPEED</span><h2 id="fanFixedTitle">固定转速设置</h2></div>
               <span class="soft-badge" id="biosPwmRangeBadge">40–255</span>
             </div>
             <div class="bios-safety-note" id="biosFanSafetyNote" role="note">
               <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-              <p id="biosFanSafetyText">写入 PWM 会将对应风扇切换到手动模式。请先确认温度监控正常，PWM 最低为 40。</p>
+              <p id="biosFanSafetyText">固定转速不会按温度变化。选择“固定转速”后，在此设置 PWM 并点击上方“应用固定转速”；它会先停止自动温控。PWM 最低为 40。</p>
             </div>
             <div class="bios-fan-grid">
               <section class="bios-fan-card" id="cpuFanCard" aria-labelledby="cpuFanTitle">
@@ -711,6 +787,6 @@
     <button type="button" class="mode-button primary" data-mode="smart"><i class="bi bi-stars" aria-hidden="true"></i><span>智能模式</span></button>
   </div>
 
-  <script src="./js/app.js?v=1.8.3"></script>
+  <script src="./js/app.js?v=1.8.7"></script>
 </body>
 </html>

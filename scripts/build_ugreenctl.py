@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCE = ROOT / "App.Native.UGreenLED" / "app" / "server" / "vendor" / "UGREEN-NAS-Hardware"
 DEFAULT_BINARY = ROOT / "App.Native.UGreenLED" / "app" / "server" / "bin" / "ugreenctl"
+DEFAULT_DAEMON = ROOT / "App.Native.UGreenLED" / "app" / "server" / "bin" / "ugreenctl-fand"
 DEFAULT_PLUGIN_DIR = ROOT / "App.Native.UGreenLED" / "app" / "server" / "lib" / "ugreenctl" / "models"
 MODELS = ("dxp4800plus", "dxp4800s", "dxp480tplus", "dxp6800pro")
 
@@ -46,7 +47,7 @@ def verify_model_plugins(binary: Path, plugin_dir: Path) -> None:
         )
 
 
-def build(source: Path, binary: Path, plugin_dir: Path) -> None:
+def build(source: Path, binary: Path, daemon: Path, plugin_dir: Path) -> None:
     if not (source / "CMakeLists.txt").is_file():
         raise SystemExit(f"UGREEN-NAS-Hardware source is missing: {source}")
     if os.name == "nt":
@@ -59,12 +60,18 @@ def build(source: Path, binary: Path, plugin_dir: Path) -> None:
         run(["ctest", "--test-dir", str(build_dir), "--output-on-failure"])
 
         source_binary = build_dir / "ugreenctl"
+        source_daemon = build_dir / "ugreenctl-fand"
         if not source_binary.is_file():
             raise SystemExit("UGREEN-NAS-Hardware build did not produce ugreenctl")
+        if not source_daemon.is_file():
+            raise SystemExit("UGREEN-NAS-Hardware build did not produce ugreenctl-fand")
         verify_model_plugins(source_binary, build_dir / "models")
         binary.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_binary, binary)
         binary.chmod(0o755)
+        daemon.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_daemon, daemon)
+        daemon.chmod(0o755)
 
         plugin_dir.mkdir(parents=True, exist_ok=True)
         for model in MODELS:
@@ -74,6 +81,7 @@ def build(source: Path, binary: Path, plugin_dir: Path) -> None:
             shutil.copy2(source_plugin, plugin_dir / source_plugin.name)
 
     print(f"Built ugreenctl: {binary}")
+    print(f"Built ugreenctl-fand: {daemon}")
     print(f"Model plugins: {plugin_dir}")
 
 
@@ -81,9 +89,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
     parser.add_argument("--binary", type=Path, default=DEFAULT_BINARY)
+    parser.add_argument("--daemon", type=Path, default=DEFAULT_DAEMON)
     parser.add_argument("--plugin-dir", type=Path, default=DEFAULT_PLUGIN_DIR)
     args = parser.parse_args()
-    build(args.source.resolve(), args.binary.resolve(), args.plugin_dir.resolve())
+    build(args.source.resolve(), args.binary.resolve(), args.daemon.resolve(), args.plugin_dir.resolve())
 
 
 if __name__ == "__main__":

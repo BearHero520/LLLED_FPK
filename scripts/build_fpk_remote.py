@@ -2,6 +2,7 @@
 """上传项目到 NAS 并用 fnpack 打包，拉回 fpk"""
 import os
 import getpass
+import hashlib
 import shlex
 import sys
 import time
@@ -11,6 +12,8 @@ from pathlib import Path
 import paramiko
 
 PROJECT = Path(__file__).resolve().parent.parent / "App.Native.UGreenLED"
+LED_BUILD_SCRIPT = Path(__file__).resolve().parent / "build_ugreen_leds_cli.py"
+FAN_CURVE_API_TEST = Path(__file__).resolve().parent.parent / "tests" / "test_fan_curve_api.sh"
 REMOTE_DIR = "/tmp/App.Native.UGreenLED-build"
 LOCAL_ZIP = Path(__file__).resolve().parent / "ugreen_led_pkg.zip"
 TEXT_SUFFIX = {".sh", ".cgi", ".conf", ".js", ".css", ".html", ".py"}
@@ -76,6 +79,8 @@ def make_zip():
                 if fp.suffix in TEXT_SUFFIX or fp.name in TEXT_NAMES:
                     data = data.replace(b"\r\n", b"\n")
                 zf.writestr(arc, data)
+        data = LED_BUILD_SCRIPT.read_bytes().replace(b"\r\n", b"\n")
+        zf.writestr("scripts/build_ugreen_leds_cli.py", data)
     print(f"ZIP: {LOCAL_ZIP} ({LOCAL_ZIP.stat().st_size} bytes)\n")
 
 
@@ -98,11 +103,17 @@ def main():
     run(c, f"mkdir -p {REMOTE_DIR}")
     sftp.put(str(LOCAL_ZIP), "/tmp/ugreen_led_pkg.zip")
     run(c, f"cd {REMOTE_DIR} && unzip -o /tmp/ugreen_led_pkg.zip", 1.5)
+    run(c, f"mkdir -p {REMOTE_DIR}/tests")
+    sftp.put(str(FAN_CURVE_API_TEST), f"{REMOTE_DIR}/tests/test_fan_curve_api.sh")
     run(
         c,
         f"chmod +x {REMOTE_DIR}/cmd/* {REMOTE_DIR}/app/ui/*.cgi "
-        f"{REMOTE_DIR}/app/server/*.sh {REMOTE_DIR}/app/server/lib/*.sh 2>/dev/null; true",
+        f"{REMOTE_DIR}/app/server/*.sh {REMOTE_DIR}/app/server/lib/*.sh "
+        f"{REMOTE_DIR}/tests/test_fan_curve_api.sh 2>/dev/null; true",
     )
+
+    print("\n=== validate fan curve API ===")
+    run(c, f"bash {REMOTE_DIR}/tests/test_fan_curve_api.sh")
 
     print("\n=== build bundled UGREEN-NAS-Hardware control CLI ===")
     sudo(
@@ -114,7 +125,9 @@ def main():
     )
 
     print("\n=== build patched bundled LED CLI ===")
+    run(c, f"ln -sfn . {REMOTE_DIR}/App.Native.UGreenLED")
     run(c, f"python3 {REMOTE_DIR}/scripts/build_ugreen_leds_cli.py", 8)
+    run(c, f"rm -f {REMOTE_DIR}/App.Native.UGreenLED")
 
     hardware_source = f"{REMOTE_DIR}/app/server/vendor/UGREEN-NAS-Hardware"
     hardware_build = f"{REMOTE_DIR}/.ugreenctl-build"
@@ -130,7 +143,8 @@ def main():
         f"printf '%s\\n' \"$model_list\" | grep -q '^dxp480tplus[[:space:]]' && "
         f"printf '%s\\n' \"$model_list\" | grep -q '^dxp6800pro[[:space:]]' && "
         f"mkdir -p {REMOTE_DIR}/app/server/bin {REMOTE_DIR}/app/server/lib/ugreenctl/models && "
-        f"install -m 0755 {hardware_build}/ugreenctl {REMOTE_DIR}/app/server/bin/ugreenctl && "
+        f"install -m 0755 {hardware_build}/ugreenctl {hardware_build}/ugreenctl-fand "
+        f"{REMOTE_DIR}/app/server/bin/ && "
         f"install -m 0644 {hardware_build}/models/dxp4800plus.so {hardware_build}/models/dxp4800s.so "
         f"{hardware_build}/models/dxp480tplus.so {hardware_build}/models/dxp6800pro.so "
         f"{REMOTE_DIR}/app/server/lib/ugreenctl/models/",
@@ -155,12 +169,40 @@ def main():
 
     remote_fpk = f"{REMOTE_DIR}/{fpk_name}"
     local_fpk = PROJECT.parent / fpk_name
+    print("\n=== verify FPK contents ===")
+    required_entries = " ".join(
+        shlex.quote(entry)
+        for entry in (
+            "server/bin/ugreenctl",
+            "server/bin/ugreenctl-fand",
+            "server/lib/ugreenctl/models/dxp4800plus.so",
+            "server/lib/ugreenctl/models/dxp4800s.so",
+            "server/lib/ugreenctl/models/dxp480tplus.so",
+            "server/lib/ugreenctl/models/dxp6800pro.so",
+        )
+    )
+    run(
+        c,
+        f"tar -xOf {remote_fpk} manifest | grep -q '^version[[:space:]]*=' && "
+        f"for entry in {required_entries}; do "
+        f"tar -xOf {remote_fpk} app.tgz | tar -tzf - | grep -qx \"$entry\" || exit 1; "
+        f"done && "
+        f"! (tar -xOf {remote_fpk} app.tgz | tar -tzf - | grep -q '^tests/') && "
+        f"tar -xOf {remote_fpk} app.tgz | tar -xOzf - ui/api.cgi | grep -q '^url_decode()'",
+        2,
+    )
+
     print(f"\n下载: {remote_fpk}")
     sftp.get(remote_fpk, str(local_fpk))
+    remote_hash = run(c, f"sha256sum {remote_fpk} | awk '{{print $1}}'", 1).strip()
+    local_hash = hashlib.sha256(local_fpk.read_bytes()).hexdigest()
+    if remote_hash != local_hash:
+        raise RuntimeError("downloaded FPK SHA256 does not match remote build output")
     sftp.close()
     c.close()
     print(f"完成: {local_fpk}")
     print(f"大小: {local_fpk.stat().st_size:,} bytes")
+    print(f"SHA256: {local_hash}")
 
 
 if __name__ == "__main__":

@@ -300,7 +300,7 @@ STATE = PreviewState()
 
 
 class PreviewHandler(BaseHTTPRequestHandler):
-    server_version = "UGreenLEDPreview/1.8.3"
+    server_version = "UGreenLEDPreview/1.8.7"
 
     def log_message(self, fmt: str, *args: object) -> None:
         print(f"[{self.log_date_time_string()}] {fmt % args}")

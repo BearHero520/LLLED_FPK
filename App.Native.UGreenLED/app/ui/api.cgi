@@ -218,9 +218,44 @@ api_http_status_for_response() {
     fi
 }
 
+url_decode() {
+    local value="${1//+/ }" decoded="" hex byte
+
+    while [[ -n "$value" ]]; do
+        if [[ "${value:0:1}" == "%" ]]; then
+            hex="${value:1:2}"
+            [[ "$hex" =~ ^[0-9A-Fa-f]{2}$ && "$hex" != "00" ]] || return 1
+            printf -v byte '%b' "\\x${hex}"
+            decoded+="$byte"
+            value="${value:3}"
+        else
+            decoded+="${value:0:1}"
+            value="${value:1}"
+        fi
+    done
+
+    printf '%s' "$decoded"
+}
+
 query_value() {
-    local key="$1"
-    echo "$QUERY_STRING" | sed -n "s/.*${key}=\([^&]*\).*/\1/p"
+    local key="$1" query="$QUERY_STRING" pair name value
+
+    while :; do
+        pair="${query%%&*}"
+        if [[ "$pair" == "$query" ]]; then
+            query=""
+        else
+            query="${query#*&}"
+        fi
+
+        name="${pair%%=*}"
+        if [[ "$name" == "$key" && "$pair" == *=* ]]; then
+            value="${pair#*=}"
+            url_decode "$value" || return 1
+            return 0
+        fi
+        [[ -z "$query" ]] && return 0
+    done
 }
 
 current_app_version() {
@@ -448,7 +483,7 @@ hardware_status_json() {
 }
 
 bios_status_json() {
-    local message="${1:-}" chip_id="" error="" fan_error="" startup_error=""
+    local message="${1:-}" chip_id="" error="" fan_error="" startup_error="" fan_curve=""
     bios_read_status >/dev/null 2>&1 || true
     if [[ "$BIOS_CHIP_ID" =~ ^[0-9]+$ ]]; then
         printf -v chip_id '0x%04x' "$BIOS_CHIP_ID"
@@ -456,12 +491,14 @@ bios_status_json() {
     error="$BIOS_LAST_ERROR"
     fan_error="$BIOS_FAN_ERROR"
     startup_error="$BIOS_STARTUP_ERROR"
+    fan_curve=$(bios_fan_curve_status_json)
     printf '{"ok":true,"supported":%s,"available":%s,"startup_available":%s,"model":"%s","experimental":%s,"min_pwm":%s,"fan_write_target":"%s","cpu_fan_present":%s,"fan_mode_writable":%s,"pwm_readable":%s,"write_confirmation_required":%s,"direct_fan_fallback":%s,"product_name":"%s","backend":"%s","chip_id":"%s","revision":%s,"cpu_pwm":%s,"sys_pwm":%s,"sys2_pwm":%s,"cpu_rpm":%s,"sys_rpm":%s,"sys2_rpm":%s,"cpu_manual":%s,"sys_manual":%s,"sys2_manual":%s,"startup":"%s","error":"%s","fan_error":"%s","startup_error":"%s"' \
         "$BIOS_SUPPORTED" "$BIOS_AVAILABLE" "$BIOS_STARTUP_AVAILABLE" "$(json_str "$BIOS_MODEL")" "$BIOS_EXPERIMENTAL" "${BIOS_MIN_PWM:-0}" "$(json_str "$BIOS_FAN_WRITE_TARGET")" \
         "$BIOS_CPU_FAN_PRESENT" "$BIOS_FAN_MODE_WRITABLE" "$BIOS_PWM_READABLE" "$BIOS_WRITE_CONFIRMATION_REQUIRED" "$BIOS_DIRECT_FAN_FALLBACK" "$(json_str "$BIOS_PRODUCT_NAME")" "$(json_str "$BIOS_BACKEND")" \
         "$(json_str "$chip_id")" "${BIOS_REVISION:-0}" "${BIOS_CPU_PWM:--1}" "${BIOS_SYS_PWM:--1}" "${BIOS_SYS2_PWM:--1}" \
         "${BIOS_CPU_RPM:-0}" "${BIOS_SYS_RPM:-0}" "${BIOS_SYS2_RPM:-0}" "$BIOS_CPU_MANUAL" "$BIOS_SYS_MANUAL" "$BIOS_SYS2_MANUAL" \
         "$(json_str "$BIOS_STARTUP_POLICY")" "$(json_str "$error")" "$(json_str "$fan_error")" "$(json_str "$startup_error")"
+    printf ',"fan_curve":%s' "$fan_curve"
     [[ -n "$message" ]] && printf ',"message":"%s"' "$(json_str "$message")"
     printf '}'
 }
@@ -706,6 +743,7 @@ case "$API_PATH" in
     /bios/fan)
         channel=$(query_value channel)
         pwm=$(query_value pwm)
+        fan_curve_was_running=false
         if [[ "$REQUEST_METHOD" != "POST" ]]; then
             echo '{"ok":false,"error":"method not allowed"}'
         elif ! [[ "$channel" =~ ^(cpu|sys|all)$ && "$pwm" =~ ^[0-9]+$ ]] || (( pwm < 0 || pwm > 255 )); then
@@ -716,11 +754,48 @@ case "$API_PATH" in
             else
                 echo '{"ok":false,"error":"直控风扇写入需要先确认 IT8613 直控风险"}'
             fi
-        elif bios_set_fan "$channel" "$pwm"; then
-            if [[ "$channel" == "cpu" ]]; then fan_name="CPU 风扇"; elif [[ "$channel" == "all" ]]; then fan_name="全部风扇"; else fan_name="系统风扇"; fi
-            bios_status_json "${fan_name} PWM 已设置为 ${pwm}"
         else
-            printf '{"ok":false,"error":"%s"}' "$(json_str "${BIOS_LAST_ERROR:-风扇控制失败}")"
+            if bios_fan_curve_running; then
+                fan_curve_was_running=true
+                bios_fan_curve_stop true
+            fi
+            if bios_set_fan "$channel" "$pwm"; then
+                settings_set "$SETTINGS_FILE" fan_curve enabled false
+            if [[ "$channel" == "cpu" ]]; then fan_name="CPU 风扇"; elif [[ "$channel" == "all" ]]; then fan_name="全部风扇"; else fan_name="系统风扇"; fi
+                bios_status_json "${fan_name} 已切换为固定转速 PWM ${pwm}；自动温控已停止"
+            else
+                if $fan_curve_was_running; then bios_fan_curve_restore >/dev/null 2>&1 || true; fi
+                printf '{"ok":false,"error":"%s"}' "$(json_str "${BIOS_LAST_ERROR:-风扇控制失败}")"
+            fi
+        fi
+        ;;
+    /bios/fan-curve)
+        curve_action=$(query_value action)
+        curve_mode=$(query_value mode); curve_mode="${curve_mode:-custom}"
+        curve_interval=$(query_value interval); curve_interval="${curve_interval:-10}"
+        curve_downshift=$(query_value downshift); curve_downshift="${curve_downshift:-60}"
+        curve_minimum=$(query_value minimum); curve_minimum="${curve_minimum:-64}"
+        curve_cpu=$(query_value cpu); curve_cpu="${curve_cpu:-50,55,75,80,90}"
+        curve_hdd=$(query_value hdd); curve_hdd="${curve_hdd:-40,45,50,55,70}"
+        curve_ssd=$(query_value ssd); curve_ssd="${curve_ssd:-45,50,60,65,70}"
+        curve_pwm=$(query_value pwm); curve_pwm="${curve_pwm:-64,128,204,255}"
+        curve_storage=$(query_value require_storage); curve_storage="${curve_storage:-false}"
+        if [[ "$REQUEST_METHOD" == "GET" ]]; then
+            bios_fan_curve_status_json
+        elif [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif [[ "$curve_action" == "stop" ]]; then
+            bios_fan_curve_stop
+            bios_status_json "自动温控曲线已停止；当前 PWM 保持最后一次安全写入值"
+        elif [[ "$curve_action" != "start" ]]; then
+            echo '{"ok":false,"error":"温控曲线操作无效"}'
+        elif ! bios_write_confirmation_valid; then
+            echo '{"ok":false,"error":"受保护机型启动自动温控前需要先确认风险"}'
+        elif bios_fan_curve_start "$curve_mode" "$curve_interval" "$curve_downshift" "$curve_minimum" \
+                "$curve_cpu" "$curve_hdd" "$curve_ssd" "$curve_pwm" "$curve_storage" true; then
+            bios_status_json "自动温控曲线已启动"
+        else
+            printf '{"ok":false,"error":"%s"}' "$(json_str "${BIOS_LAST_ERROR:-自动温控曲线启动失败}")"
         fi
         ;;
     /bios/fan/mode)

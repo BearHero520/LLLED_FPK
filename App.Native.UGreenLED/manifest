@@ -1,5 +1,5 @@
 appname               = App.Native.UGreenLED
-version               = 1.8.3
+version               = 1.8.7
 display_name          = 绿联 LED 灯控
 desc                  = 绿联 NAS LED 控制；灯光统一由内置 CLI 控制，并支持 BIOS 风扇与来电启动管理。
 platform              = x86
@@ -14,4 +14,4 @@ desktop_uidir         = ui
 desktop_applaunchname = App.Native.UGreenLED.Web
 service_port          = 5088
 checkport             = false
-changelog             = v1.8.3 新增 DXP6800 Pro BIOS、CPU 风扇与成对系统风扇控制：基于 UGOS Pro 固件逆向，精确 DMI、风险确认、--force --apply、IT8613 校验和回读保护；尚待实机写入验证
+changelog             = v1.8.7 原厂自动模式改为简洁的只读温度/PWM 数值表，不显示输入框或可编辑曲线；自定义自动仍保留图形与精确输入

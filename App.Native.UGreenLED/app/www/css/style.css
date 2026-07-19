@@ -481,7 +481,7 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
 .bios-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.7fr); align-items: start; gap: 24px; }
 .bios-layout > * { min-width: 0; }
 .bios-layout > .glass-surface { padding: 26px 28px; }
-.bios-status-surface, .bios-system-surface, .bios-fan-surface { grid-column: 1 / -1; }
+.bios-status-surface, .bios-system-surface, .fan-curve-surface, .bios-fan-surface { grid-column: 1 / -1; }
 .bios-layout .section-heading { flex-wrap: wrap; margin-bottom: 6px; }
 .bios-layout .surface-help { max-width: 920px; margin-top: 10px; line-height: 1.65; }
 .bios-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
@@ -566,6 +566,69 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
 .bios-policy-choice.active, .bios-policy-choice:has(input:checked) { border-color: rgba(22, 119, 255, 0.36); background: rgba(225, 239, 255, 0.72); box-shadow: 0 8px 24px rgba(22, 119, 255, 0.09); }
 .bios-policy-choice.active > i, .bios-policy-choice:has(input:checked) > i { color: var(--blue); }
 .bios-policy-choice:has(input:disabled) { cursor: not-allowed; opacity: 0.52; }
+.fan-curve-live { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.fan-curve-live > div { min-width: 0; padding: 13px 15px; border: 1px solid var(--line); border-radius: 15px; background: rgba(235, 242, 251, 0.56); }
+.fan-curve-live span, .fan-curve-live strong, .fan-curve-live small { display: block; }
+.fan-curve-live span { color: var(--text-faint); font-size: 9px; font-weight: 800; letter-spacing: 0.06em; }
+.fan-curve-live strong { margin-top: 5px; color: var(--blue); font-size: 17px; font-variant-numeric: tabular-nums; }
+.fan-curve-live small { margin-top: 2px; color: var(--text-faint); font-size: 9px; }
+.fan-telemetry, .fan-curve-graph { margin-top: 16px; padding: 15px; border: 1px solid rgba(22, 119, 255, 0.14); border-radius: 17px; background: rgba(244, 249, 255, 0.56); }
+.fan-telemetry-heading, .fan-curve-graph-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.fan-telemetry-heading h3, .fan-curve-graph-heading h3 { margin: 4px 0 0; color: var(--text); font-size: 13px; }
+.fan-telemetry-heading > small, .fan-curve-graph-heading output { flex: 0 0 auto; margin-top: 4px; color: var(--text-faint); font-size: 10px; font-variant-numeric: tabular-nums; text-align: right; }
+.fan-curve-graph-heading small { display: block; margin-top: 5px; color: var(--text-faint); font-size: 10px; line-height: 1.5; }
+.fan-chart { display: block; width: 100%; height: 220px; margin-top: 13px; border-radius: 12px; background: rgba(255, 255, 255, 0.68); touch-action: none; }
+.fan-curve-editor-chart { cursor: crosshair; }
+.fan-chart-legend { display: flex; flex-wrap: wrap; gap: 8px 13px; margin-top: 10px; color: var(--text-faint); font-size: 9px; font-weight: 750; }
+.fan-chart-legend span::before { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: currentColor; content: ''; }
+.fan-chart-legend .is-cpu { color: #1677ff; }
+.fan-chart-legend .is-hdd { color: #e89124; }
+.fan-chart-legend .is-ssd { color: #1b9c68; }
+.fan-chart-legend .is-target { color: #7056d8; }
+.fan-chart-legend .is-applied { color: #58677a; }
+.fan-curve-mode-group { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0 0; padding: 0; border: 0; }
+.fan-curve-mode-group legend { width: 100%; margin-bottom: 9px; color: var(--text-soft); font-size: 11px; font-weight: 800; }
+.fan-curve-mode-group .bios-policy-choice { min-height: 92px; padding: 13px 15px; }
+.fan-stock-curve { margin-top: 16px; padding: 16px; border: 1px solid rgba(22, 119, 255, 0.14); border-radius: 18px; background: rgba(244, 249, 255, 0.60); }
+.fan-stock-curve[hidden] { display: none; }
+.fan-stock-curve-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.fan-stock-curve-heading h3 { margin: 4px 0 0; color: var(--text); font-size: 13px; }
+.fan-stock-curve-table td { color: var(--text); font-size: 12px; font-weight: 760; font-variant-numeric: tabular-nums; }
+.fan-stock-curve-table .fan-curve-pwm-row td { color: var(--blue); }
+.fan-stock-curve-table .fan-curve-pwm-row b { font-weight: 820; font-variant-numeric: tabular-nums; }
+.fan-stock-curve-note { margin: 11px 2px 0; color: var(--text-faint); font-size: 10px; line-height: 1.5; }
+.fan-curve-settings { margin-top: 16px; padding: 16px; border: 1px solid rgba(22, 119, 255, 0.14); border-radius: 18px; background: rgba(244, 249, 255, 0.60); }
+.fan-curve-settings.stock-locked { opacity: 0.72; }
+.fan-curve-settings[hidden] { display: none; }
+.fan-fixed-surface { scroll-margin-top: 18px; transition: border-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease; }
+.fan-fixed-surface:not(.is-selected) { opacity: 0.72; }
+.fan-fixed-surface.is-selected { border-color: rgba(22, 119, 255, 0.40); box-shadow: 0 12px 28px rgba(22, 119, 255, 0.10); }
+.fan-curve-timing { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fan-curve-timing label { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 7px 9px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255, 255, 255, 0.68); }
+.fan-curve-timing label > span { color: var(--text-soft); font-size: 10px; font-weight: 750; }
+.fan-curve-timing input, .fan-curve-table input { width: 100%; min-width: 0; border: 1px solid var(--line-strong); border-radius: 9px; background: rgba(255, 255, 255, 0.92); color: var(--text); font-size: 12px; font-variant-numeric: tabular-nums; }
+.fan-curve-timing input { grid-column: 1 / 2; min-height: 34px; padding: 0 9px; }
+.fan-curve-timing small { grid-column: 2; grid-row: 2; color: var(--text-faint); font-size: 9px; text-align: right; }
+.fan-curve-table-wrap { margin-top: 12px; overflow-x: auto; scrollbar-width: thin; }
+.fan-curve-table { width: 100%; min-width: 650px; border-collapse: separate; border-spacing: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, 0.62); }
+.fan-curve-table th, .fan-curve-table td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: center; }
+.fan-curve-table tr:last-child th, .fan-curve-table tr:last-child td { border-bottom: 0; }
+.fan-curve-table thead th { color: var(--text-faint); font-size: 9px; font-weight: 800; letter-spacing: 0.035em; white-space: nowrap; }
+.fan-curve-table tbody th { color: var(--text-soft); font-size: 10px; text-align: left; }
+.fan-curve-table input { height: 31px; padding: 0 7px; text-align: center; }
+.fan-curve-pwm-row { background: rgba(225, 239, 255, 0.44); }
+.fan-curve-pwm-row td > span { color: var(--text-faint); font-size: 9px; white-space: nowrap; }
+.fan-curve-storage-check { display: flex; align-items: flex-start; gap: 10px; margin-top: 13px; padding: 11px 12px; border-radius: 13px; background: rgba(255, 248, 236, 0.72); color: var(--text); }
+.fan-curve-storage-check input { margin-top: 2px; accent-color: var(--orange); }
+.fan-curve-storage-check strong, .fan-curve-storage-check small { display: block; }
+.fan-curve-storage-check strong { font-size: 11px; }
+.fan-curve-storage-check small { margin-top: 3px; color: var(--text-faint); font-size: 9px; line-height: 1.45; }
+.fan-curve-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 15px; }
+.fan-curve-actions > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
+.fan-curve-status { color: var(--text-faint); font-size: 10px; line-height: 1.45; }
+.fan-curve-status.error { color: #b62f40; }
+.fan-curve-status.running { color: #13764d; }
+@media (prefers-reduced-motion: reduce) { .fan-fixed-surface { transition: none; } }
 .bios-startup-actions { display: flex; justify-content: flex-end; margin-top: 22px; }
 .bios-detail-surface { display: flex; align-items: flex-start; gap: 18px; }
 .bios-detail-icon { display: inline-grid; width: 46px; height: 46px; flex: 0 0 auto; place-items: center; border-radius: 15px; background: var(--green-soft); color: var(--green); font-size: 20px; }
@@ -719,7 +782,7 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   .settings-layout { grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr); }
   #view-bios { padding: 4px 8px 32px; }
   .bios-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
-  .bios-status-surface, .bios-system-surface, .bios-fan-surface { grid-column: auto; }
+  .bios-status-surface, .bios-system-surface, .fan-curve-surface, .bios-fan-surface { grid-column: auto; }
   .bios-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bios-system-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -759,8 +822,10 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   #view-bios { padding: 0 4px 30px; }
   .bios-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .bios-layout > .glass-surface { padding: 22px; }
-  .bios-status-surface, .bios-system-surface, .bios-fan-surface { grid-column: auto; }
+  .bios-status-surface, .bios-system-surface, .fan-curve-surface, .bios-fan-surface { grid-column: auto; }
   .bios-facts, .bios-fan-grid, .bios-policy-grid { grid-template-columns: 1fr; }
+  .fan-curve-live { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fan-curve-mode-group, .fan-curve-timing { grid-template-columns: 1fr; }
   .bios-system-grid { grid-template-columns: minmax(0, 1fr); }
   .bios-system-fact.wide { grid-column: auto; }
   .bios-pwm-control input[type="range"], .bios-startup-actions .primary-button { min-height: 44px; }
@@ -825,6 +890,10 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   .bios-policy-grid { gap: 10px; margin-top: 18px; }
   .bios-policy-choice { min-height: 78px; padding: 14px 15px; }
   .bios-startup-actions .primary-button { width: 100%; }
+  .fan-curve-settings { padding: 12px; }
+  .fan-curve-actions { align-items: stretch; flex-direction: column; }
+  .fan-curve-actions > div { align-items: stretch; flex-direction: column-reverse; }
+  .fan-curve-actions button { width: 100%; }
   input[type="color"] { width: 58px; }
   .mode-button span { display: none; }
   .mode-button { min-height: 44px; font-size: 18px; }

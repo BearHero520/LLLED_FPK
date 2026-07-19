@@ -113,6 +113,10 @@
   let currentIni = {};
   let hardwareState = {};
   let biosState = { loaded: false, supported: false, available: false };
+  const fanCurveEditorState = {
+    model: '', mode: 'custom', modeTouched: false, customDraft: null, fixedDraft: null,
+    telemetry: [], lastTelemetryKey: '', drag: null,
+  };
   const biosFanWrites = {
     cpu: { timer: null, statusTimer: null, queue: Promise.resolve(), revision: 0, busy: false },
     sys: { timer: null, statusTimer: null, queue: Promise.resolve(), revision: 0, busy: false },
@@ -1370,6 +1374,554 @@
       : query;
   }
 
+  function fanCurveCsv(prefix) {
+    return ['Stop', 'Start', 'Mid', 'Full', 'Max'].map((suffix) => Number($(`fanCurve${prefix}${suffix}`).value)).join(',');
+  }
+
+  function setFanCurveCsv(prefix, value) {
+    const values = String(value || '').split(',');
+    if (values.length !== 5 || values.some((item) => !/^\d+$/.test(item))) return;
+    ['Stop', 'Start', 'Mid', 'Full', 'Max'].forEach((suffix, index) => {
+      $(`fanCurve${prefix}${suffix}`).value = values[index];
+    });
+  }
+
+  function fanCurvePwmCsv() {
+    return ['Idle', 'Mid', 'Full', 'Max'].map((suffix) => Number($(`fanCurvePwm${suffix}`).value)).join(',');
+  }
+
+  function setFanCurvePwmCsv(value) {
+    const values = String(value || '').split(',');
+    if (values.length !== 4 || values.some((item) => !/^\d+$/.test(item))) return;
+    ['Idle', 'Mid', 'Full', 'Max'].forEach((suffix, index) => {
+      $(`fanCurvePwm${suffix}`).value = values[index];
+    });
+  }
+
+  const fanCurveStockProfiles = Object.freeze({
+    dxp4800s: {
+      profile: 'stock-4800s', name: 'DXP4800S 原厂兼容',
+      description: '已恢复 CPU、HDD、NVMe 的原厂阈值与系统风扇 PWM 档位；自动模式始终维持安全最低转速。',
+      cpu: '50,55,75,80,90', hdd: '40,45,50,55,70', ssd: '45,50,60,65,70', pwm: '64,128,204,255', minimum: '40',
+    },
+    dxp4800_plus: {
+      profile: 'stock-4800plus', name: 'DXP4800 Plus / Pro 原厂兼容',
+      description: '已恢复原厂双通道曲线：系统风扇按 CPU、HDD、NVMe 与 CPU 温度保底计算，CPU 风扇保留独立 PWM。',
+      cpu: '42,50,70,78,90', hdd: '30,40,46,52,55', ssd: '50,55,60,65,70', pwm: '65,125,200,235', minimum: '40',
+    },
+    dxp4800_pro: {
+      profile: 'stock-4800plus', name: 'DXP4800 Plus / Pro 原厂兼容',
+      description: '已恢复原厂双通道曲线：系统风扇按 CPU、HDD、NVMe 与 CPU 温度保底计算，CPU 风扇保留独立 PWM。',
+      cpu: '42,50,70,78,90', hdd: '30,40,46,52,55', ssd: '50,55,60,65,70', pwm: '65,125,200,235', minimum: '40',
+    },
+    dxp480t_plus: {
+      profile: 'stock-480tplus', name: 'DXP480T Plus 原厂兼容',
+      description: '已恢复 CPU 与 NVMe 原厂曲线；固件原始配置不以 HDD 温度参与调速，单一 all 通道取 CPU/系统目标中的较高值。',
+      cpu: '25,55,75,85,95', hdd: '0,0,0,0,0', ssd: '40,50,60,70,80', pwm: '55,90,110,128', minimum: '40',
+    },
+    dxp6800pro: {
+      profile: 'stock-6800pro', name: 'DXP6800 Pro 原厂兼容',
+      description: '已恢复原厂 CPU/系统双通道曲线；系统风扇还会应用固件中的 CPU 温度保底。',
+      cpu: '25,38,55,75,90', hdd: '30,35,43,48,55', ssd: '45,50,60,65,70', pwm: '64,130,210,230', minimum: '40',
+    },
+  });
+
+  function fanCurveStockProfileForModel(model = biosState.model) {
+    return fanCurveStockProfiles[model] || null;
+  }
+
+  function isFanCurveStockProfile(profile) {
+    return Object.values(fanCurveStockProfiles).some((item) => item.profile === profile);
+  }
+
+  function setFanCurveStockValues(profile = fanCurveStockProfileForModel()) {
+    if (!profile) return;
+    setFanCurveCsv('Cpu', profile.cpu);
+    setFanCurveCsv('Hdd', profile.hdd);
+    setFanCurveCsv('Ssd', profile.ssd);
+    setFanCurvePwmCsv(profile.pwm);
+    $('fanCurveMinimum').value = profile.minimum;
+    $('fanCurveStockTitle').textContent = profile.name;
+    $('fanCurveStockDescription').textContent = profile.description;
+  }
+
+  function renderFanCurveStockReadout(profile = fanCurveStockProfileForModel()) {
+    if (!profile) return;
+    const suffixes = ['Stop', 'Start', 'Mid', 'Full', 'Max'];
+    [['Cpu', profile.cpu], ['Hdd', profile.hdd], ['Ssd', profile.ssd]].forEach(([prefix, csv]) => {
+      String(csv || '').split(',').forEach((value, index) => {
+        const target = $(`fanStock${prefix}${suffixes[index]}`);
+        if (target) target.textContent = value === '' ? '—' : `${value}°C`;
+      });
+    });
+    $('fanStockMinimum').textContent = profile.minimum ?? '—';
+    ['Idle', 'Mid', 'Full', 'Max'].forEach((suffix, index) => {
+      const target = $(`fanStockPwm${suffix}`);
+      if (target) target.textContent = String(profile.pwm || '').split(',')[index] || '—';
+    });
+  }
+
+  function syncFanCurveStockCopy() {
+    const profile = fanCurveStockProfileForModel();
+    if (profile) {
+      $('fanCurveStockTitle').textContent = profile.name;
+      $('fanCurveStockDescription').textContent = profile.description;
+    } else {
+      $('fanCurveStockTitle').textContent = '原厂兼容曲线';
+      $('fanCurveStockDescription').textContent = '仅在检测到 DXP4800S、DXP4800 Plus / Pro、DXP480T Plus 或 DXP6800 Pro 时可用。';
+    }
+  }
+
+  function fanCurveModeValue() {
+    return document.querySelector('input[name="fanCurveMode"]:checked')?.value || 'custom';
+  }
+
+  function fanCurveSelectedMode() {
+    return fanCurveModeValue() === 'stock' ? fanCurveStockProfileForModel()?.profile || 'custom' : 'custom';
+  }
+
+  function fanCurveStockSelected() {
+    return fanCurveModeValue() === 'stock' && Boolean(fanCurveStockProfileForModel());
+  }
+
+  function fanCurveFixedSelected() {
+    return fanCurveModeValue() === 'fixed';
+  }
+
+  function fanCurveDraftKey() {
+    return `ugreen-led:fan-curve-draft:${biosState.model || 'unknown'}`;
+  }
+
+  function fanCurveFormValues() {
+    return {
+      interval: $('fanCurveInterval').value, downshift: $('fanCurveDownshift').value,
+      minimum: $('fanCurveMinimum').value, cpu: fanCurveCsv('Cpu'), hdd: fanCurveCsv('Hdd'),
+      ssd: fanCurveCsv('Ssd'), pwm: fanCurvePwmCsv(),
+      requireStorage: $('fanCurveRequireStorage').checked,
+    };
+  }
+
+  function applyFanCurveFormValues(values) {
+    if (!values || typeof values !== 'object') return;
+    if (values.interval !== undefined) $('fanCurveInterval').value = String(values.interval);
+    if (values.downshift !== undefined) $('fanCurveDownshift').value = String(values.downshift);
+    if (values.minimum !== undefined) $('fanCurveMinimum').value = String(values.minimum);
+    setFanCurveCsv('Cpu', values.cpu); setFanCurveCsv('Hdd', values.hdd); setFanCurveCsv('Ssd', values.ssd);
+    setFanCurvePwmCsv(values.pwm);
+    if (values.requireStorage !== undefined) $('fanCurveRequireStorage').checked = Boolean(values.requireStorage);
+  }
+
+  function fanCurveRemoteFormValues(info) {
+    return {
+      interval: info.interval_seconds, downshift: info.downshift_delay_seconds, minimum: info.minimum_pwm,
+      cpu: info.cpu_curve, hdd: info.hdd_curve, ssd: info.ssd_curve, pwm: info.pwm_curve,
+      requireStorage: Boolean(info.require_storage_sensor),
+    };
+  }
+
+  function persistFanCurveDraft() {
+    try {
+      localStorage.setItem(fanCurveDraftKey(), JSON.stringify({
+        version: 1, mode: fanCurveEditorState.mode, custom: fanCurveEditorState.customDraft,
+        fixed: fanCurveEditorState.fixedDraft,
+      }));
+    } catch (_) { /* Draft persistence is a convenience; editing remains available. */ }
+  }
+
+  function captureFanCurveCustomDraft() {
+    fanCurveEditorState.customDraft = fanCurveFormValues();
+    persistFanCurveDraft();
+  }
+
+  function captureFanCurveFixedDraft() {
+    fanCurveEditorState.fixedDraft = {
+      cpu: $('cpuFanPwmRange').value,
+      sys: $('sysFanPwmRange').value,
+    };
+    persistFanCurveDraft();
+  }
+
+  function restoreFanCurveCustomDraft() {
+    if (fanCurveEditorState.customDraft) applyFanCurveFormValues(fanCurveEditorState.customDraft);
+  }
+
+  function restoreFanCurveFixedDraft() {
+    const draft = fanCurveEditorState.fixedDraft;
+    if (!draft) return;
+    if (draft.cpu !== undefined) setBiosPwmEditor('cpu', draft.cpu);
+    if (draft.sys !== undefined) setBiosPwmEditor('sys', draft.sys);
+  }
+
+  function initializeFanCurveEditor(info) {
+    const model = biosState.model || 'unknown';
+    if (fanCurveEditorState.model === model) return;
+    fanCurveEditorState.model = model;
+    fanCurveEditorState.modeTouched = false;
+    fanCurveEditorState.telemetry = [];
+    fanCurveEditorState.lastTelemetryKey = '';
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(fanCurveDraftKey()) || 'null'); } catch (_) { saved = null; }
+    const activeMode = isFanCurveStockProfile(info.profile) ? 'stock' : 'custom';
+    fanCurveEditorState.mode = info.running
+      ? activeMode
+      : ['stock', 'custom', 'fixed'].includes(saved?.mode) ? saved.mode : activeMode;
+    fanCurveEditorState.customDraft = saved?.custom || fanCurveRemoteFormValues(info);
+    fanCurveEditorState.fixedDraft = saved?.fixed || {
+      cpu: $('cpuFanPwmRange').value, sys: $('sysFanPwmRange').value,
+    };
+    restoreFanCurveCustomDraft();
+    restoreFanCurveFixedDraft();
+  }
+
+  function updateFanCurveControls() {
+    const curve = biosState.fan_curve || {};
+    const available = Boolean(biosState.available) && biosWriteConfirmed();
+    const stockProfile = fanCurveStockProfileForModel();
+    const stockInput = document.querySelector('input[name="fanCurveMode"][value="stock"]');
+    syncFanCurveStockCopy();
+    if (stockInput) stockInput.disabled = !stockProfile;
+    if (!stockProfile && stockInput?.checked) {
+      document.querySelector('input[name="fanCurveMode"][value="custom"]').checked = true;
+      fanCurveEditorState.mode = 'custom';
+    }
+    const stock = fanCurveStockSelected();
+    const fixed = fanCurveFixedSelected();
+    const editable = available && !stock && !fixed;
+    $('fanCurveSettings').classList.toggle('stock-locked', stock);
+    $('fanCurveSettings').hidden = fixed || stock;
+    $('fanStockCurveReadout').hidden = !stock;
+    if (stock) renderFanCurveStockReadout(stockProfile);
+    $('fanCurveSettings').querySelectorAll('input').forEach((input) => { input.disabled = !editable; });
+    document.querySelectorAll('input[name="fanCurveMode"]').forEach((input) => { input.disabled = !available || (input.value === 'stock' && !stockProfile); });
+    $('btnStartFanCurve').disabled = !available;
+    $('btnStartFanCurveText').textContent = fixed ? '应用固定转速' : '应用并启动自动';
+    $('btnStopFanCurve').disabled = !Boolean(curve.running) || fixed;
+    $('btnStopFanCurve').title = fixed ? '固定转速需切换到自动模式并应用后才会结束' : '';
+    $('fanFixedSettings').classList.toggle('is-selected', fixed);
+    document.querySelectorAll('input[name="fanCurveMode"]').forEach((input) => {
+      input.closest('.bios-policy-choice')?.classList.toggle('active', input.checked);
+    });
+    drawFanCurveEditor();
+  }
+
+  function renderFanCurve(curve) {
+    const info = curve || {};
+    const tempText = (value) => Number.isFinite(Number(value)) && Number(value) >= 0 ? String(value) : '—';
+    const running = Boolean(info.running);
+    const profile = isFanCurveStockProfile(info.profile) ? info.profile : 'custom';
+    initializeFanCurveEditor(info);
+    if (!fanCurveEditorState.modeTouched) fanCurveEditorState.mode = profile === 'custom' ? 'custom' : 'stock';
+    const selected = document.querySelector(`input[name="fanCurveMode"][value="${fanCurveEditorState.mode}"]`);
+    if (selected && !selected.disabled) selected.checked = true;
+    if (fanCurveStockSelected()) setFanCurveStockValues(fanCurveStockProfileForModel());
+    else if (!fanCurveFixedSelected()) restoreFanCurveCustomDraft();
+    restoreFanCurveFixedDraft();
+    $('fanCurveCpuTemp').textContent = tempText(info.cpu_celsius);
+    $('fanCurveHddTemp').textContent = tempText(info.hdd_celsius);
+    $('fanCurveSsdTemp').textContent = tempText(info.ssd_celsius);
+    const channelPwm = (cpu, system, fallback) => {
+      const cpuText = tempText(cpu);
+      const systemText = tempText(system);
+      return cpuText !== '—' || systemText !== '—' ? `CPU ${cpuText} · 系统 ${systemText}` : tempText(fallback);
+    };
+    $('fanCurveDesiredPwm').textContent = channelPwm(info.desired_cpu_pwm, info.desired_system_pwm, info.desired_pwm);
+    $('fanCurveAppliedPwm').textContent = Number.isFinite(Number(info.applied_pwm)) && Number(info.applied_pwm) >= 0
+      ? `已写入 ${channelPwm(info.applied_cpu_pwm, info.applied_system_pwm, info.applied_pwm)}` : '未写入';
+    $('fanCurveBadge').textContent = running ? (info.status === 'failsafe' ? '保护满速' : '运行中') : (info.enabled ? '等待恢复' : '未启动');
+    const status = $('fanCurveStatus');
+    status.className = `fan-curve-status${running ? ' running' : info.status === 'error' ? ' error' : ''}`;
+    status.textContent = running
+      ? (info.status === 'failsafe' ? `温度传感器不完整，已使用保护 PWM 255${info.detail ? `：${info.detail}` : ''}` : `守护程序正在运行；降速会保持 ${info.downshift_delay_seconds ?? 60} 秒以避免频繁升降速。`)
+      : (info.detail || '尚未启用自动温控');
+    $('fanCurveHelp').textContent = fanCurveStockProfileForModel()
+      ? '当前机型可使用固件恢复的原厂兼容预设。它仍是受保护的软件守护模式：每次写入都经由上游 ugreenctl，并且不会写入低于安全下限的停转 PWM。'
+      : '此机型没有已验证的原厂预设；请使用稳定自定义曲线并保留温度保护。';
+    if (fanCurveFixedSelected()) {
+      $('fanCurveHelp').textContent = '固定转速不根据温度调整。设置下方 CPU / 系统 PWM 后点击“应用固定转速”；它会先停止自动温控，之后可切换到任一自动模式并重新应用。';
+      status.className = 'fan-curve-status';
+      status.textContent = running
+        ? '自动温控仍在运行；应用固定转速后才会切换。'
+        : '固定转速待应用；请确认下方 PWM 设置。';
+    }
+    appendFanTelemetry(info);
+    drawFanTelemetry();
+    updateFanCurveControls();
+  }
+
+  function fanChartDimensions(canvas) {
+    return {
+      width: Math.max(280, Math.floor(canvas.clientWidth || 640)),
+      height: Math.max(160, Math.floor(canvas.clientHeight || 220)),
+    };
+  }
+
+  function fanChartSurface(id) {
+    const canvas = $(id);
+    const { width, height } = fanChartDimensions(canvas);
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    if (canvas.width !== Math.floor(width * ratio) || canvas.height !== Math.floor(height * ratio)) {
+      canvas.width = Math.floor(width * ratio);
+      canvas.height = Math.floor(height * ratio);
+    }
+    const context = canvas.getContext('2d');
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.clearRect(0, 0, width, height);
+    return { canvas, context, width, height };
+  }
+
+  function fanChartValue(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : null;
+  }
+
+  function fanDrawGrid(context, box, maximum, label) {
+    context.save();
+    context.strokeStyle = 'rgba(88, 103, 122, 0.16)';
+    context.fillStyle = '#7b8a9c';
+    context.font = '9px system-ui, sans-serif';
+    context.textAlign = 'right';
+    [0, 0.5, 1].forEach((fraction) => {
+      const y = box.bottom - (box.bottom - box.top) * fraction;
+      context.beginPath(); context.moveTo(box.left, y); context.lineTo(box.right, y); context.stroke();
+      context.fillText(String(Math.round(maximum * fraction)), box.left - 6, y + 3);
+    });
+    context.textAlign = 'left';
+    context.fillText(label, box.left, box.top - 5);
+    context.restore();
+  }
+
+  function fanDrawSeries(context, values, box, maximum, color, dashed = false) {
+    const valid = values.map(fanChartValue);
+    if (!valid.some((value) => value !== null)) return;
+    const denominator = Math.max(1, valid.length - 1);
+    context.save();
+    context.strokeStyle = color;
+    context.lineWidth = 2;
+    context.setLineDash(dashed ? [5, 4] : []);
+    let open = false;
+    valid.forEach((value, index) => {
+      if (value === null) { open = false; return; }
+      const x = box.left + (box.right - box.left) * (index / denominator);
+      const y = box.bottom - (box.bottom - box.top) * Math.min(1, value / maximum);
+      if (!open) { context.beginPath(); context.moveTo(x, y); open = true; } else context.lineTo(x, y);
+      context.stroke();
+      context.setLineDash(dashed ? [5, 4] : []);
+      context.fillStyle = color;
+      context.beginPath(); context.arc(x, y, 2.5, 0, Math.PI * 2); context.fill();
+    });
+    context.restore();
+  }
+
+  function appendFanTelemetry(info) {
+    const values = [info.cpu_celsius, info.hdd_celsius, info.ssd_celsius, info.desired_pwm, info.applied_pwm];
+    if (!values.some((value) => fanChartValue(value) !== null)) return;
+    const timestamp = Number(info.timestamp) > 0 ? Number(info.timestamp) : 0;
+    const key = `${timestamp}|${values.join('|')}`;
+    if (key === fanCurveEditorState.lastTelemetryKey) return;
+    fanCurveEditorState.lastTelemetryKey = key;
+    fanCurveEditorState.telemetry.push({
+      at: timestamp || Math.floor(Date.now() / 1000), cpu: info.cpu_celsius, hdd: info.hdd_celsius,
+      ssd: info.ssd_celsius, desired: info.desired_pwm, applied: info.applied_pwm,
+    });
+    if (fanCurveEditorState.telemetry.length > 36) fanCurveEditorState.telemetry.shift();
+  }
+
+  function drawFanTelemetry() {
+    const { canvas, context, width, height } = fanChartSurface('fanTelemetryChart');
+    const history = fanCurveEditorState.telemetry;
+    $('fanTelemetryRange').textContent = history.length ? `最近 ${history.length} 个采样 · 本次页面会话` : '等待温控采样';
+    if (!history.length) {
+      context.fillStyle = '#7b8a9c'; context.font = '12px system-ui, sans-serif'; context.textAlign = 'center';
+      context.fillText('启动自动模式后显示本次会话的趋势数据', width / 2, height / 2);
+      return;
+    }
+    const tempBox = { left: 36, right: width - 12, top: 22, bottom: Math.floor(height * 0.48) };
+    const pwmBox = { left: 36, right: width - 12, top: Math.floor(height * 0.63), bottom: height - 20 };
+    fanDrawGrid(context, tempBox, 100, '温度 °C');
+    fanDrawGrid(context, pwmBox, 255, 'PWM');
+    fanDrawSeries(context, history.map((item) => item.cpu), tempBox, 100, '#1677ff');
+    fanDrawSeries(context, history.map((item) => item.hdd), tempBox, 100, '#e89124');
+    fanDrawSeries(context, history.map((item) => item.ssd), tempBox, 100, '#1b9c68');
+    fanDrawSeries(context, history.map((item) => item.desired), pwmBox, 255, '#7056d8');
+    fanDrawSeries(context, history.map((item) => item.applied), pwmBox, 255, '#58677a', true);
+    const latest = history.at(-1);
+    canvas.setAttribute('aria-label', `温度与转速趋势：CPU ${fanChartValue(latest.cpu) ?? '未知'}°C，HDD ${fanChartValue(latest.hdd) ?? '未知'}°C，NVMe ${fanChartValue(latest.ssd) ?? '未知'}°C，目标 PWM ${fanChartValue(latest.desired) ?? '未知'}。`);
+  }
+
+  function fanCurveGraphLayout(width, height) {
+    return { left: 38, right: width - 14, top: 18, bottom: height - 28 };
+  }
+
+  function fanCurveGraphCurves() {
+    const pwm = [Number($('fanCurveMinimum').value), ...fanCurvePwmCsv().split(',').map(Number)];
+    return [
+      { prefix: 'Cpu', label: 'CPU', color: '#1677ff', values: fanCurveCsv('Cpu').split(',').map(Number), pwm },
+      { prefix: 'Hdd', label: 'HDD', color: '#e89124', values: fanCurveCsv('Hdd').split(',').map(Number), pwm },
+      { prefix: 'Ssd', label: 'NVMe', color: '#1b9c68', values: fanCurveCsv('Ssd').split(',').map(Number), pwm },
+    ];
+  }
+
+  function fanCurveGraphPoint(layout, curve, index) {
+    const temperature = Math.max(0, Math.min(125, Number(curve.values[index]) || 0));
+    const pwm = Math.max(40, Math.min(255, Number(curve.pwm[index]) || 40));
+    return {
+      x: layout.left + (layout.right - layout.left) * (temperature / 125),
+      y: layout.bottom - (layout.bottom - layout.top) * ((pwm - 40) / 215),
+    };
+  }
+
+  function drawFanCurveEditor() {
+    const { canvas, context, width, height } = fanChartSurface('fanCurveEditorChart');
+    const layout = fanCurveGraphLayout(width, height);
+    const curves = fanCurveGraphCurves();
+    fanDrawGrid(context, layout, 255, 'PWM');
+    context.save();
+    context.fillStyle = '#7b8a9c'; context.font = '9px system-ui, sans-serif'; context.textAlign = 'center';
+    [0, 25, 50, 75, 100, 125].forEach((temperature) => {
+      const x = layout.left + (layout.right - layout.left) * (temperature / 125);
+      context.fillText(String(temperature), x, height - 8);
+    });
+    context.textAlign = 'left'; context.fillText('温度 °C', layout.right - 42, height - 8);
+    context.restore();
+    curves.forEach((curve) => {
+      context.save();
+      context.strokeStyle = curve.color; context.lineWidth = 2.25; context.beginPath();
+      curve.values.forEach((_, index) => {
+        const point = fanCurveGraphPoint(layout, curve, index);
+        if (index === 0) context.moveTo(point.x, point.y); else context.lineTo(point.x, point.y);
+      });
+      context.stroke();
+      curve.values.forEach((_, index) => {
+        const point = fanCurveGraphPoint(layout, curve, index);
+        const active = fanCurveEditorState.drag?.prefix === curve.prefix && fanCurveEditorState.drag?.index === index;
+        context.fillStyle = '#ffffff'; context.strokeStyle = curve.color; context.lineWidth = active ? 4 : 2;
+        context.beginPath(); context.arc(point.x, point.y, active ? 6.5 : 5, 0, Math.PI * 2); context.fill(); context.stroke();
+      });
+      context.restore();
+    });
+    const locked = fanCurveStockSelected() || fanCurveFixedSelected() || !biosState.available || !biosWriteConfirmed();
+    canvas.style.cursor = locked ? 'not-allowed' : 'crosshair';
+    canvas.setAttribute('aria-label', locked
+      ? '温度与 PWM 曲线预览。选择自定义自动后可拖动编辑。'
+      : '温度与 PWM 曲线编辑图。可拖动圆点编辑，精确数值可在下方表格输入。');
+  }
+
+  function fanCurveGraphNearest(event) {
+    const canvas = $('fanCurveEditorChart');
+    const rect = canvas.getBoundingClientRect();
+    const { width, height } = fanChartDimensions(canvas);
+    const layout = fanCurveGraphLayout(width, height);
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    let closest = null;
+    fanCurveGraphCurves().forEach((curve) => curve.values.forEach((_, index) => {
+      const point = fanCurveGraphPoint(layout, curve, index);
+      const distance = Math.hypot(point.x - x, point.y - y);
+      if (distance < 18 && (!closest || distance < closest.distance)) closest = { prefix: curve.prefix, index, distance };
+    }));
+    return { closest, layout, x, y };
+  }
+
+  function updateFanCurveGraphDrag(event) {
+    const drag = fanCurveEditorState.drag;
+    if (!drag) return;
+    const canvas = $('fanCurveEditorChart');
+    const rect = canvas.getBoundingClientRect();
+    const { width, height } = fanChartSurface('fanCurveEditorChart');
+    const layout = fanCurveGraphLayout(width, height);
+    const x = Math.max(layout.left, Math.min(layout.right, event.clientX - rect.left));
+    const y = Math.max(layout.top, Math.min(layout.bottom, event.clientY - rect.top));
+    const suffixes = ['Stop', 'Start', 'Mid', 'Full', 'Max'];
+    const temperatures = fanCurveCsv(drag.prefix).split(',').map(Number);
+    const temperature = Math.round((x - layout.left) / (layout.right - layout.left) * 125);
+    const lowerTemperature = drag.index ? temperatures[drag.index - 1] + 1 : 0;
+    const upperTemperature = drag.index < 4 ? temperatures[drag.index + 1] - 1 : 125;
+    const boundedTemperature = Math.max(lowerTemperature, Math.min(upperTemperature, temperature));
+    $(`fanCurve${drag.prefix}${suffixes[drag.index]}`).value = String(boundedTemperature);
+    const pwm = [Number($('fanCurveMinimum').value), ...fanCurvePwmCsv().split(',').map(Number)];
+    const nextPwm = Math.round(40 + (layout.bottom - y) / (layout.bottom - layout.top) * 215);
+    const lowerPwm = drag.index ? pwm[drag.index - 1] : 40;
+    const upperPwm = drag.index < 4 ? pwm[drag.index + 1] : 255;
+    const boundedPwm = Math.max(lowerPwm, Math.min(upperPwm, nextPwm));
+    if (drag.index === 0) $('fanCurveMinimum').value = String(boundedPwm);
+    else $('fanCurvePwm' + ['Idle', 'Mid', 'Full', 'Max'][drag.index - 1]).value = String(boundedPwm);
+    $('fanCurveGraphReadout').textContent = `${drag.prefix === 'Ssd' ? 'NVMe' : drag.prefix} · ${boundedTemperature}°C · PWM ${boundedPwm}`;
+    captureFanCurveCustomDraft();
+    drawFanCurveEditor();
+  }
+
+  function bindFanCurveCharts() {
+    const canvas = $('fanCurveEditorChart');
+    canvas.addEventListener('pointerdown', (event) => {
+      if (fanCurveStockSelected() || fanCurveFixedSelected() || !biosState.available || !biosWriteConfirmed()) return;
+      const { closest } = fanCurveGraphNearest(event);
+      if (!closest) return;
+      fanCurveEditorState.drag = closest;
+      canvas.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+      updateFanCurveGraphDrag(event);
+    });
+    canvas.addEventListener('pointermove', (event) => {
+      if (fanCurveEditorState.drag) {
+        updateFanCurveGraphDrag(event);
+        return;
+      }
+      if (!fanCurveStockSelected() && !fanCurveFixedSelected() && biosState.available && biosWriteConfirmed()) {
+        canvas.style.cursor = fanCurveGraphNearest(event).closest ? 'grab' : 'crosshair';
+      }
+    });
+    const finishDrag = (event) => {
+      if (!fanCurveEditorState.drag) return;
+      canvas.releasePointerCapture?.(event.pointerId);
+      fanCurveEditorState.drag = null;
+      $('fanCurveGraphReadout').textContent = '自定义草稿已保留';
+      captureFanCurveCustomDraft();
+      drawFanCurveEditor();
+    };
+    canvas.addEventListener('pointerup', finishDrag);
+    canvas.addEventListener('pointercancel', finishDrag);
+  }
+
+  function fanCurveStartQuery() {
+    const params = new URLSearchParams({
+      action: 'start',
+      mode: fanCurveSelectedMode(),
+      interval: $('fanCurveInterval').value,
+      downshift: $('fanCurveDownshift').value,
+      minimum: $('fanCurveMinimum').value,
+      cpu: fanCurveCsv('Cpu'),
+      hdd: fanCurveCsv('Hdd'),
+      ssd: fanCurveCsv('Ssd'),
+      pwm: fanCurvePwmCsv(),
+      require_storage: $('fanCurveRequireStorage').checked ? 'true' : 'false',
+    });
+    const confirmation = biosWriteQuery('');
+    if (confirmation.startsWith('&')) params.set('confirm', confirmation.slice(1).split('=')[1]);
+    return params.toString();
+  }
+
+  async function applyFixedFanSpeed() {
+    let latest = biosState;
+    const targets = [];
+    if (biosState.cpu_fan_present !== false) targets.push(['cpu', Number($('cpuFanPwmRange').value)]);
+    targets.push(['sys', Number($('sysFanPwmRange').value)]);
+    const minimum = Math.max(40, Number(biosState.min_pwm) || 40);
+    if (targets.some(([, pwm]) => !Number.isInteger(pwm) || pwm < minimum || pwm > 255)) {
+      throw new Error(`固定转速 PWM 必须是 ${minimum}–255 的整数`);
+    }
+    captureFanCurveFixedDraft();
+    if (biosState.fan_curve?.running) {
+      latest = await api('/bios/fan-curve', { method: 'POST', query: 'action=stop', body: '' });
+    }
+    for (const [prefix, pwm] of targets) {
+      latest = await api('/bios/fan', {
+        method: 'POST', query: biosWriteQuery(`channel=${biosFanTarget(prefix)}&pwm=${pwm}`), body: '',
+      });
+    }
+    latest.message = `固定转速已应用：${targets.map(([prefix, pwm]) => `${prefix === 'cpu' ? 'CPU' : '系统'} PWM ${pwm}`).join('，')}。`;
+    return latest;
+  }
+
   function setBiosFanWriteStatus(prefix, state, message) {
     const writeState = biosFanWrites[prefix];
     const status = $(`${prefix}FanWriteStatus`);
@@ -1391,8 +1943,10 @@
       setBiosFanWriteStatus(prefix, '', '当前不可写入');
     } else if (!biosWriteConfirmed()) {
       setBiosFanWriteStatus(prefix, '', '请先确认固件逆向写入风险');
+    } else if (!fanCurveFixedSelected()) {
+      setBiosFanWriteStatus(prefix, '', '选择“固定转速”后可编辑 PWM');
     } else {
-      setBiosFanWriteStatus(prefix, '', '调整后写入手动 PWM，并由 hwmon 回读校验');
+      setBiosFanWriteStatus(prefix, '', '调整后点击“应用固定转速”，并由 hwmon 回读校验');
     }
   }
 
@@ -1400,7 +1954,7 @@
     const available = Boolean(biosState.available);
     const writeState = biosFanWrites[prefix];
     const fanPresent = prefix !== 'cpu' || biosState.cpu_fan_present !== false;
-    const writable = available && fanPresent && biosWriteConfirmed() && !writeState.busy;
+    const writable = available && fanPresent && biosWriteConfirmed() && fanCurveFixedSelected() && !writeState.busy;
     $(`${prefix}FanPwmRange`).disabled = !writable;
   }
 
@@ -1412,6 +1966,7 @@
     document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
       input.disabled = !startupAvailable;
     });
+    updateFanCurveControls();
   }
 
   function renderBios(data) {
@@ -1454,6 +2009,7 @@
       : is6800
         ? '只开放手动 PWM。CPU 可单独设置；系统风扇 1/2 会按原厂成对路径同步写入并回读。该固件逆向映射尚待实机验证，PWM 最低为 40。'
       : '只开放手动 PWM，写入后会回读校验，PWM 最低为 40。原厂自动调速是软件温控曲线，不会用 pwm*_enable=2 冒充。';
+    $('biosFanSafetyText').textContent += ' 此处属于“固定转速”模式：先在上方选择固定转速，再调整 PWM 并点击“应用固定转速”；切回任一自动模式并应用即可重新按温度调速。';
     $('biosProductName').textContent = biosState.product_name || '未读取到';
     $('biosChipId').textContent = biosState.chip_id
       ? `${biosState.chip_id} · Rev ${biosState.revision ?? 0}`
@@ -1558,6 +2114,7 @@
       input.checked = input.value === biosState.startup;
       input.closest('.bios-policy-choice')?.classList.toggle('active', input.checked);
     });
+    renderFanCurve(biosState.fan_curve);
     updateBiosWriteAvailability();
     ['cpu', 'sys'].forEach((prefix) => {
       if (!biosFanWrites[prefix].busy) resetBiosFanWriteStatus(prefix);
@@ -1822,10 +2379,8 @@
     $(rangeId).addEventListener('input', function () {
       clearTimeout(biosFanWrites[prefix].timer);
       biosFanWrites[prefix].timer = null;
-      setBiosFanWriteStatus(prefix, '', `PWM ${this.value}，松开后自动应用`);
-    });
-    $(rangeId).addEventListener('change', function () {
-      scheduleBiosFanPwm(prefix, 0, true);
+      captureFanCurveFixedDraft();
+      setBiosFanWriteStatus(prefix, '', `PWM ${this.value}，点击“应用固定转速”后写入`);
     });
   });
   $('btnApplyBiosStartup').addEventListener('click', function () {
@@ -1841,6 +2396,44 @@
     ['cpu', 'sys'].forEach((prefix) => {
       if (!biosFanWrites[prefix].busy) resetBiosFanWriteStatus(prefix);
     });
+  });
+  document.querySelectorAll('input[name="fanCurveMode"]').forEach((input) => {
+    input.addEventListener('change', () => {
+      if (!input.checked) return;
+      if (fanCurveEditorState.mode === 'custom') captureFanCurveCustomDraft();
+      fanCurveEditorState.mode = input.value;
+      fanCurveEditorState.modeTouched = true;
+      if (input.value === 'stock') setFanCurveStockValues();
+      if (input.value === 'custom') restoreFanCurveCustomDraft();
+      if (input.value === 'fixed') restoreFanCurveFixedDraft();
+      persistFanCurveDraft();
+      updateBiosWriteAvailability();
+      drawFanTelemetry();
+    });
+  });
+  document.querySelectorAll('#fanCurveSettings input').forEach((input) => {
+    input.addEventListener(input.type === 'checkbox' ? 'change' : 'input', () => {
+      if (!fanCurveStockSelected() && !fanCurveFixedSelected()) {
+        captureFanCurveCustomDraft();
+        drawFanCurveEditor();
+      }
+    });
+  });
+  bindFanCurveCharts();
+  $('btnStartFanCurve').addEventListener('click', function () {
+    if (!biosWriteConfirmed()) {
+      showMessage('请先确认受保护写入风险，再启动自动温控', 'err');
+      return;
+    }
+    if (fanCurveFixedSelected()) {
+      runBiosAction(this, applyFixedFanSpeed());
+      return;
+    }
+    if (!fanCurveStockSelected()) captureFanCurveCustomDraft();
+    runBiosAction(this, api('/bios/fan-curve', { method: 'POST', query: fanCurveStartQuery(), body: '' }));
+  });
+  $('btnStopFanCurve').addEventListener('click', function () {
+    runBiosAction(this, api('/bios/fan-curve', { method: 'POST', query: 'action=stop', body: '' }));
   });
   document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
     input.addEventListener('change', () => {
@@ -1900,6 +2493,10 @@
   });
 
   window.addEventListener('hashchange', () => setRoute(location.hash.slice(1), false));
+  window.addEventListener('resize', () => {
+    drawFanCurveEditor();
+    drawFanTelemetry();
+  });
 
   setLightingPanel(currentLightingPanel);
   setRoute(location.hash.slice(1) || 'overview', false);

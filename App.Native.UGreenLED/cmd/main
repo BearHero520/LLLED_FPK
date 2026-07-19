@@ -48,7 +48,7 @@ for c in "${SERVER_DIR}/bin/ugreen_leds_cli" "${APP_ROOT}/target/server/bin/ugre
     [[ -x "$c" ]] && UGREEN_CLI="$c" && break
 done
 export SETTINGS_FILE UGREEN_CLI LED_API_CACHE_DIR="${RUNTIME_DIR}/led_cache"
-for library in settings hardware_profile driver_manager led_api; do
+for library in settings hardware_profile driver_manager led_api bios_control; do
     if ! source "${SERVER_DIR}/lib/${library}.sh"; then
         ugreen_log_error "service.library_source_failed" "服务依赖库加载失败" \
             "library=$library" "path=${SERVER_DIR}/lib/${library}.sh"
@@ -126,6 +126,15 @@ start)
         ugreen_log_error "daemon.start_failed" "LED 守护进程启动失败" \
             "exit_code=$daemon_rc" "raw_log=daemon-launch.log"
     fi
+    if [[ "$(settings_get "$SETTINGS_FILE" fan_curve enabled false)" == "true" ]]; then
+        if bios_fan_curve_restore; then
+            ugreen_log_info "bios.fan_curve_restored" "已恢复已启用的风扇自动温控曲线"
+        else
+            curve_rc=$?
+            ugreen_log_warn "bios.fan_curve_restore_failed" "已启用的风扇自动温控曲线未能恢复" \
+                "exit_code=$curve_rc"
+        fi
+    fi
     exit 0
     ;;
 stop)
@@ -136,6 +145,7 @@ stop)
         daemon_rc=$?
         ugreen_log_warn "daemon.stop_failed" "LED 守护进程停止命令返回失败" "exit_code=$daemon_rc" "output=$daemon_output"
     fi
+    bios_fan_curve_stop true || true
     # 清理由旧版本自动启动的独立 5088 API；Web 管理页实际使用 fnOS CGI。
     if legacy_output=$(bash "${SERVER_DIR}/http_api.sh" stop 2>&1); then
         ugreen_log_debug "legacy_api.stopped" "旧版 5088 API 清理完成" "output=$legacy_output"
