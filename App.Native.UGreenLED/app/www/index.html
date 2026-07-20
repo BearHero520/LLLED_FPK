@@ -7,7 +7,7 @@
   <title>绿联 LED 灯控</title>
   <base href="/cgi/ThirdParty/App.Native.UGreenLED/index.cgi/">
   <link rel="stylesheet" href="./vendor/bootstrap-icons/font/bootstrap-icons.min.css?v=1.11.3">
-  <link rel="stylesheet" href="./css/style.css?v=1.8.7">
+  <link rel="stylesheet" href="./css/style.css?v=fan-echarts-5">
 </head>
 <body>
   <div class="app-shell">
@@ -43,7 +43,7 @@
 
       <div class="rail-footer">
         <span class="rail-state"><span class="status-dot" id="railStatusDot"></span><span id="railStatusText">正在连接</span></span>
-        <small>v1.8.7 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
+        <small>v1.9.0 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small>
       </div>
     </aside>
 
@@ -402,7 +402,7 @@
             </div>
             <div class="update-content">
               <div class="update-copy">
-                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.8.7</strong></div>
+                <div class="update-version"><span>当前版本</span><strong id="currentAppVersion">v1.9.0</strong></div>
                 <h3 id="updateTitle">检查 GitHub Release 获取新版本</h3>
                 <p class="surface-help" id="updateDescription">发现新版本后，可下载安装包并在 fnOS 应用中心手动升级。</p>
                 <small id="updateCheckedAt">不会自动安装，也不会在后台静默升级。</small>
@@ -542,7 +542,7 @@
               <div><span class="section-kicker">FAN OPERATION MODE</span><h2 id="fanCurveTitle">风扇运行模式</h2></div>
               <span class="soft-badge" id="fanCurveBadge">未启动</span>
             </div>
-            <p class="surface-help" id="fanCurveHelp">原厂自动和自定义自动会持续按温度调速；固定转速不看温度，按指定 PWM 持续运行。三种模式互斥，切换到固定转速会停止自动温控。</p>
+            <p class="surface-help" id="fanCurveHelp">CPU 展示温度与飞牛资源监控使用同一首个 CPU hwmon 读数；自动模式的内部保护仍按 CPU 最高温度调速。固定转速不看温度，按指定 PWM 持续运行。三种模式互斥，切换到固定转速会停止自动温控。</p>
 
             <div class="fan-curve-live" aria-live="polite">
               <div><span>CPU</span><strong id="fanCurveCpuTemp">—</strong><small>°C</small></div>
@@ -552,9 +552,16 @@
             </div>
 
             <section class="fan-telemetry" aria-labelledby="fanTelemetryTitle">
-              <div class="fan-telemetry-heading"><div><span class="section-kicker">LIVE TELEMETRY</span><h3 id="fanTelemetryTitle">温度与转速趋势</h3></div><small id="fanTelemetryRange">本次页面会话</small></div>
-              <canvas id="fanTelemetryChart" class="fan-chart" role="img" aria-label="最近温度、目标 PWM 与已写入 PWM 趋势图"></canvas>
-              <div class="fan-chart-legend" aria-label="趋势图图例"><span class="is-cpu">CPU 温度</span><span class="is-hdd">HDD 温度</span><span class="is-ssd">NVMe 温度</span><span class="is-target">目标 PWM</span><span class="is-applied">已写入 PWM</span></div>
+              <div class="fan-telemetry-heading">
+                <div><span class="section-kicker">LIVE TELEMETRY</span><h3 id="fanTelemetryTitle">温度与转速趋势</h3><small id="fanTelemetryRange">等待状态采样</small></div>
+                <div class="fan-telemetry-ranges" role="group" aria-label="趋势图时间范围">
+                  <button class="fan-telemetry-range active" type="button" data-fan-telemetry-range="1m" aria-pressed="true">近 1 分钟</button>
+                  <button class="fan-telemetry-range" type="button" data-fan-telemetry-range="1h" aria-pressed="false">近 1 小时</button>
+                  <button class="fan-telemetry-range" type="button" data-fan-telemetry-range="24h" aria-pressed="false">近 24 小时</button>
+                </div>
+              </div>
+              <div id="fanTelemetryChart" class="fan-chart" role="img" aria-label="最近温度与风扇转速趋势图"></div>
+              <div class="fan-chart-legend" aria-label="趋势图图例"><span class="is-cpu">CPU 温度</span><span class="is-hdd">HDD 温度</span><span class="is-ssd">NVMe 温度</span><span class="is-target">CPU 风扇</span><span class="is-applied">系统风扇</span><span class="is-sys2">系统风扇 2</span></div>
             </section>
 
             <fieldset class="fan-curve-mode-group" id="fanCurveModeGroup">
@@ -563,6 +570,54 @@
               <label class="bios-policy-choice active"><input type="radio" name="fanCurveMode" value="custom" checked><span><strong>自定义自动</strong><small>按下方可视化温度—PWM 曲线自动调速，草稿会保留。</small></span></label>
               <label class="bios-policy-choice" id="fanFixedChoice"><input type="radio" name="fanCurveMode" value="fixed"><span><strong>固定转速</strong><small>不看温度，按下方 CPU / 系统 PWM 持续运行。</small></span></label>
             </fieldset>
+
+            <section class="fan-fixed-settings" id="fanFixedSettings" aria-labelledby="fanFixedTitle" hidden>
+              <div class="section-heading">
+                <div><span class="section-kicker">FIXED FAN SPEED</span><h3 id="fanFixedTitle">固定转速设置</h3></div>
+                <span class="soft-badge" id="biosPwmRangeBadge">40–255</span>
+              </div>
+              <div class="bios-safety-note" id="biosFanSafetyNote" role="note">
+                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                <p id="biosFanSafetyText">固定转速不会按温度变化。选择“固定转速”后，在此设置 PWM 并点击“应用固定转速”；它会先停止自动温控。PWM 最低为 40。</p>
+              </div>
+              <div class="bios-fan-grid">
+                <section class="bios-fan-card" id="cpuFanCard" aria-labelledby="cpuFanTitle">
+                  <div class="bios-fan-head">
+                    <span class="bios-fan-icon"><i class="bi bi-cpu" aria-hidden="true"></i></span>
+                    <div><small>CPU FAN</small><strong id="cpuFanTitle">CPU 风扇</strong></div>
+                    <span class="bios-rpm"><strong id="cpuFanRpm">—</strong><small>RPM</small></span>
+                  </div>
+                  <div class="bios-control-state"><span>当前 PWM</span><strong id="cpuFanCurrentPwm">—</strong><small id="cpuFanMode">读取中</small></div>
+                  <div class="bios-pwm-control">
+                    <input type="range" id="cpuFanPwmRange" min="40" max="255" step="1" value="120" aria-label="CPU 风扇 PWM" aria-describedby="biosFanSafetyNote">
+                  </div>
+                  <div class="bios-fan-write-status" id="cpuFanWriteStatus" role="status" aria-live="polite">
+                    <i class="bi bi-lightning-charge" aria-hidden="true"></i><span>调整后自动应用</span>
+                  </div>
+                </section>
+
+                <section class="bios-fan-card" aria-labelledby="sysFanTitle">
+                  <div class="bios-fan-head">
+                    <span class="bios-fan-icon"><i class="bi bi-fan" aria-hidden="true"></i></span>
+                    <div><small id="sysFanEyebrow">SYSTEM FAN</small><strong id="sysFanTitle">系统风扇</strong></div>
+                    <span class="bios-rpm"><strong id="sysFanRpm">—</strong><small id="sysFanRpmLabel">RPM</small></span>
+                  </div>
+                  <div class="bios-extra-rpm" id="biosSys2RpmRow" hidden><span>系统风扇 2</span><strong><span id="sys2FanRpm">—</span> RPM</strong></div>
+                  <div class="bios-all-pwm" id="biosAllFanPwmRow" aria-label="全部风扇当前 PWM" hidden>
+                    <span><small>CPU PWM</small><strong id="allCpuFanPwm">—</strong></span>
+                    <span><small>系统 1 PWM</small><strong id="allSys1FanPwm">—</strong></span>
+                    <span><small>系统 2 PWM</small><strong id="allSys2FanPwm">—</strong></span>
+                  </div>
+                  <div class="bios-control-state"><span>当前 PWM</span><strong id="sysFanCurrentPwm">—</strong><small id="sysFanMode">读取中</small></div>
+                  <div class="bios-pwm-control">
+                    <input type="range" id="sysFanPwmRange" min="40" max="255" step="1" value="100" aria-label="系统风扇 PWM" aria-describedby="biosFanSafetyNote">
+                  </div>
+                  <div class="bios-fan-write-status" id="sysFanWriteStatus" role="status" aria-live="polite">
+                    <i class="bi bi-lightning-charge" aria-hidden="true"></i><span>调整后自动应用</span>
+                  </div>
+                </section>
+              </div>
+            </section>
 
             <section class="fan-stock-curve" id="fanStockCurveReadout" aria-labelledby="fanStockCurveTitle" hidden>
               <div class="fan-stock-curve-heading">
@@ -591,7 +646,7 @@
               </div>
               <section class="fan-curve-graph" aria-labelledby="fanCurveGraphTitle">
                 <div class="fan-curve-graph-heading"><div><h3 id="fanCurveGraphTitle">温度—PWM 曲线</h3><small>拖动图中的圆点即可调节；下方表格可精确输入数值。</small></div><output id="fanCurveGraphReadout">等待编辑</output></div>
-                <canvas id="fanCurveEditorChart" class="fan-chart fan-curve-editor-chart" tabindex="0" role="img" aria-label="可交互的 CPU、HDD、NVMe 温度与 PWM 曲线编辑图"></canvas>
+                <div id="fanCurveEditorChart" class="fan-chart fan-curve-editor-chart" tabindex="0" role="img" aria-label="可交互的 CPU、HDD、NVMe 温度与 PWM 曲线编辑图"></div>
                 <div class="fan-chart-legend" aria-label="曲线图图例"><span class="is-cpu">CPU</span><span class="is-hdd">HDD</span><span class="is-ssd">NVMe</span><span class="is-target">共享 PWM 档位</span></div>
               </section>
               <div class="fan-curve-table-wrap">
@@ -610,54 +665,6 @@
             <div class="fan-curve-actions">
               <span class="fan-curve-status" id="fanCurveStatus" role="status" aria-live="polite">尚未启用自动温控</span>
               <div><button type="button" class="secondary-button" id="btnStopFanCurve"><i class="bi bi-stop-circle" aria-hidden="true"></i><span>停止自动温控</span></button><button type="button" class="primary-button" id="btnStartFanCurve"><i class="bi bi-play-circle" aria-hidden="true"></i><span id="btnStartFanCurveText">应用并启动自动</span></button></div>
-            </div>
-          </article>
-
-          <article class="glass-surface bios-fan-surface fan-fixed-surface" id="fanFixedSettings" aria-labelledby="fanFixedTitle">
-            <div class="section-heading">
-              <div><span class="section-kicker">FIXED FAN SPEED</span><h2 id="fanFixedTitle">固定转速设置</h2></div>
-              <span class="soft-badge" id="biosPwmRangeBadge">40–255</span>
-            </div>
-            <div class="bios-safety-note" id="biosFanSafetyNote" role="note">
-              <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-              <p id="biosFanSafetyText">固定转速不会按温度变化。选择“固定转速”后，在此设置 PWM 并点击上方“应用固定转速”；它会先停止自动温控。PWM 最低为 40。</p>
-            </div>
-            <div class="bios-fan-grid">
-              <section class="bios-fan-card" id="cpuFanCard" aria-labelledby="cpuFanTitle">
-                <div class="bios-fan-head">
-                  <span class="bios-fan-icon"><i class="bi bi-cpu" aria-hidden="true"></i></span>
-                  <div><small>CPU FAN</small><strong id="cpuFanTitle">CPU 风扇</strong></div>
-                  <span class="bios-rpm"><strong id="cpuFanRpm">—</strong><small>RPM</small></span>
-                </div>
-                <div class="bios-control-state"><span>当前 PWM</span><strong id="cpuFanCurrentPwm">—</strong><small id="cpuFanMode">读取中</small></div>
-                <div class="bios-pwm-control">
-                  <input type="range" id="cpuFanPwmRange" min="40" max="255" step="1" value="120" aria-label="CPU 风扇 PWM" aria-describedby="biosFanSafetyNote">
-                </div>
-                <div class="bios-fan-write-status" id="cpuFanWriteStatus" role="status" aria-live="polite">
-                  <i class="bi bi-lightning-charge" aria-hidden="true"></i><span>调整后自动应用</span>
-                </div>
-              </section>
-
-              <section class="bios-fan-card" aria-labelledby="sysFanTitle">
-                <div class="bios-fan-head">
-                  <span class="bios-fan-icon"><i class="bi bi-fan" aria-hidden="true"></i></span>
-                  <div><small id="sysFanEyebrow">SYSTEM FAN</small><strong id="sysFanTitle">系统风扇</strong></div>
-                  <span class="bios-rpm"><strong id="sysFanRpm">—</strong><small id="sysFanRpmLabel">RPM</small></span>
-                </div>
-                <div class="bios-extra-rpm" id="biosSys2RpmRow" hidden><span>系统风扇 2</span><strong><span id="sys2FanRpm">—</span> RPM</strong></div>
-                <div class="bios-all-pwm" id="biosAllFanPwmRow" aria-label="全部风扇当前 PWM" hidden>
-                  <span><small>CPU PWM</small><strong id="allCpuFanPwm">—</strong></span>
-                  <span><small>系统 1 PWM</small><strong id="allSys1FanPwm">—</strong></span>
-                  <span><small>系统 2 PWM</small><strong id="allSys2FanPwm">—</strong></span>
-                </div>
-                <div class="bios-control-state"><span>当前 PWM</span><strong id="sysFanCurrentPwm">—</strong><small id="sysFanMode">读取中</small></div>
-                <div class="bios-pwm-control">
-                  <input type="range" id="sysFanPwmRange" min="40" max="255" step="1" value="100" aria-label="系统风扇 PWM" aria-describedby="biosFanSafetyNote">
-                </div>
-                <div class="bios-fan-write-status" id="sysFanWriteStatus" role="status" aria-live="polite">
-                  <i class="bi bi-lightning-charge" aria-hidden="true"></i><span>调整后自动应用</span>
-                </div>
-              </section>
             </div>
           </article>
 
@@ -787,6 +794,7 @@
     <button type="button" class="mode-button primary" data-mode="smart"><i class="bi bi-stars" aria-hidden="true"></i><span>智能模式</span></button>
   </div>
 
-  <script src="./js/app.js?v=1.8.7"></script>
+  <script src="./vendor/echarts/echarts.min.js?v=6.1.0"></script>
+  <script src="./js/app.js?v=fan-echarts-5"></script>
 </body>
 </html>

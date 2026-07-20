@@ -125,7 +125,7 @@ export UGREEN_CLI LED_API_CACHE_DIR="${RUNTIME_DIR}/led_cache" DISK_IO_CACHE_DIR
 export NET_SPEED_CACHE_FILE="${RUNTIME_DIR}/net_speed.cache" NET_STATE_CACHE_FILE="${RUNTIME_DIR}/net_state.cache"
 
 if ! $API_BOOTSTRAP_FAILED; then
-    for library in settings hardware_profile system_info bios_control driver_manager led_api disk_map disk_state net_state led_apply; do
+    for library in settings hardware_profile system_info bios_control fan_telemetry driver_manager led_api disk_map disk_state net_state led_apply; do
         if ! source "${LIB_DIR}/${library}.sh" 2>/dev/null; then
             API_BOOTSTRAP_FAILED=true
             API_BOOTSTRAP_ERROR="dependency library failed to load: ${library}.sh"
@@ -483,8 +483,10 @@ hardware_status_json() {
 }
 
 bios_status_json() {
-    local message="${1:-}" chip_id="" error="" fan_error="" startup_error="" fan_curve=""
+    local message="${1:-}" chip_id="" error="" fan_error="" startup_error="" fan_curve="" telemetry_at=0
     bios_read_status >/dev/null 2>&1 || true
+    telemetry_at=$(date +%s 2>/dev/null || echo 0)
+    fan_telemetry_append_bios_status "$telemetry_at" >/dev/null 2>&1 || true
     if [[ "$BIOS_CHIP_ID" =~ ^[0-9]+$ ]]; then
         printf -v chip_id '0x%04x' "$BIOS_CHIP_ID"
     fi
@@ -499,8 +501,25 @@ bios_status_json() {
         "${BIOS_CPU_RPM:-0}" "${BIOS_SYS_RPM:-0}" "${BIOS_SYS2_RPM:-0}" "$BIOS_CPU_MANUAL" "$BIOS_SYS_MANUAL" "$BIOS_SYS2_MANUAL" \
         "$(json_str "$BIOS_STARTUP_POLICY")" "$(json_str "$error")" "$(json_str "$fan_error")" "$(json_str "$startup_error")"
     printf ',"fan_curve":%s' "$fan_curve"
+    printf ',"telemetry":%s' "$(fan_telemetry_current_json "$telemetry_at")"
     [[ -n "$message" ]] && printf ',"message":"%s"' "$(json_str "$message")"
     printf '}'
+}
+
+bios_telemetry_json() {
+    local range="${1:-1m}" seconds=60 telemetry_at=0 history
+    case "$range" in
+        1m) seconds=60 ;;
+        1h) seconds=3600 ;;
+        24h) seconds=86400 ;;
+        *) printf '{"ok":false,"error":"invalid telemetry range"}'; return 0 ;;
+    esac
+    bios_read_status >/dev/null 2>&1 || true
+    telemetry_at=$(date +%s 2>/dev/null || echo 0)
+    fan_telemetry_append_bios_status "$telemetry_at" >/dev/null 2>&1 || true
+    history=$(fan_telemetry_history_json "$seconds" "$BIOS_MODEL")
+    printf '{"ok":true,"range":"%s","sample_interval_seconds":30,"history":%s,"current":%s}' \
+        "$range" "$history" "$(fan_telemetry_current_json "$telemetry_at")"
 }
 
 bios_write_confirmation_valid() {
@@ -739,6 +758,9 @@ case "$API_PATH" in
         ;;
     /bios/status)
         bios_status_json
+        ;;
+    /bios/telemetry)
+        bios_telemetry_json "$(query_value range)"
         ;;
     /bios/fan)
         channel=$(query_value channel)

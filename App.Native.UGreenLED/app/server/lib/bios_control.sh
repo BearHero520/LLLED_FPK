@@ -29,6 +29,11 @@ BIOS_SYS2_PWM=-1
 BIOS_CPU_RPM=0
 BIOS_SYS_RPM=0
 BIOS_SYS2_RPM=0
+BIOS_CPU_CELSIUS=-1
+BIOS_CPU_PEAK_CELSIUS=-1
+BIOS_HDD_CELSIUS=-1
+BIOS_SSD_CELSIUS=-1
+BIOS_THERMAL_ERROR=""
 BIOS_CPU_MANUAL=false
 BIOS_SYS_MANUAL=false
 BIOS_SYS2_MANUAL=false
@@ -205,21 +210,23 @@ bios_fan_curve_status_json() {
     pwm_curve=$(sed -n 's/^pwm=//p' "$config" 2>/dev/null | tail -n 1); pwm_curve="${pwm_curve:-64,128,204,255}"
     timestamp=$(bios_fan_curve_read_state timestamp 0); model=$(bios_fan_curve_read_state model unknown)
     status=$(bios_fan_curve_read_state status stopped); cpu=$(bios_fan_curve_read_state cpu_celsius -1)
+    cpu_peak=$(bios_fan_curve_read_state cpu_peak_celsius -1)
     hdd=$(bios_fan_curve_read_state hdd_celsius -1); ssd=$(bios_fan_curve_read_state ssd_celsius -1)
     desired=$(bios_fan_curve_read_state desired_pwm -1); applied=$(bios_fan_curve_read_state applied_pwm -1)
     desired_cpu=$(bios_fan_curve_read_state desired_cpu_pwm -1); desired_system=$(bios_fan_curve_read_state desired_system_pwm -1)
     applied_cpu=$(bios_fan_curve_read_state applied_cpu_pwm -1); applied_system=$(bios_fan_curve_read_state applied_system_pwm -1)
     detail=$(bios_fan_curve_read_state detail "")
     [[ "$timestamp" =~ ^[0-9]+$ ]] || timestamp=0
-    [[ "$cpu" =~ ^-?[0-9]+$ ]] || cpu=-1; [[ "$hdd" =~ ^-?[0-9]+$ ]] || hdd=-1
+    [[ "$cpu" =~ ^-?[0-9]+$ ]] || cpu=-1; [[ "$cpu_peak" =~ ^-?[0-9]+$ ]] || cpu_peak=-1
+    [[ "$hdd" =~ ^-?[0-9]+$ ]] || hdd=-1
     [[ "$ssd" =~ ^-?[0-9]+$ ]] || ssd=-1; [[ "$desired" =~ ^-?[0-9]+$ ]] || desired=-1
     [[ "$applied" =~ ^-?[0-9]+$ ]] || applied=-1
     [[ "$desired_cpu" =~ ^-?[0-9]+$ ]] || desired_cpu=-1; [[ "$desired_system" =~ ^-?[0-9]+$ ]] || desired_system=-1
     [[ "$applied_cpu" =~ ^-?[0-9]+$ ]] || applied_cpu=-1; [[ "$applied_system" =~ ^-?[0-9]+$ ]] || applied_system=-1
-    printf '{"enabled":%s,"running":%s,"profile":"%s","interval_seconds":%s,"downshift_delay_seconds":%s,"minimum_pwm":%s,"require_storage_sensor":%s,"cpu_curve":"%s","hdd_curve":"%s","ssd_curve":"%s","pwm_curve":"%s","timestamp":%s,"model":"%s","status":"%s","cpu_celsius":%s,"hdd_celsius":%s,"ssd_celsius":%s,"desired_pwm":%s,"applied_pwm":%s,"desired_cpu_pwm":%s,"desired_system_pwm":%s,"applied_cpu_pwm":%s,"applied_system_pwm":%s,"detail":"%s"}' \
+    printf '{"enabled":%s,"running":%s,"profile":"%s","interval_seconds":%s,"downshift_delay_seconds":%s,"minimum_pwm":%s,"require_storage_sensor":%s,"cpu_curve":"%s","hdd_curve":"%s","ssd_curve":"%s","pwm_curve":"%s","timestamp":%s,"model":"%s","status":"%s","cpu_celsius":%s,"cpu_peak_celsius":%s,"hdd_celsius":%s,"ssd_celsius":%s,"desired_pwm":%s,"applied_pwm":%s,"desired_cpu_pwm":%s,"desired_system_pwm":%s,"applied_cpu_pwm":%s,"applied_system_pwm":%s,"detail":"%s"}' \
         "$enabled" "$running" "$(json_str "$profile")" "$interval" "$downshift" "$minimum" "$require_storage" \
         "$(json_str "$cpu_curve")" "$(json_str "$hdd_curve")" "$(json_str "$ssd_curve")" "$(json_str "$pwm_curve")" "$timestamp" \
-        "$(json_str "$model")" "$(json_str "$status")" "$cpu" "$hdd" "$ssd" "$desired" "$applied" "$desired_cpu" "$desired_system" "$applied_cpu" "$applied_system" "$(json_str "$detail")"
+        "$(json_str "$model")" "$(json_str "$status")" "$cpu" "$cpu_peak" "$hdd" "$ssd" "$desired" "$applied" "$desired_cpu" "$desired_system" "$applied_cpu" "$applied_system" "$(json_str "$detail")"
 }
 
 bios_fan_curve_stop() {
@@ -405,6 +412,32 @@ bios_read_cli_fans() {
         "sys2_pwm=$BIOS_SYS2_PWM" "cpu_rpm=$BIOS_CPU_RPM" "sys_rpm=$BIOS_SYS_RPM" "sys2_rpm=$BIOS_SYS2_RPM"
 }
 
+bios_thermal_value() {
+    local output="$1" key="$2" value
+    value=$(printf '%s\n' "$output" | tr ' ' '\n' | sed -n "s/^${key}=//p" | tail -n 1)
+    [[ "$value" =~ ^-?[0-9]+$ ]] || value=-1
+    printf '%s' "$value"
+}
+
+bios_read_thermal_snapshot() {
+    local output
+    BIOS_CPU_CELSIUS=-1
+    BIOS_CPU_PEAK_CELSIUS=-1
+    BIOS_HDD_CELSIUS=-1
+    BIOS_SSD_CELSIUS=-1
+    BIOS_THERMAL_ERROR=""
+    if ! output=$(bios_cli thermal status 2>&1); then
+        BIOS_THERMAL_ERROR=$(printf '%s\n' "$output" | sed -n 's/^error:[[:space:]]*//p' | head -n 1)
+        [[ -n "$BIOS_THERMAL_ERROR" ]] || BIOS_THERMAL_ERROR="温度快照读取失败"
+        return 1
+    fi
+    BIOS_CPU_CELSIUS=$(bios_thermal_value "$output" cpu_celsius)
+    BIOS_CPU_PEAK_CELSIUS=$(bios_thermal_value "$output" cpu_peak_celsius)
+    BIOS_HDD_CELSIUS=$(bios_thermal_value "$output" hdd_celsius)
+    BIOS_SSD_CELSIUS=$(bios_thermal_value "$output" ssd_celsius)
+    return 0
+}
+
 bios_read_cli_startup() {
     local output startup
     if ! output=$(bios_cli power startup get 2>&1); then
@@ -453,6 +486,11 @@ bios_read_status() {
     BIOS_CPU_RPM=0
     BIOS_SYS_RPM=0
     BIOS_SYS2_RPM=0
+    BIOS_CPU_CELSIUS=-1
+    BIOS_CPU_PEAK_CELSIUS=-1
+    BIOS_HDD_CELSIUS=-1
+    BIOS_SSD_CELSIUS=-1
+    BIOS_THERMAL_ERROR=""
     BIOS_CPU_MANUAL=false
     BIOS_SYS_MANUAL=false
     BIOS_SYS2_MANUAL=false
@@ -502,6 +540,7 @@ bios_read_status() {
     if bios_read_cli_startup; then
         BIOS_STARTUP_AVAILABLE=true
     fi
+    bios_read_thermal_snapshot >/dev/null 2>&1 || true
     BIOS_LAST_ERROR="$BIOS_FAN_ERROR"
     $BIOS_AVAILABLE || $BIOS_STARTUP_AVAILABLE
 }

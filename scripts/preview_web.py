@@ -176,7 +176,48 @@ class PreviewState:
         }
         if message:
             payload["message"] = message
+        payload["telemetry"] = self.bios_telemetry_sample(int(time.time()))
         return payload
+
+    def bios_telemetry_sample(self, at: int) -> dict[str, int]:
+        """Return a deterministic-looking read-only telemetry sample for local UI preview."""
+        profile = self.selected_profile()
+        supported = profile in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}
+        is_480t = profile == "dxp480t_plus"
+        is_4800s = profile == "dxp4800s"
+        is_6800 = profile == "dxp6800"
+        if not supported:
+            return {"at": at, "cpu": -1, "hdd": -1, "ssd": -1, "cpuRpm": -1, "sysRpm": -1, "sys2Rpm": -1}
+
+        phase = at / 300
+        cpu = 47 + round(math.sin(phase) * 3)
+        hdd = 39 + round(math.sin(phase / 1.7 + 0.8) * 2)
+        ssd = 43 + round(math.sin(phase / 1.25 + 1.4) * 2)
+        sys_rpm = 860 + round(math.sin(phase / 1.15 + 0.4) * 65)
+        return {
+            "at": at,
+            "cpu": cpu,
+            "hdd": hdd,
+            "ssd": ssd,
+            "cpuRpm": -1 if is_4800s else (1120 if is_480t else 1280) + round(math.sin(phase / 1.1) * 80),
+            "sysRpm": sys_rpm,
+            "sys2Rpm": (790 + round(math.sin(phase / 1.2 + 0.2) * 50)) if is_480t else (820 + round(math.sin(phase / 1.2 + 0.2) * 50)) if is_6800 else -1,
+        }
+
+    def bios_telemetry_payload(self, range_name: str) -> dict[str, object]:
+        ranges = {"1m": 60, "1h": 3600, "24h": 86400}
+        if range_name not in ranges:
+            return {"ok": False, "error": "invalid telemetry range"}
+        now = int(time.time())
+        start = now - ranges[range_name]
+        history = [self.bios_telemetry_sample(at) for at in range(start, now + 1, 30)]
+        return {
+            "ok": True,
+            "range": range_name,
+            "sample_interval_seconds": 30,
+            "history": history,
+            "current": self.bios_telemetry_sample(now),
+        }
 
     @property
     def mode(self) -> str:
@@ -635,6 +676,10 @@ class PreviewHandler(BaseHTTPRequestHandler):
             return
         if path == "/bios/status":
             self.send_json(STATE.bios_payload())
+            return
+        if path == "/bios/telemetry":
+            range_name = (query.get("range") or ["1m"])[0]
+            self.send_json(STATE.bios_telemetry_payload(range_name))
             return
         if path == "/bios/fan":
             channel = (query.get("channel") or [""])[0]

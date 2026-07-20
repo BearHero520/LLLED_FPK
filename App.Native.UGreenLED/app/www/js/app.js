@@ -113,10 +113,20 @@
   let currentIni = {};
   let hardwareState = {};
   let biosState = { loaded: false, supported: false, available: false };
+  let fanTelemetryChart = null;
+  let fanCurveEditorChart = null;
+  let fanChartResizeTimer = null;
+  let fanChartLayoutFrame = 0;
+  let fanChartResizeObserver = null;
   const fanCurveEditorState = {
     model: '', mode: 'custom', modeTouched: false, customDraft: null, fixedDraft: null,
-    telemetry: [], lastTelemetryKey: '', drag: null,
+    telemetry: [], telemetryRange: '1m', telemetryLoading: false, telemetryRequest: 0,
   };
+  const FAN_TELEMETRY_RANGES = Object.freeze({
+    '1m': { label: '近 1 分钟', seconds: 60 },
+    '1h': { label: '近 1 小时', seconds: 60 * 60 },
+    '24h': { label: '近 24 小时', seconds: 24 * 60 * 60 },
+  });
   const biosFanWrites = {
     cpu: { timer: null, statusTimer: null, queue: Promise.resolve(), revision: 0, busy: false },
     sys: { timer: null, statusTimer: null, queue: Promise.resolve(), revision: 0, busy: false },
@@ -825,7 +835,10 @@
     if (updateHash !== false && location.hash !== `#${next}`) history.replaceState(null, '', `#${next}`);
     $('appMain').scrollTo({ top: 0, behavior: 'smooth' });
     if (next === 'lab') loadLabMappingStatus();
-    if (next === 'bios') loadBiosStatus();
+    if (next === 'bios') {
+      loadBiosStatus();
+      scheduleFanChartLayout();
+    }
     if (next === 'devices' && !logsLoaded) loadLogs();
   }
 
@@ -1364,13 +1377,44 @@
     return biosState.fan_write_target === 'all' ? 'all' : 'sys';
   }
 
+  function biosWriteConfirmationToken() {
+    return biosState.direct_fan_fallback && !['dxp4800s', 'dxp6800pro'].includes(biosState.model)
+      ? 'direct-superio'
+      : 'firmware-reversed';
+  }
+
+  function biosWriteRiskAcknowledgementKey() {
+    return `ugreen-led:bios-write-risk:v1:${biosState.model || 'unknown'}:${biosWriteConfirmationToken()}`;
+  }
+
+  function biosWriteRiskAcknowledged() {
+    if (!biosState.write_confirmation_required) return true;
+    try { return localStorage.getItem(biosWriteRiskAcknowledgementKey()) === 'accepted'; } catch (_) { return false; }
+  }
+
+  function rememberBiosWriteRisk() {
+    try {
+      localStorage.setItem(biosWriteRiskAcknowledgementKey(), 'accepted');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function updateBiosWriteRiskConfirmation(preserveCurrent = false) {
+    const input = $('biosExperimentalConfirmInput');
+    const acknowledged = biosWriteRiskAcknowledged();
+    input.checked = acknowledged || (preserveCurrent && input.checked);
+    $('biosExperimentalConfirm').hidden = !biosState.write_confirmation_required || acknowledged;
+  }
+
   function biosWriteConfirmed() {
-    return !biosState.write_confirmation_required || Boolean($('biosExperimentalConfirmInput').checked);
+    return !biosState.write_confirmation_required || biosWriteRiskAcknowledged() || Boolean($('biosExperimentalConfirmInput').checked);
   }
 
   function biosWriteQuery(query) {
     return biosState.write_confirmation_required && biosWriteConfirmed()
-      ? `${query}&confirm=${biosState.direct_fan_fallback && !['dxp4800s', 'dxp6800pro'].includes(biosState.model) ? 'direct-superio' : 'firmware-reversed'}`
+      ? `${query}&confirm=${biosWriteConfirmationToken()}`
       : query;
   }
 
@@ -1492,6 +1536,71 @@
     return `ugreen-led:fan-curve-draft:${biosState.model || 'unknown'}`;
   }
 
+  function normalizeFanTelemetrySample(sample) {
+    const at = Math.floor(Number(sample?.at));
+    if (!Number.isFinite(at) || at <= 0) return null;
+    return {
+      at,
+      cpu: fanChartValue(sample.cpu), hdd: fanChartValue(sample.hdd), ssd: fanChartValue(sample.ssd),
+      cpuRpm: fanChartValue(sample.cpuRpm), sysRpm: fanChartValue(sample.sysRpm), sys2Rpm: fanChartValue(sample.sys2Rpm),
+    };
+  }
+
+  function trimFanTelemetry(samples, now = Math.floor(Date.now() / 1000)) {
+    const cutoff = now - FAN_TELEMETRY_RANGES['24h'].seconds;
+    const byTimestamp = new Map();
+    (Array.isArray(samples) ? samples : [])
+      .map(normalizeFanTelemetrySample)
+      .filter((sample) => sample && sample.at >= cutoff && sample.at <= now + 60)
+      .forEach((sample) => byTimestamp.set(sample.at, sample));
+    return [...byTimestamp.values()].sort((left, right) => left.at - right.at);
+  }
+
+  function mergeFanTelemetry(sample) {
+    const normalized = normalizeFanTelemetrySample(sample);
+    if (!normalized) return;
+    fanCurveEditorState.telemetry = trimFanTelemetry([...fanCurveEditorState.telemetry, normalized]);
+  }
+
+  function loadFanTelemetry(range = fanCurveEditorState.telemetryRange) {
+    const request = ++fanCurveEditorState.telemetryRequest;
+    fanCurveEditorState.telemetryLoading = true;
+    drawFanTelemetry();
+    return api('/bios/telemetry', { query: `range=${encodeURIComponent(range)}` })
+      .then((data) => {
+        if (request !== fanCurveEditorState.telemetryRequest) return;
+        fanCurveEditorState.telemetry = trimFanTelemetry([...(data.history || []), data.current]);
+        fanCurveEditorState.telemetryLoading = false;
+        drawFanTelemetry();
+      })
+      .catch((error) => {
+        if (request !== fanCurveEditorState.telemetryRequest) return;
+        fanCurveEditorState.telemetryLoading = false;
+        console.error('[UGreenLED] fan telemetry history failed', error);
+        drawFanTelemetry();
+      });
+  }
+
+  function fanTelemetryRangeInfo() {
+    return FAN_TELEMETRY_RANGES[fanCurveEditorState.telemetryRange] || FAN_TELEMETRY_RANGES['1m'];
+  }
+
+  function fanTelemetryHistoryForRange(now = Math.floor(Date.now() / 1000)) {
+    const range = fanTelemetryRangeInfo();
+    return fanCurveEditorState.telemetry.filter((sample) => sample.at >= now - range.seconds && sample.at <= now + 60);
+  }
+
+  function setFanTelemetryRange(range) {
+    if (!FAN_TELEMETRY_RANGES[range]) return;
+    fanCurveEditorState.telemetryRange = range;
+    document.querySelectorAll('[data-fan-telemetry-range]').forEach((button) => {
+      const active = button.dataset.fanTelemetryRange === range;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    loadFanTelemetry(range);
+  }
+
   function fanCurveFormValues() {
     return {
       interval: $('fanCurveInterval').value, downshift: $('fanCurveDownshift').value,
@@ -1558,7 +1667,8 @@
     fanCurveEditorState.model = model;
     fanCurveEditorState.modeTouched = false;
     fanCurveEditorState.telemetry = [];
-    fanCurveEditorState.lastTelemetryKey = '';
+    fanCurveEditorState.telemetryLoading = false;
+    fanCurveEditorState.telemetryRequest = 0;
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(fanCurveDraftKey()) || 'null'); } catch (_) { saved = null; }
     const activeMode = isFanCurveStockProfile(info.profile) ? 'stock' : 'custom';
@@ -1571,6 +1681,7 @@
     };
     restoreFanCurveCustomDraft();
     restoreFanCurveFixedDraft();
+    loadFanTelemetry();
   }
 
   function updateFanCurveControls() {
@@ -1597,11 +1708,12 @@
     $('btnStartFanCurveText').textContent = fixed ? '应用固定转速' : '应用并启动自动';
     $('btnStopFanCurve').disabled = !Boolean(curve.running) || fixed;
     $('btnStopFanCurve').title = fixed ? '固定转速需切换到自动模式并应用后才会结束' : '';
+    $('fanFixedSettings').hidden = !fixed;
     $('fanFixedSettings').classList.toggle('is-selected', fixed);
     document.querySelectorAll('input[name="fanCurveMode"]').forEach((input) => {
       input.closest('.bios-policy-choice')?.classList.toggle('active', input.checked);
     });
-    drawFanCurveEditor();
+    if (!fixed && !stock) drawFanCurveEditor();
   }
 
   function renderFanCurve(curve) {
@@ -1643,113 +1755,152 @@
         ? '自动温控仍在运行；应用固定转速后才会切换。'
         : '固定转速待应用；请确认下方 PWM 设置。';
     }
-    appendFanTelemetry(info);
     drawFanTelemetry();
     updateFanCurveControls();
   }
 
-  function fanChartDimensions(canvas) {
-    return {
-      width: Math.max(280, Math.floor(canvas.clientWidth || 640)),
-      height: Math.max(160, Math.floor(canvas.clientHeight || 220)),
-    };
-  }
-
-  function fanChartSurface(id) {
-    const canvas = $(id);
-    const { width, height } = fanChartDimensions(canvas);
-    const ratio = Math.min(2, window.devicePixelRatio || 1);
-    if (canvas.width !== Math.floor(width * ratio) || canvas.height !== Math.floor(height * ratio)) {
-      canvas.width = Math.floor(width * ratio);
-      canvas.height = Math.floor(height * ratio);
-    }
-    const context = canvas.getContext('2d');
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.clearRect(0, 0, width, height);
-    return { canvas, context, width, height };
-  }
-
   function fanChartValue(value) {
+    if (value === null || value === undefined || value === '') return null;
     const number = Number(value);
     return Number.isFinite(number) && number >= 0 ? number : null;
   }
 
-  function fanDrawGrid(context, box, maximum, label) {
-    context.save();
-    context.strokeStyle = 'rgba(88, 103, 122, 0.16)';
-    context.fillStyle = '#7b8a9c';
-    context.font = '9px system-ui, sans-serif';
-    context.textAlign = 'right';
-    [0, 0.5, 1].forEach((fraction) => {
-      const y = box.bottom - (box.bottom - box.top) * fraction;
-      context.beginPath(); context.moveTo(box.left, y); context.lineTo(box.right, y); context.stroke();
-      context.fillText(String(Math.round(maximum * fraction)), box.left - 6, y + 3);
-    });
-    context.textAlign = 'left';
-    context.fillText(label, box.left, box.top - 5);
-    context.restore();
+  function fanChartSurfaceVisible(element) {
+    const rect = element?.getBoundingClientRect?.();
+    return Boolean(rect && rect.width > 80 && rect.height > 80 && element.getClientRects().length);
   }
 
-  function fanDrawSeries(context, values, box, maximum, color, dashed = false) {
-    const valid = values.map(fanChartValue);
-    if (!valid.some((value) => value !== null)) return;
-    const denominator = Math.max(1, valid.length - 1);
-    context.save();
-    context.strokeStyle = color;
-    context.lineWidth = 2;
-    context.setLineDash(dashed ? [5, 4] : []);
-    let open = false;
-    valid.forEach((value, index) => {
-      if (value === null) { open = false; return; }
-      const x = box.left + (box.right - box.left) * (index / denominator);
-      const y = box.bottom - (box.bottom - box.top) * Math.min(1, value / maximum);
-      if (!open) { context.beginPath(); context.moveTo(x, y); open = true; } else context.lineTo(x, y);
-      context.stroke();
-      context.setLineDash(dashed ? [5, 4] : []);
-      context.fillStyle = color;
-      context.beginPath(); context.arc(x, y, 2.5, 0, Math.PI * 2); context.fill();
-    });
-    context.restore();
+  function ensureEChart(current, element) {
+    if (!window.echarts?.init) return null;
+    const width = Math.floor(element.clientWidth);
+    const height = Math.floor(element.clientHeight);
+    if (current && !current.isDisposed()) {
+      if (current.getWidth() !== width || current.getHeight() !== height) current.resize({ width, height });
+      return current;
+    }
+    return window.echarts.init(element, null, { renderer: 'canvas', width, height });
   }
 
-  function appendFanTelemetry(info) {
-    const values = [info.cpu_celsius, info.hdd_celsius, info.ssd_celsius, info.desired_pwm, info.applied_pwm];
-    if (!values.some((value) => fanChartValue(value) !== null)) return;
-    const timestamp = Number(info.timestamp) > 0 ? Number(info.timestamp) : 0;
-    const key = `${timestamp}|${values.join('|')}`;
-    if (key === fanCurveEditorState.lastTelemetryKey) return;
-    fanCurveEditorState.lastTelemetryKey = key;
-    fanCurveEditorState.telemetry.push({
-      at: timestamp || Math.floor(Date.now() / 1000), cpu: info.cpu_celsius, hdd: info.hdd_celsius,
-      ssd: info.ssd_celsius, desired: info.desired_pwm, applied: info.applied_pwm,
+  function scheduleFanChartLayout() {
+    if (fanChartLayoutFrame) window.cancelAnimationFrame(fanChartLayoutFrame);
+    fanChartLayoutFrame = window.requestAnimationFrame(() => {
+      fanChartLayoutFrame = window.requestAnimationFrame(() => {
+        fanChartLayoutFrame = 0;
+        if (currentRoute !== 'bios') return;
+        if (fanChartSurfaceVisible($('fanTelemetryChart'))) drawFanTelemetry();
+        if (!$('fanCurveSettings').hidden && fanChartSurfaceVisible($('fanCurveEditorChart'))) drawFanCurveEditor();
+      });
     });
-    if (fanCurveEditorState.telemetry.length > 36) fanCurveEditorState.telemetry.shift();
+  }
+
+  function fanTelemetryTime(timestamp) {
+    const date = new Date(Number(timestamp) * 1000);
+    if (Number.isNaN(date.getTime())) return '—';
+    return [date.getHours(), date.getMinutes(), date.getSeconds()].map((part) => String(part).padStart(2, '0')).join(':');
+  }
+
+  function fanTelemetryAxisLabel(timestamp, rangeSeconds) {
+    const date = new Date(Number(timestamp));
+    if (Number.isNaN(date.getTime())) return '—';
+    const time = [date.getHours(), date.getMinutes(), date.getSeconds()].map((part) => String(part).padStart(2, '0'));
+    if (rangeSeconds <= 60) return time.join(':');
+    if (rangeSeconds <= 60 * 60) return time.slice(0, 2).join(':');
+    return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${time.slice(0, 2).join(':')}`;
+  }
+
+  function fanTelemetrySeries(name, color, axisIndex, history, field, dashed = false) {
+    return {
+      name, type: 'line', yAxisIndex: axisIndex,
+      data: history.map((sample) => [sample.at * 1000, fanChartValue(sample[field])]), showSymbol: history.length < 16,
+      symbol: 'circle', symbolSize: 5, connectNulls: false, smooth: false, animation: false,
+      lineStyle: { color, width: 2, type: dashed ? 'dashed' : 'solid' }, itemStyle: { color },
+    };
+  }
+
+  function fanTelemetryTemperatureMin(axis) {
+    const min = Number(axis?.min); const max = Number(axis?.max);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return 0;
+    return Math.max(0, Math.floor((min - 3) / 5) * 5);
+  }
+
+  function fanTelemetryTemperatureMax(axis) {
+    const min = Number(axis?.min); const max = Number(axis?.max);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return 100;
+    const upper = Math.min(100, Math.ceil((max + 3) / 5) * 5);
+    return upper > fanTelemetryTemperatureMin(axis) ? upper : Math.min(100, upper + 10);
+  }
+
+  function fanTelemetryRpmMin(axis) {
+    const min = Number(axis?.min); const max = Number(axis?.max);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return 0;
+    const padding = Math.max(80, Math.ceil((max - min || min * 0.12) * 0.2));
+    return Math.max(0, Math.floor((min - padding) / 50) * 50);
+  }
+
+  function fanTelemetryRpmMax(axis) {
+    const min = Number(axis?.min); const max = Number(axis?.max);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return 1000;
+    const padding = Math.max(80, Math.ceil((max - min || max * 0.12) * 0.2));
+    const upper = Math.ceil((max + padding) / 50) * 50;
+    return upper > fanTelemetryRpmMin(axis) ? upper : upper + 100;
   }
 
   function drawFanTelemetry() {
-    const { canvas, context, width, height } = fanChartSurface('fanTelemetryChart');
-    const history = fanCurveEditorState.telemetry;
-    $('fanTelemetryRange').textContent = history.length ? `最近 ${history.length} 个采样 · 本次页面会话` : '等待温控采样';
-    if (!history.length) {
-      context.fillStyle = '#7b8a9c'; context.font = '12px system-ui, sans-serif'; context.textAlign = 'center';
-      context.fillText('启动自动模式后显示本次会话的趋势数据', width / 2, height / 2);
+    const now = Math.floor(Date.now() / 1000);
+    const range = fanTelemetryRangeInfo();
+    const history = fanTelemetryHistoryForRange(now);
+    const chartElement = $('fanTelemetryChart');
+    $('fanTelemetryRange').textContent = fanCurveEditorState.telemetryLoading
+      ? `${range.label} · 正在读取历史`
+      : history.length ? `${range.label} · ${history.length} 个采样点` : `${range.label} · 历史采样正在积累`;
+    if (!fanChartSurfaceVisible(chartElement)) return;
+    fanTelemetryChart = ensureEChart(fanTelemetryChart, chartElement);
+    if (!fanTelemetryChart) {
+      chartElement.textContent = '趋势图组件加载失败';
       return;
     }
-    const tempBox = { left: 36, right: width - 12, top: 22, bottom: Math.floor(height * 0.48) };
-    const pwmBox = { left: 36, right: width - 12, top: Math.floor(height * 0.63), bottom: height - 20 };
-    fanDrawGrid(context, tempBox, 100, '温度 °C');
-    fanDrawGrid(context, pwmBox, 255, 'PWM');
-    fanDrawSeries(context, history.map((item) => item.cpu), tempBox, 100, '#1677ff');
-    fanDrawSeries(context, history.map((item) => item.hdd), tempBox, 100, '#e89124');
-    fanDrawSeries(context, history.map((item) => item.ssd), tempBox, 100, '#1b9c68');
-    fanDrawSeries(context, history.map((item) => item.desired), pwmBox, 255, '#7056d8');
-    fanDrawSeries(context, history.map((item) => item.applied), pwmBox, 255, '#58677a', true);
     const latest = history.at(-1);
-    canvas.setAttribute('aria-label', `温度与转速趋势：CPU ${fanChartValue(latest.cpu) ?? '未知'}°C，HDD ${fanChartValue(latest.hdd) ?? '未知'}°C，NVMe ${fanChartValue(latest.ssd) ?? '未知'}°C，目标 PWM ${fanChartValue(latest.desired) ?? '未知'}。`);
-  }
-
-  function fanCurveGraphLayout(width, height) {
-    return { left: 38, right: width - 14, top: 18, bottom: height - 28 };
+    const description = latest
+      ? `温度与转速趋势：CPU ${fanChartValue(latest.cpu) ?? '未知'}°C，HDD ${fanChartValue(latest.hdd) ?? '未知'}°C，NVMe ${fanChartValue(latest.ssd) ?? '未知'}°C，CPU 风扇 ${fanChartValue(latest.cpuRpm) ?? '未知'} RPM，系统风扇 ${fanChartValue(latest.sysRpm) ?? '未知'} RPM。`
+      : '温度与风扇转速趋势，等待状态采样。';
+    chartElement.setAttribute('aria-label', description);
+    fanTelemetryChart.setOption({
+      animation: false,
+      aria: { enabled: true, description },
+      grid: { top: 16, right: 50, bottom: 45, left: 46 },
+      tooltip: {
+        trigger: 'axis', confine: true, backgroundColor: 'rgba(31, 45, 61, 0.92)', borderWidth: 0,
+        textStyle: { color: '#fff', fontSize: 11 },
+        formatter: (items) => {
+          if (!items.length) return '';
+          const lines = items
+            .map((item) => ({ item, value: Array.isArray(item.value) ? item.value[1] : item.value }))
+            .filter(({ value }) => fanChartValue(value) !== null)
+            .map(({ item, value }) => `${item.marker}${item.seriesName}：${value}${item.seriesIndex < 3 ? ' °C' : ' RPM'}`);
+          return `${fanTelemetryTime(Math.floor(Number(items[0].axisValue) / 1000))}<br>${lines.join('<br>')}`;
+        },
+      },
+      xAxis: {
+        type: 'time', name: '时间', nameLocation: 'middle', nameGap: 28,
+        min: (now - range.seconds) * 1000, max: now * 1000, boundaryGap: false,
+        axisTick: { show: false }, axisLine: { lineStyle: { color: 'rgba(88, 103, 122, 0.22)' } },
+        nameTextStyle: { color: '#7b8a9c', fontSize: 9 },
+        axisLabel: { color: '#7b8a9c', fontSize: 9, margin: 10, hideOverlap: true, formatter: (value) => fanTelemetryAxisLabel(value, range.seconds) },
+      },
+      yAxis: [
+        { type: 'value', name: '温度 °C', min: fanTelemetryTemperatureMin, max: fanTelemetryTemperatureMax, nameTextStyle: { color: '#7b8a9c', fontSize: 9 }, axisLabel: { color: '#7b8a9c', fontSize: 9 }, splitLine: { lineStyle: { color: 'rgba(88, 103, 122, 0.12)' } } },
+        { type: 'value', name: 'RPM', min: fanTelemetryRpmMin, max: fanTelemetryRpmMax, nameTextStyle: { color: '#7b8a9c', fontSize: 9 }, axisLabel: { color: '#7b8a9c', fontSize: 9 }, splitLine: { show: false } },
+      ],
+      graphic: history.length ? [] : [{ type: 'text', left: 'center', top: 'middle', style: { text: '等待状态采样', fill: '#7b8a9c', font: '12px system-ui, sans-serif' } }],
+      series: [
+        fanTelemetrySeries('CPU 温度', '#1677ff', 0, history, 'cpu'),
+        fanTelemetrySeries('HDD 温度', '#e89124', 0, history, 'hdd'),
+        fanTelemetrySeries('NVMe 温度', '#1b9c68', 0, history, 'ssd'),
+        fanTelemetrySeries('CPU 风扇', '#7056d8', 1, history, 'cpuRpm'),
+        fanTelemetrySeries('系统风扇', '#58677a', 1, history, 'sysRpm', true),
+        fanTelemetrySeries('系统风扇 2', '#2a9d8f', 1, history, 'sys2Rpm', true),
+      ],
+    }, true);
   }
 
   function fanCurveGraphCurves() {
@@ -1761,125 +1912,87 @@
     ];
   }
 
-  function fanCurveGraphPoint(layout, curve, index) {
-    const temperature = Math.max(0, Math.min(125, Number(curve.values[index]) || 0));
-    const pwm = Math.max(40, Math.min(255, Number(curve.pwm[index]) || 40));
-    return {
-      x: layout.left + (layout.right - layout.left) * (temperature / 125),
-      y: layout.bottom - (layout.bottom - layout.top) * ((pwm - 40) / 215),
-    };
-  }
-
   function drawFanCurveEditor() {
-    const { canvas, context, width, height } = fanChartSurface('fanCurveEditorChart');
-    const layout = fanCurveGraphLayout(width, height);
+    const chartElement = $('fanCurveEditorChart');
+    if ($('fanCurveSettings').hidden || !fanChartSurfaceVisible(chartElement)) return;
+    fanCurveEditorChart = ensureEChart(fanCurveEditorChart, chartElement);
+    if (!fanCurveEditorChart) {
+      chartElement.textContent = '曲线编辑组件加载失败；请使用下方数值输入。';
+      return;
+    }
     const curves = fanCurveGraphCurves();
-    fanDrawGrid(context, layout, 255, 'PWM');
-    context.save();
-    context.fillStyle = '#7b8a9c'; context.font = '9px system-ui, sans-serif'; context.textAlign = 'center';
-    [0, 25, 50, 75, 100, 125].forEach((temperature) => {
-      const x = layout.left + (layout.right - layout.left) * (temperature / 125);
-      context.fillText(String(temperature), x, height - 8);
-    });
-    context.textAlign = 'left'; context.fillText('温度 °C', layout.right - 42, height - 8);
-    context.restore();
-    curves.forEach((curve) => {
-      context.save();
-      context.strokeStyle = curve.color; context.lineWidth = 2.25; context.beginPath();
-      curve.values.forEach((_, index) => {
-        const point = fanCurveGraphPoint(layout, curve, index);
-        if (index === 0) context.moveTo(point.x, point.y); else context.lineTo(point.x, point.y);
-      });
-      context.stroke();
-      curve.values.forEach((_, index) => {
-        const point = fanCurveGraphPoint(layout, curve, index);
-        const active = fanCurveEditorState.drag?.prefix === curve.prefix && fanCurveEditorState.drag?.index === index;
-        context.fillStyle = '#ffffff'; context.strokeStyle = curve.color; context.lineWidth = active ? 4 : 2;
-        context.beginPath(); context.arc(point.x, point.y, active ? 6.5 : 5, 0, Math.PI * 2); context.fill(); context.stroke();
-      });
-      context.restore();
-    });
     const locked = fanCurveStockSelected() || fanCurveFixedSelected() || !biosState.available || !biosWriteConfirmed();
-    canvas.style.cursor = locked ? 'not-allowed' : 'crosshair';
-    canvas.setAttribute('aria-label', locked
+    const description = locked
       ? '温度与 PWM 曲线预览。选择自定义自动后可拖动编辑。'
-      : '温度与 PWM 曲线编辑图。可拖动圆点编辑，精确数值可在下方表格输入。');
+      : '温度与 PWM 曲线编辑图。可拖动圆点编辑，精确数值可在下方表格输入。';
+    chartElement.setAttribute('aria-label', description);
+    fanCurveEditorChart.setOption({
+      animation: false,
+      aria: { enabled: true, description },
+      grid: { top: 18, right: 18, bottom: 27, left: 42 },
+      tooltip: {
+        trigger: 'axis', confine: true, backgroundColor: 'rgba(31, 45, 61, 0.92)', borderWidth: 0,
+        textStyle: { color: '#fff', fontSize: 11 },
+        formatter: (items) => items.length ? `${items[0].value[0]} °C<br>${items.map((item) => `${item.marker}${item.seriesName}：PWM ${item.value[1]}`).join('<br>')}` : '',
+      },
+      xAxis: { type: 'value', min: 0, max: 125, name: '温度 °C', nameTextStyle: { color: '#7b8a9c', fontSize: 9, padding: [13, 0, 0, 0] }, axisLabel: { color: '#7b8a9c', fontSize: 9 }, axisLine: { lineStyle: { color: 'rgba(88, 103, 122, 0.22)' } }, splitLine: { lineStyle: { color: 'rgba(88, 103, 122, 0.12)' } } },
+      yAxis: { type: 'value', min: 40, max: 255, name: 'PWM', nameTextStyle: { color: '#7b8a9c', fontSize: 9 }, axisLabel: { color: '#7b8a9c', fontSize: 9 }, axisLine: { lineStyle: { color: 'rgba(88, 103, 122, 0.22)' } }, splitLine: { lineStyle: { color: 'rgba(88, 103, 122, 0.12)' } } },
+      series: curves.map((curve) => ({
+        id: `fan-curve-${curve.prefix}`, name: curve.label, type: 'line', data: curve.values.map((temperature, index) => [temperature, curve.pwm[index]]),
+        symbol: 'circle', symbolSize: 10, showSymbol: true, smooth: false, animation: false,
+        lineStyle: { color: curve.color, width: 2.25 }, itemStyle: { color: '#fff', borderColor: curve.color, borderWidth: 2 },
+      })),
+    }, true);
+    const graphics = curves.flatMap((curve) => curve.values.map((temperature, index) => ({
+      id: `fan-curve-handle-${curve.prefix}-${index}`,
+      type: 'circle', shape: { r: 11 }, position: fanCurveEditorChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [temperature, curve.pwm[index]]),
+      invisible: true, draggable: !locked, cursor: locked ? 'not-allowed' : 'grab', z: 100,
+      ondrag() {
+        const [nextTemperature, nextPwm] = fanCurveEditorChart.convertFromPixel({ xAxisIndex: 0, yAxisIndex: 0 }, this.position);
+        updateFanCurveEditorPoint(curve.prefix, index, nextTemperature, nextPwm);
+      },
+      ondragend() {
+        $('fanCurveGraphReadout').textContent = '自定义草稿已保留';
+        captureFanCurveCustomDraft();
+      },
+    })));
+    fanCurveEditorChart.setOption({ graphic: graphics }, false);
+    fanCurveEditorChart.getZr().setCursorStyle(locked ? 'not-allowed' : 'crosshair');
   }
 
-  function fanCurveGraphNearest(event) {
-    const canvas = $('fanCurveEditorChart');
-    const rect = canvas.getBoundingClientRect();
-    const { width, height } = fanChartDimensions(canvas);
-    const layout = fanCurveGraphLayout(width, height);
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    let closest = null;
-    fanCurveGraphCurves().forEach((curve) => curve.values.forEach((_, index) => {
-      const point = fanCurveGraphPoint(layout, curve, index);
-      const distance = Math.hypot(point.x - x, point.y - y);
-      if (distance < 18 && (!closest || distance < closest.distance)) closest = { prefix: curve.prefix, index, distance };
-    }));
-    return { closest, layout, x, y };
-  }
-
-  function updateFanCurveGraphDrag(event) {
-    const drag = fanCurveEditorState.drag;
-    if (!drag) return;
-    const canvas = $('fanCurveEditorChart');
-    const rect = canvas.getBoundingClientRect();
-    const { width, height } = fanChartSurface('fanCurveEditorChart');
-    const layout = fanCurveGraphLayout(width, height);
-    const x = Math.max(layout.left, Math.min(layout.right, event.clientX - rect.left));
-    const y = Math.max(layout.top, Math.min(layout.bottom, event.clientY - rect.top));
+  function updateFanCurveEditorPoint(prefix, index, rawTemperature, rawPwm) {
+    if (fanCurveStockSelected() || fanCurveFixedSelected() || !biosState.available || !biosWriteConfirmed()) return;
     const suffixes = ['Stop', 'Start', 'Mid', 'Full', 'Max'];
-    const temperatures = fanCurveCsv(drag.prefix).split(',').map(Number);
-    const temperature = Math.round((x - layout.left) / (layout.right - layout.left) * 125);
-    const lowerTemperature = drag.index ? temperatures[drag.index - 1] + 1 : 0;
-    const upperTemperature = drag.index < 4 ? temperatures[drag.index + 1] - 1 : 125;
+    const temperatures = fanCurveCsv(prefix).split(',').map(Number);
+    const temperature = Math.round(Math.max(0, Math.min(125, Number(rawTemperature) || 0)));
+    const lowerTemperature = index ? temperatures[index - 1] + 1 : 0;
+    const upperTemperature = index < 4 ? temperatures[index + 1] - 1 : 125;
     const boundedTemperature = Math.max(lowerTemperature, Math.min(upperTemperature, temperature));
-    $(`fanCurve${drag.prefix}${suffixes[drag.index]}`).value = String(boundedTemperature);
+    $(`fanCurve${prefix}${suffixes[index]}`).value = String(boundedTemperature);
     const pwm = [Number($('fanCurveMinimum').value), ...fanCurvePwmCsv().split(',').map(Number)];
-    const nextPwm = Math.round(40 + (layout.bottom - y) / (layout.bottom - layout.top) * 215);
-    const lowerPwm = drag.index ? pwm[drag.index - 1] : 40;
-    const upperPwm = drag.index < 4 ? pwm[drag.index + 1] : 255;
+    const nextPwm = Math.round(Math.max(40, Math.min(255, Number(rawPwm) || 40)));
+    const lowerPwm = index ? pwm[index - 1] : 40;
+    const upperPwm = index < 4 ? pwm[index + 1] : 255;
     const boundedPwm = Math.max(lowerPwm, Math.min(upperPwm, nextPwm));
-    if (drag.index === 0) $('fanCurveMinimum').value = String(boundedPwm);
-    else $('fanCurvePwm' + ['Idle', 'Mid', 'Full', 'Max'][drag.index - 1]).value = String(boundedPwm);
-    $('fanCurveGraphReadout').textContent = `${drag.prefix === 'Ssd' ? 'NVMe' : drag.prefix} · ${boundedTemperature}°C · PWM ${boundedPwm}`;
+    if (index === 0) $('fanCurveMinimum').value = String(boundedPwm);
+    else $('fanCurvePwm' + ['Idle', 'Mid', 'Full', 'Max'][index - 1]).value = String(boundedPwm);
+    $('fanCurveGraphReadout').textContent = `${prefix === 'Ssd' ? 'NVMe' : prefix} · ${boundedTemperature}°C · PWM ${boundedPwm}`;
     captureFanCurveCustomDraft();
     drawFanCurveEditor();
   }
 
   function bindFanCurveCharts() {
-    const canvas = $('fanCurveEditorChart');
-    canvas.addEventListener('pointerdown', (event) => {
-      if (fanCurveStockSelected() || fanCurveFixedSelected() || !biosState.available || !biosWriteConfirmed()) return;
-      const { closest } = fanCurveGraphNearest(event);
-      if (!closest) return;
-      fanCurveEditorState.drag = closest;
-      canvas.setPointerCapture?.(event.pointerId);
-      event.preventDefault();
-      updateFanCurveGraphDrag(event);
+    window.addEventListener('resize', () => {
+      clearTimeout(fanChartResizeTimer);
+      fanChartResizeTimer = setTimeout(() => {
+        scheduleFanChartLayout();
+      }, 100);
     });
-    canvas.addEventListener('pointermove', (event) => {
-      if (fanCurveEditorState.drag) {
-        updateFanCurveGraphDrag(event);
-        return;
-      }
-      if (!fanCurveStockSelected() && !fanCurveFixedSelected() && biosState.available && biosWriteConfirmed()) {
-        canvas.style.cursor = fanCurveGraphNearest(event).closest ? 'grab' : 'crosshair';
-      }
-    });
-    const finishDrag = (event) => {
-      if (!fanCurveEditorState.drag) return;
-      canvas.releasePointerCapture?.(event.pointerId);
-      fanCurveEditorState.drag = null;
-      $('fanCurveGraphReadout').textContent = '自定义草稿已保留';
-      captureFanCurveCustomDraft();
-      drawFanCurveEditor();
-    };
-    canvas.addEventListener('pointerup', finishDrag);
-    canvas.addEventListener('pointercancel', finishDrag);
+    if (window.ResizeObserver) {
+      fanChartResizeObserver = new ResizeObserver(() => scheduleFanChartLayout());
+      fanChartResizeObserver.observe($('fanTelemetryChart'));
+      fanChartResizeObserver.observe($('fanCurveEditorChart'));
+    }
   }
 
   function fanCurveStartQuery() {
@@ -2020,9 +2133,12 @@
     $('biosStartupHelp').textContent = startupAvailable
       ? '来电启动与风扇控制独立读取和写入。该设置使用 UGREEN-NAS-Hardware 的受保护 Super I/O 路径。'
       : `来电启动当前不可用，但不会影响风扇控制：${biosState.startup_error || '读取失败'}。`;
-    $('cpuFanRpm').textContent = available ? String(biosState.cpu_rpm ?? 0) : '—';
-    $('sysFanRpm').textContent = available ? String(biosState.sys_rpm ?? 0) : '—';
-    $('sys2FanRpm').textContent = available ? String(biosState.sys2_rpm ?? 0) : '—';
+    const cpuRpm = available ? String(biosState.cpu_rpm ?? 0) : '—';
+    const sysRpm = available ? String(biosState.sys_rpm ?? 0) : '—';
+    const sys2Rpm = available ? String(biosState.sys2_rpm ?? 0) : '—';
+    $('cpuFanRpm').textContent = cpuRpm;
+    $('sysFanRpm').textContent = sysRpm;
+    $('sys2FanRpm').textContent = sys2Rpm;
     $('biosSys2RpmRow').hidden = !(is480t || is6800);
     $('cpuFanCard').hidden = biosState.cpu_fan_present === false;
     $('cpuFanTitle').textContent = is480t && directFallback ? 'CPU / 共享输出' : 'CPU 风扇';
@@ -2090,7 +2206,6 @@
       : is480t
         ? '仅精确 DMI 识别为 DXP480T Plus 且动态 hwmon 名称为 it8613 时开放；保留 it87，不卸载模块，PWM 低于 40 会被拒绝。'
         : '页面和写入接口只在 DMI 精确匹配且找到 name=it8613 的 hwmon 节点时启用；保留现有 it87 驱动。';
-    $('biosExperimentalConfirm').hidden = !biosState.write_confirmation_required;
     $('biosExperimentalConfirmTitle').textContent = directFallback
       ? '我已了解 IT8613 直控写入风险'
       : '我已了解固件逆向写入风险';
@@ -2099,8 +2214,9 @@
         ? '我已确认 it87 已主动卸载，已准备独立温度监控与恢复原控制方式，并接受 DXP480T Plus 仅使用原厂共享 PWM 直控、sys2 不单独写入。'
         : '我已确认 it87 已主动卸载，已准备独立温度监控与恢复原控制方式，并接受该机型直控写入尚待实机记录。'
       : is6800
-        ? '已准备独立温度监控与恢复原厂控制的方案，并接受当前尚无 DXP6800 Pro 实机写入验证。'
-        : '已准备独立温度监控与恢复原厂控制的方案，并接受当前尚无 DXP4800S 实机写入验证。';
+      ? '已准备独立温度监控与恢复原厂控制的方案，并接受当前尚无 DXP6800 Pro 实机写入验证。'
+      : '已准备独立温度监控与恢复原厂控制的方案，并接受当前尚无 DXP4800S 实机写入验证。';
+    updateBiosWriteRiskConfirmation();
     if (currentRoute === 'bios') $('pageDescription').textContent = is6800
       ? 'DXP6800 Pro 的三路风扇状态、固件逆向 CPU/成对系统 PWM 与来电启动控制；写入前必须确认风险。'
       : is4800s
@@ -2114,7 +2230,14 @@
       input.checked = input.value === biosState.startup;
       input.closest('.bios-policy-choice')?.classList.toggle('active', input.checked);
     });
-    renderFanCurve(biosState.fan_curve);
+    const currentTelemetry = biosState.telemetry || {};
+    const fanCurve = Object.assign({}, biosState.fan_curve || {});
+    if (fanChartValue(currentTelemetry.cpu) !== null) fanCurve.cpu_celsius = currentTelemetry.cpu;
+    if (fanChartValue(currentTelemetry.hdd) !== null) fanCurve.hdd_celsius = currentTelemetry.hdd;
+    if (fanChartValue(currentTelemetry.ssd) !== null) fanCurve.ssd_celsius = currentTelemetry.ssd;
+    renderFanCurve(fanCurve);
+    mergeFanTelemetry(currentTelemetry);
+    drawFanTelemetry();
     updateBiosWriteAvailability();
     ['cpu', 'sys'].forEach((prefix) => {
       if (!biosFanWrites[prefix].busy) resetBiosFanWriteStatus(prefix);
@@ -2392,6 +2515,8 @@
     runBiosAction(this, api('/bios/startup', { method: 'POST', query: biosWriteQuery(`policy=${selected.value}`) }));
   });
   $('biosExperimentalConfirmInput').addEventListener('change', () => {
+    if ($('biosExperimentalConfirmInput').checked) rememberBiosWriteRisk();
+    updateBiosWriteRiskConfirmation(true);
     updateBiosWriteAvailability();
     ['cpu', 'sys'].forEach((prefix) => {
       if (!biosFanWrites[prefix].busy) resetBiosFanWriteStatus(prefix);
@@ -2418,6 +2543,9 @@
         drawFanCurveEditor();
       }
     });
+  });
+  document.querySelectorAll('[data-fan-telemetry-range]').forEach((button) => {
+    button.addEventListener('click', () => setFanTelemetryRange(button.dataset.fanTelemetryRange));
   });
   bindFanCurveCharts();
   $('btnStartFanCurve').addEventListener('click', function () {
@@ -2493,11 +2621,6 @@
   });
 
   window.addEventListener('hashchange', () => setRoute(location.hash.slice(1), false));
-  window.addEventListener('resize', () => {
-    drawFanCurveEditor();
-    drawFanTelemetry();
-  });
-
   setLightingPanel(currentLightingPanel);
   setRoute(location.hash.slice(1) || 'overview', false);
   Promise.all([loadSettings(), refresh(), checkForUpdates(false)]);

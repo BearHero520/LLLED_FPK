@@ -225,6 +225,24 @@ class PreviewApiTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(preview.STATE.bios_startup, "off")
 
+    def test_bios_telemetry_returns_time_samples_for_each_window(self) -> None:
+        preview.STATE.configure_profile("dxp6800")
+        expected_minimums = {"1m": 3, "1h": 121, "24h": 2881}
+        for range_name, minimum in expected_minimums.items():
+            with self.subTest(range_name=range_name):
+                status, payload, _ = self.request("GET", f"/bios/telemetry?range={range_name}")
+                self.assertEqual(status, 200)
+                self.assertTrue(payload["ok"])
+                self.assertEqual(payload["range"], range_name)
+                self.assertEqual(payload["sample_interval_seconds"], 30)
+                self.assertGreaterEqual(len(payload["history"]), minimum)
+                self.assertLessEqual(payload["history"][0]["at"], payload["history"][-1]["at"])
+                self.assertIn("cpuRpm", payload["current"])
+
+        status, payload, _ = self.request("GET", "/bios/telemetry?range=bad")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, {"ok": False, "error": "invalid telemetry range"})
+
     def test_unhandled_preview_exception_is_json(self) -> None:
         original: Callable[[str], None] = preview.STATE.set_mode
 

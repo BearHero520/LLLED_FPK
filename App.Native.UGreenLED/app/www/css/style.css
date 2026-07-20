@@ -575,9 +575,14 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
 .fan-telemetry, .fan-curve-graph { margin-top: 16px; padding: 15px; border: 1px solid rgba(22, 119, 255, 0.14); border-radius: 17px; background: rgba(244, 249, 255, 0.56); }
 .fan-telemetry-heading, .fan-curve-graph-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .fan-telemetry-heading h3, .fan-curve-graph-heading h3 { margin: 4px 0 0; color: var(--text); font-size: 13px; }
-.fan-telemetry-heading > small, .fan-curve-graph-heading output { flex: 0 0 auto; margin-top: 4px; color: var(--text-faint); font-size: 10px; font-variant-numeric: tabular-nums; text-align: right; }
+.fan-telemetry-heading #fanTelemetryRange, .fan-curve-graph-heading output { display: block; margin-top: 5px; color: var(--text-faint); font-size: 10px; font-variant-numeric: tabular-nums; }
+.fan-telemetry-ranges { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.fan-telemetry-range { min-height: 28px; padding: 0 9px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255, 255, 255, 0.62); color: var(--text-faint); font: inherit; font-size: 10px; font-weight: 760; white-space: nowrap; cursor: pointer; transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease; }
+.fan-telemetry-range:hover { border-color: rgba(22, 119, 255, 0.30); color: var(--blue); }
+.fan-telemetry-range:focus-visible { outline: 3px solid rgba(22, 119, 255, 0.24); outline-offset: 2px; }
+.fan-telemetry-range.active { border-color: rgba(22, 119, 255, 0.34); background: rgba(225, 239, 255, 0.86); color: var(--blue); box-shadow: 0 5px 13px rgba(22, 119, 255, 0.10); }
 .fan-curve-graph-heading small { display: block; margin-top: 5px; color: var(--text-faint); font-size: 10px; line-height: 1.5; }
-.fan-chart { display: block; width: 100%; height: 220px; margin-top: 13px; border-radius: 12px; background: rgba(255, 255, 255, 0.68); touch-action: none; }
+.fan-chart { display: block; width: 100%; height: 220px; margin-top: 13px; overflow: hidden; border-radius: 12px; background: rgba(255, 255, 255, 0.68); touch-action: none; }
 .fan-curve-editor-chart { cursor: crosshair; }
 .fan-chart-legend { display: flex; flex-wrap: wrap; gap: 8px 13px; margin-top: 10px; color: var(--text-faint); font-size: 9px; font-weight: 750; }
 .fan-chart-legend span::before { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: currentColor; content: ''; }
@@ -586,9 +591,15 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
 .fan-chart-legend .is-ssd { color: #1b9c68; }
 .fan-chart-legend .is-target { color: #7056d8; }
 .fan-chart-legend .is-applied { color: #58677a; }
+.fan-chart-legend .is-sys2 { color: #2a9d8f; }
 .fan-curve-mode-group { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0 0; padding: 0; border: 0; }
 .fan-curve-mode-group legend { width: 100%; margin-bottom: 9px; color: var(--text-soft); font-size: 11px; font-weight: 800; }
 .fan-curve-mode-group .bios-policy-choice { min-height: 92px; padding: 13px 15px; }
+.fan-fixed-settings { margin-top: 16px; padding: 16px; border: 1px solid rgba(22, 119, 255, 0.28); border-radius: 18px; background: rgba(244, 249, 255, 0.60); box-shadow: 0 12px 28px rgba(22, 119, 255, 0.08); }
+.fan-fixed-settings[hidden] { display: none; }
+.fan-fixed-settings .section-heading { margin-bottom: 6px; }
+.fan-fixed-settings h3 { margin: 3px 0 0; color: var(--text); font-size: 15px; }
+.fan-fixed-settings .bios-safety-note { margin: 16px 0 18px; }
 .fan-stock-curve { margin-top: 16px; padding: 16px; border: 1px solid rgba(22, 119, 255, 0.14); border-radius: 18px; background: rgba(244, 249, 255, 0.60); }
 .fan-stock-curve[hidden] { display: none; }
 .fan-stock-curve-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
@@ -600,9 +611,6 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
 .fan-curve-settings { margin-top: 16px; padding: 16px; border: 1px solid rgba(22, 119, 255, 0.14); border-radius: 18px; background: rgba(244, 249, 255, 0.60); }
 .fan-curve-settings.stock-locked { opacity: 0.72; }
 .fan-curve-settings[hidden] { display: none; }
-.fan-fixed-surface { scroll-margin-top: 18px; transition: border-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease; }
-.fan-fixed-surface:not(.is-selected) { opacity: 0.72; }
-.fan-fixed-surface.is-selected { border-color: rgba(22, 119, 255, 0.40); box-shadow: 0 12px 28px rgba(22, 119, 255, 0.10); }
 .fan-curve-timing { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .fan-curve-timing label { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 7px 9px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255, 255, 255, 0.68); }
 .fan-curve-timing label > span { color: var(--text-soft); font-size: 10px; font-weight: 750; }
@@ -628,7 +636,6 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
 .fan-curve-status { color: var(--text-faint); font-size: 10px; line-height: 1.45; }
 .fan-curve-status.error { color: #b62f40; }
 .fan-curve-status.running { color: #13764d; }
-@media (prefers-reduced-motion: reduce) { .fan-fixed-surface { transition: none; } }
 .bios-startup-actions { display: flex; justify-content: flex-end; margin-top: 22px; }
 .bios-detail-surface { display: flex; align-items: flex-start; gap: 18px; }
 .bios-detail-icon { display: inline-grid; width: 46px; height: 46px; flex: 0 0 auto; place-items: center; border-radius: 15px; background: var(--green-soft); color: var(--green); font-size: 20px; }
@@ -891,6 +898,8 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   .bios-policy-choice { min-height: 78px; padding: 14px 15px; }
   .bios-startup-actions .primary-button { width: 100%; }
   .fan-curve-settings { padding: 12px; }
+  .fan-telemetry-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .fan-telemetry-ranges { justify-content: flex-start; }
   .fan-curve-actions { align-items: stretch; flex-direction: column; }
   .fan-curve-actions > div { align-items: stretch; flex-direction: column-reverse; }
   .fan-curve-actions button { width: 100%; }

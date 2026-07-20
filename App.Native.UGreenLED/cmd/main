@@ -126,6 +126,14 @@ start)
         ugreen_log_error "daemon.start_failed" "LED 守护进程启动失败" \
             "exit_code=$daemon_rc" "raw_log=daemon-launch.log"
     fi
+    if bash "${SERVER_DIR}/fan_telemetry_daemon.sh" start; then
+        ugreen_log_info "fan_telemetry.started" "风扇遥测采样进程已启动" \
+            "pid_file=${RUNTIME_DIR}/fan-telemetry.pid" "interval_seconds=30"
+    else
+        telemetry_rc=$?
+        ugreen_log_warn "fan_telemetry.start_failed" "风扇遥测采样进程未启动；页面仍可读取当前状态" \
+            "exit_code=$telemetry_rc"
+    fi
     if [[ "$(settings_get "$SETTINGS_FILE" fan_curve enabled false)" == "true" ]]; then
         if bios_fan_curve_restore; then
             ugreen_log_info "bios.fan_curve_restored" "已恢复已启用的风扇自动温控曲线"
@@ -144,6 +152,13 @@ stop)
     else
         daemon_rc=$?
         ugreen_log_warn "daemon.stop_failed" "LED 守护进程停止命令返回失败" "exit_code=$daemon_rc" "output=$daemon_output"
+    fi
+    if telemetry_output=$(bash "${SERVER_DIR}/fan_telemetry_daemon.sh" stop 2>&1); then
+        ugreen_log_debug "fan_telemetry.stopped" "风扇遥测采样进程已停止" "output=$telemetry_output"
+    else
+        telemetry_rc=$?
+        ugreen_log_debug "fan_telemetry.stop_skipped" "风扇遥测采样进程未运行或停止失败" \
+            "exit_code=$telemetry_rc" "output=$telemetry_output"
     fi
     bios_fan_curve_stop true || true
     # 清理由旧版本自动启动的独立 5088 API；Web 管理页实际使用 fnOS CGI。
