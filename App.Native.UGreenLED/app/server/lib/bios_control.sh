@@ -824,7 +824,7 @@ bios_set_fan() {
                 return 1
             }
             [[ "$channel" == "cpu" || "$channel" == "all" ]] || {
-                BIOS_LAST_ERROR="DXP480T Plus 仅支持 CPU 或全部风扇写入"
+                BIOS_LAST_ERROR="DXP480T Plus 仅支持 CPU 或系统风扇对写入"
                 return 1
             }
             ;;

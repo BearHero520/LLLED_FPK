@@ -789,7 +789,7 @@ case "$API_PATH" in
             fi
             if bios_set_fan "$channel" "$pwm"; then
                 settings_set "$SETTINGS_FILE" fan_curve enabled false
-            if [[ "$channel" == "cpu" ]]; then fan_name="CPU 风扇"; elif [[ "$channel" == "all" ]]; then fan_name="全部风扇"; else fan_name="系统风扇"; fi
+            if [[ "$channel" == "cpu" ]]; then fan_name="CPU 风扇"; elif [[ "$channel" == "all" ]]; then fan_name="系统风扇对"; else fan_name="系统风扇"; fi
                 bios_status_json "${fan_name} 已切换为固定转速 PWM ${pwm}；自动温控已停止"
             else
                 if $fan_curve_was_running; then bios_fan_curve_restore >/dev/null 2>&1 || true; fi
