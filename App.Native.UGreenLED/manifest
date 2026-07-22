@@ -1,5 +1,5 @@
 appname               = App.Native.UGreenLED
-version               = 1.9.6
+version               = 1.9.7
 display_name          = 绿联 LED 灯控
 desc                  = 绿联 NAS LED 控制；支持 BIOS 风扇、来电启动、多机型网络唤醒与 RTC 定时开机。
 platform              = x86
@@ -14,4 +14,4 @@ desktop_uidir         = ui
 desktop_applaunchname = App.Native.UGreenLED.Web
 service_port          = 5088
 checkport             = false
-changelog             = v1.9.6 BIOS 策略区使用独立瀑布列，定时开关机紧随来电启动，避免短卡被相邻长卡拉出大空白
+changelog             = v1.9.7 修复 SATA ATA SMART 回退的 SAT 寄存器与电源状态解析；运行中的机械盘可读温度，休眠盘仍不会被唤醒
