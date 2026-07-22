@@ -1,7 +1,7 @@
 appname               = App.Native.UGreenLED
-version               = 1.9.0
+version               = 1.9.2
 display_name          = 绿联 LED 灯控
-desc                  = 绿联 NAS LED 控制；灯光统一由内置 CLI 控制，并支持 BIOS 风扇与来电启动管理。
+desc                  = 绿联 NAS LED 控制；支持 BIOS 风扇、来电启动、多机型网络唤醒与 RTC 定时开机。
 platform              = x86
 source                = thirdparty
 maintainer            = BearHero520
@@ -14,4 +14,4 @@ desktop_uidir         = ui
 desktop_applaunchname = App.Native.UGreenLED.Web
 service_port          = 5088
 checkport             = false
-changelog             = v1.9.0 新增固定风扇转速控制与长时温度/转速趋势图；CPU 展示温度对齐飞牛资源监控，自动温控仍按 CPU 最高温度保护
+changelog             = v1.9.2 新增多机型 eth0/eth1 网络唤醒、定时安全关机与 RTC 定时开机；所有固件逆向写入均需风险确认并回读校验

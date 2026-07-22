@@ -20,7 +20,7 @@ level=off
 [fan_curve]
 enabled=false
 EOF
-for model in dxp4800plus dxp4800s dxp480tplus dxp6800pro; do : > "$PLUGINS/$model.so"; done
+for model in dxp4800 dxp4800plus dxp4800s dxp480tplus dxp6800pro; do : > "$PLUGINS/$model.so"; done
 cat > "$BIN" <<'EOF'
 #!/bin/sh
 printf 'CALL' >> "$UGREENCTL_CALLS"

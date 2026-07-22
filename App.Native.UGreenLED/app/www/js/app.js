@@ -8,7 +8,7 @@
     lighting: { title: '灯光设置', description: '配置硬盘、网络和电源灯的状态颜色。' },
     activity: { title: '活动提示', description: '控制磁盘读写和网络流量的速度闪动。' },
     devices: { title: '设备与高级', description: '管理盘位映射、监测频率、后台服务与诊断状态。' },
-    bios: { title: 'BIOS 控制', description: 'DXP4800 Plus / Pro、DXP4800S 与 DXP480T Plus 的 IT8613 风扇、系统信息与来电启动控制。' },
+    bios: { title: 'BIOS 控制', description: 'DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro 的 IT8613 风扇、来电启动、网络唤醒与 RTC 定时开机控制。' },
     lab: { title: '实验室', description: '未经验证的高级硬件功能，请确认风险后谨慎使用。' },
   };
 
@@ -1378,9 +1378,7 @@
   }
 
   function biosWriteConfirmationToken() {
-    return biosState.direct_fan_fallback && !['dxp4800s', 'dxp6800pro'].includes(biosState.model)
-      ? 'direct-superio'
-      : 'firmware-reversed';
+    return 'firmware-reversed';
   }
 
   function biosWriteRiskAcknowledgementKey() {
@@ -1443,6 +1441,11 @@
   }
 
   const fanCurveStockProfiles = Object.freeze({
+    dxp4800: {
+      profile: 'stock-4800', name: 'DXP4800 原厂兼容',
+      description: '按 4800 固件的单路系统风扇阈值运行；自动模式始终维持安全最低转速。',
+      cpu: '45,50,70,75,85', hdd: '35,40,45,50,65', ssd: '40,45,55,60,65', pwm: '64,128,204,255', minimum: '40',
+    },
     dxp4800s: {
       profile: 'stock-4800s', name: 'DXP4800S 原厂兼容',
       description: '已恢复 CPU、HDD、NVMe 的原厂阈值与系统风扇 PWM 档位；自动模式始终维持安全最低转速。',
@@ -2073,11 +2076,24 @@
 
   function updateBiosWriteAvailability() {
     const startupAvailable = Boolean(biosState.startup_available) && biosWriteConfirmed();
+    const wolAvailable = Boolean(biosState.wol_available) && biosWriteConfirmed();
+    const powerScheduleAvailable = Boolean(biosState.power_schedule?.available) && biosWriteConfirmed();
     updateBiosFanEditorState('cpu');
     updateBiosFanEditorState('sys');
     $('btnApplyBiosStartup').disabled = !startupAvailable;
+    $('btnApplyBiosWol').disabled = !wolAvailable;
+    $('btnApplyBiosPowerSchedule').disabled = !powerScheduleAvailable;
     document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
       input.disabled = !startupAvailable;
+    });
+    document.querySelectorAll('input[name="biosWolPolicy"]').forEach((input) => {
+      input.disabled = !wolAvailable;
+    });
+    $('biosPowerScheduleEnabled').disabled = !powerScheduleAvailable;
+    $('biosPowerScheduleWakeTime').disabled = !powerScheduleAvailable;
+    $('biosPowerScheduleShutdownTime').disabled = !powerScheduleAvailable;
+    document.querySelectorAll('input[name="biosPowerScheduleDay"]').forEach((input) => {
+      input.disabled = !powerScheduleAvailable;
     });
     updateFanCurveControls();
   }
@@ -2088,16 +2104,19 @@
     const available = Boolean(biosState.available);
     const startupAvailable = Boolean(biosState.startup_available);
     const is480t = biosState.model === 'dxp480t_plus';
+    const is4800 = biosState.model === 'dxp4800';
     const is4800s = biosState.model === 'dxp4800s';
     const is6800 = biosState.model === 'dxp6800pro';
     const directFallback = Boolean(biosState.direct_fan_fallback);
     const is4800Pro = biosState.model === 'dxp4800_pro';
+    const wolAvailable = Boolean(biosState.wol_available);
+    const powerSchedule = Object.assign({ available: false, enabled: false, days: '', wake_time: '07:00', shutdown_time: '23:00', rtc_epoch: 0 }, biosState.power_schedule || {});
     const minPwm = Math.max(0, Number(biosState.min_pwm) || 0);
     $('biosAvailabilityBadge').textContent = !biosState.supported
       ? '非适用机型'
       : available ? '风扇 hwmon 就绪' : startupAvailable ? '仅来电启动就绪' : '控制器不可用';
     $('biosAvailabilityText').textContent = !biosState.supported
-      ? '此入口仅对 DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro 开放。'
+      ? '此入口仅对 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro 开放。'
       : available
         ? directFallback
           ? is480t
@@ -2111,6 +2130,8 @@
           : biosState.fan_error || biosState.error || '没有找到可用的 BIOS 控制接口。';
     $('biosModelKicker').textContent = is6800
       ? 'DXP6800 PRO · IT8613 · FIRMWARE-REVERSED'
+      : is4800
+      ? 'DXP4800 · IT8613 · FIRMWARE-REVERSED'
       : is4800s
       ? 'DXP4800S · IT8613 · FIRMWARE-REVERSED'
       : is480t ? 'DXP480T PLUS · IT8613 · VERIFIED' : `DXP4800 ${is4800Pro ? 'PRO' : 'PLUS'} · IT8613`;
@@ -2133,6 +2154,28 @@
     $('biosStartupHelp').textContent = startupAvailable
       ? '来电启动与风扇控制独立读取和写入。该设置使用 UGREEN-NAS-Hardware 的受保护 Super I/O 路径。'
       : `来电启动当前不可用，但不会影响风扇控制：${biosState.startup_error || '读取失败'}。`;
+    $('biosWolSurface').hidden = !biosState.supported;
+    $('biosWolBadge').textContent = !biosState.supported
+      ? '不适用'
+      : wolAvailable ? (biosState.wol === 'on' ? '已启用' : '已关闭') : '不可用';
+    $('biosWolHelp').textContent = wolAvailable
+      ? '网络唤醒是 eth0 与 eth1 网卡的魔术包设置，不是 Super I/O 寄存器；写入后会读取两个网口的状态确认。'
+      : `网络唤醒当前不可用：${biosState.wol_error || '网卡不支持或状态读取失败'}。`;
+    $('biosPowerScheduleSurface').hidden = !biosState.supported;
+    $('biosPowerScheduleBadge').textContent = !biosState.supported
+      ? '不适用'
+      : powerSchedule.available ? (powerSchedule.enabled ? '已启用' : '已关闭') : 'RTC 不可用';
+    $('biosPowerScheduleHelp').textContent = powerSchedule.available
+      ? `原厂 OnSched 路径使用 RTC 唤醒。定时关机前会重设下一次开机时间；当前 RTC=${powerSchedule.rtc_epoch || 0}。`
+      : `定时开机当前不可用：${powerSchedule.error || '未检测到可读写的 RTC wakealarm 接口'}。`;
+    $('biosPowerScheduleEnabled').checked = Boolean(powerSchedule.enabled);
+    $('biosPowerScheduleWakeTime').value = powerSchedule.wake_time || '07:00';
+    $('biosPowerScheduleShutdownTime').value = powerSchedule.shutdown_time || '23:00';
+    const scheduledDays = String(powerSchedule.days || '').split(',').filter(Boolean);
+    document.querySelectorAll('input[name="biosPowerScheduleDay"]').forEach((input) => {
+      input.checked = scheduledDays.includes(input.value);
+      input.closest('.bios-policy-choice')?.classList.toggle('active', input.checked);
+    });
     const cpuRpm = available ? String(biosState.cpu_rpm ?? 0) : '—';
     const sysRpm = available ? String(biosState.sys_rpm ?? 0) : '—';
     const sys2Rpm = available ? String(biosState.sys2_rpm ?? 0) : '—';
@@ -2143,7 +2186,7 @@
     $('cpuFanCard').hidden = biosState.cpu_fan_present === false;
     $('cpuFanTitle').textContent = is480t && directFallback ? 'CPU / 共享输出' : 'CPU 风扇';
     $('sysFanEyebrow').textContent = is480t && directFallback ? 'SHARED FAN PWM' : is480t ? 'ALL FANS' : is6800 ? 'SYSTEM FAN PAIR' : 'SYSTEM FAN';
-    $('sysFanTitle').textContent = is480t && directFallback ? '共享风扇 PWM' : is480t ? '全部风扇' : is6800 ? '系统风扇（成对）' : is4800s ? '系统风扇 sysfan1' : '系统风扇';
+    $('sysFanTitle').textContent = is480t && directFallback ? '共享风扇 PWM' : is480t ? '全部风扇' : is6800 ? '系统风扇（成对）' : is4800 || is4800s ? '系统风扇 sysfan1' : '系统风扇';
     $('sysFanRpmLabel').textContent = is480t || is6800 ? 'SYS 1 RPM' : 'RPM';
     setBiosPwmControl('cpu', biosState.cpu_pwm);
     if (is480t && directFallback) {
@@ -2194,15 +2237,15 @@
     });
     $('cpuFanMode').textContent = is480t && directFallback ? '原厂共享 PWM 输出' : '仅开放手动 PWM';
     if (!is480t && !is6800) $('sysFanMode').textContent = '仅开放手动 PWM；原厂自动由软件温控曲线实现';
-    $('biosGuardTitle').textContent = directFallback && is480t ? '480T Plus 原厂共享直控保护' : directFallback ? 'IT8613 直控保护' : is6800 ? 'DXP6800 Pro 固件逆向保护' : is4800s ? '4800S 固件逆向保护' : is480t ? '480T Plus 已验证保护' : '4800 系列专属保护';
+    $('biosGuardTitle').textContent = directFallback && is480t ? '480T Plus 原厂共享直控保护' : directFallback ? 'IT8613 直控保护' : is6800 ? 'DXP6800 Pro 固件逆向保护' : is4800 || is4800s ? '4800 固件逆向保护' : is480t ? '480T Plus 已验证保护' : '4800 系列专属保护';
     $('biosGuardText').textContent = directFallback
       ? is480t
         ? '检测到 it87 已卸载：DXP480T Plus 只会复现原厂共享 PWM 输出，不会猜测 sys2 寄存器。无原厂控制器占用、IT8613 芯片 ID 匹配并取得进程锁后才允许写入；写入附加 --force --apply、最低 PWM 40 并回读。'
         : '检测到 it87 已卸载：将仅在无原厂控制器占用、IT8613 芯片 ID 匹配并取得进程锁后使用直控兜底。写入附加 --force --apply、最低 PWM 40 并逐项回读；请先确认风险。'
       : is6800
       ? '仅精确 DMI 为 DXP6800 Pro 且动态 hwmon 名称为 it8613 时开放。CPU 可单独写入；sys 会按固件证明同步系统风扇 1/2。所有写入附加 --force --apply、最低 PWM 40，并执行进程锁和回读校验。'
-      : is4800s
-      ? '仅精确 DMI 为 DXP4800S 且动态 hwmon 名称为 it8613 时开放。写入附加 --force --apply，最低 PWM 40，并执行进程锁和回读校验。'
+      : is4800 || is4800s
+      ? `仅精确 DMI 为 ${is4800 ? 'DXP4800' : 'DXP4800S'} 且动态 hwmon 名称为 it8613 时开放。写入附加 --force --apply，最低 PWM 40，并执行进程锁和回读校验。`
       : is480t
         ? '仅精确 DMI 识别为 DXP480T Plus 且动态 hwmon 名称为 it8613 时开放；保留 it87，不卸载模块，PWM 低于 40 会被拒绝。'
         : '页面和写入接口只在 DMI 精确匹配且找到 name=it8613 的 hwmon 节点时启用；保留现有 it87 驱动。';
@@ -2215,19 +2258,25 @@
         : '我已确认 it87 已主动卸载，已准备独立温度监控与恢复原控制方式，并接受该机型直控写入尚待实机记录。'
       : is6800
       ? '已准备独立温度监控与恢复原厂控制的方案，并接受当前尚无 DXP6800 Pro 实机写入验证。'
-      : '已准备独立温度监控与恢复原厂控制的方案，并接受当前尚无 DXP4800S 实机写入验证。';
+      : `已准备独立温度监控与恢复原厂控制的方案，并接受当前尚无 ${is4800 ? 'DXP4800' : 'DXP4800S'} 实机写入验证。`;
     updateBiosWriteRiskConfirmation();
     if (currentRoute === 'bios') $('pageDescription').textContent = is6800
-      ? 'DXP6800 Pro 的三路风扇状态、固件逆向 CPU/成对系统 PWM 与来电启动控制；写入前必须确认风险。'
-      : is4800s
-      ? 'DXP4800S 的单路系统风扇、固件逆向 PWM 与来电启动控制；写入前必须确认风险。'
+      ? 'DXP6800 Pro 的三路风扇状态、固件逆向 CPU/成对系统 PWM、来电启动、网络唤醒与 RTC 定时开机；写入前必须确认风险。'
+      : is4800 || is4800s
+      ? (is4800
+        ? 'DXP4800 的单路系统风扇、固件逆向 PWM、来电启动、eth0/eth1 网络唤醒与 RTC 定时开机；写入前必须确认风险。'
+        : 'DXP4800S 的单路系统风扇、固件逆向 PWM、来电启动、eth0/eth1 网络唤醒与 RTC 定时开机；写入前必须确认风险。')
       : is480t
         ? directFallback
-          ? 'DXP480T Plus 的三路转速与原厂共享 PWM 直控；sys2 仅测速。'
-          : 'DXP480T Plus 的 IT8613 三风扇状态、已验证 PWM 与来电启动控制。'
+          ? 'DXP480T Plus 的三路转速与原厂共享 PWM 直控；sys2 仅测速，并支持 eth0/eth1 网络唤醒与 RTC 定时开机。'
+          : 'DXP480T Plus 的 IT8613 三风扇状态、已验证 PWM、来电启动、网络唤醒与 RTC 定时开机控制。'
         : ROUTES.bios.description;
     document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
       input.checked = input.value === biosState.startup;
+      input.closest('.bios-policy-choice')?.classList.toggle('active', input.checked);
+    });
+    document.querySelectorAll('input[name="biosWolPolicy"]').forEach((input) => {
+      input.checked = input.value === biosState.wol;
       input.closest('.bios-policy-choice')?.classList.toggle('active', input.checked);
     });
     const currentTelemetry = biosState.telemetry || {};
@@ -2514,6 +2563,26 @@
     }
     runBiosAction(this, api('/bios/startup', { method: 'POST', query: biosWriteQuery(`policy=${selected.value}`) }));
   });
+  $('btnApplyBiosWol').addEventListener('click', function () {
+    const selected = document.querySelector('input[name="biosWolPolicy"]:checked');
+    if (!selected) {
+      showMessage('请选择网络唤醒策略', 'err');
+      return;
+    }
+    runBiosAction(this, api('/bios/wol', { method: 'POST', query: biosWriteQuery(`policy=${selected.value}`) }));
+  });
+  $('btnApplyBiosPowerSchedule').addEventListener('click', function () {
+    const enabled = $('biosPowerScheduleEnabled').checked;
+    const days = Array.from(document.querySelectorAll('input[name="biosPowerScheduleDay"]:checked')).map((input) => input.value).join(',');
+    const wakeTime = $('biosPowerScheduleWakeTime').value;
+    const shutdownTime = $('biosPowerScheduleShutdownTime').value;
+    if (enabled && (!days || !wakeTime || !shutdownTime)) {
+      showMessage('启用定时开关机前，请选择重复日期、开机时间和关机时间', 'err');
+      return;
+    }
+    const query = `enabled=${enabled ? 'true' : 'false'}&days=${encodeURIComponent(days)}&wake_time=${encodeURIComponent(wakeTime)}&shutdown_time=${encodeURIComponent(shutdownTime)}`;
+    runBiosAction(this, api('/bios/power-schedule', { method: 'POST', query: biosWriteQuery(query) }));
+  });
   $('biosExperimentalConfirmInput').addEventListener('change', () => {
     if ($('biosExperimentalConfirmInput').checked) rememberBiosWriteRisk();
     updateBiosWriteRiskConfirmation(true);
@@ -2566,6 +2635,13 @@
   document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
     input.addEventListener('change', () => {
       document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((candidate) => {
+        candidate.closest('.bios-policy-choice')?.classList.toggle('active', candidate.checked);
+      });
+    });
+  });
+  document.querySelectorAll('input[name="biosWolPolicy"]').forEach((input) => {
+    input.addEventListener('change', () => {
+      document.querySelectorAll('input[name="biosWolPolicy"]').forEach((candidate) => {
         candidate.closest('.bios-policy-choice')?.classList.toggle('active', candidate.checked);
       });
     });

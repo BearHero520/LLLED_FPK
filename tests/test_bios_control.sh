@@ -14,6 +14,7 @@ PLUGINS="$TMP/models"
 ARGS="$TMP/args"
 STATUS="$TMP/status"
 mkdir -p "$PLUGINS"
+: > "$PLUGINS/dxp4800.so"
 : > "$PLUGINS/dxp4800plus.so"
 : > "$PLUGINS/dxp4800s.so"
 : > "$PLUGINS/dxp480tplus.so"
@@ -25,6 +26,7 @@ case " $* " in
   *" info "*) cat "$UGREENCTL_STATUS" ;;
   *" fan status "*) sed -n 's/^fan /fan /p' "$UGREENCTL_STATUS" ;;
   *" power startup get "*) sed -n 's/^startup: //p' "$UGREENCTL_STATUS" ;;
+  *" network wol get "*) sed -n 's/^wol: //p' "$UGREENCTL_STATUS" ;;
   *) exit 0 ;;
 esac
 EOF
@@ -40,14 +42,16 @@ source "$LIB/hardware_profile.sh"
 source "$LIB/bios_control.sh"
 
 bios_supported_model || fail "DXP4800 Plus should expose BIOS control"
+UGREEN_PRODUCT_NAME="DXP4800"
+bios_supported_model || fail "DXP4800 should expose guarded firmware-reversed BIOS control"
 UGREEN_PRODUCT_NAME="UGREEN DXP4800"
-! bios_supported_model || fail "DXP4800 must not expose BIOS control"
+! bios_supported_model || fail "DXP4800 BIOS control must require the exact upstream DMI product name"
 UGREEN_PRODUCT_NAME="UGREEN DXP4800 Pro"
 bios_supported_model || fail "DXP4800 Pro is supported by the upstream plugin"
 BIOS_TEST_IT87_MODULE_PATH="$TMP/it87-module"
 bios_write_confirmation_required || fail "direct fallback must require explicit acknowledgement"
 mkdir -p "$BIOS_TEST_IT87_MODULE_PATH"
-! bios_write_confirmation_required || fail "loaded it87 must keep normal writes on the hwmon path"
+bios_write_confirmation_required || fail "firmware-derived WOL must retain explicit acknowledgement even on the hwmon path"
 unset BIOS_TEST_IT87_MODULE_PATH
 UGREEN_PRODUCT_NAME="DXP4800S"
 bios_supported_model || fail "DXP4800S should expose guarded BIOS control"
@@ -68,6 +72,7 @@ cat > "$STATUS" <<'EOF'
 model: dxp4800plus (UGREEN DXP4800 Plus / DXP4800 Pro)
 controller: ITE IT8613 Super I/O
 startup: restore
+wol: on
 fan cpu: pwm=120 mode=manual tach=675 rpm=1000
 fan sys: pwm=88 mode=auto tach=750 rpm=900
 EOF
@@ -86,6 +91,33 @@ assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan 
 ! bios_set_fan_mode cpu auto || fail "fan auto mode must remain unavailable"
 bios_set_startup last
 assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --apply power startup set restore "
+bios_set_wol on
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply network wol set on "
+
+UGREEN_PRODUCT_NAME="DXP4800"
+cat > "$STATUS" <<'EOF'
+model: dxp4800 (UGREEN DXP4800 (firmware-reversed))
+controller: ITE IT8613 Super I/O
+startup: on
+wol: on
+fan sys: pwm=128 mode=manual tach=750 rpm=900
+EOF
+bios_read_status
+assert_eq "$BIOS_MODEL" "dxp4800"
+assert_eq "$BIOS_EXPERIMENTAL" "true"
+assert_eq "$BIOS_CPU_FAN_PRESENT" "false"
+assert_eq "$BIOS_SYS_PWM" "128"
+assert_eq "$BIOS_STARTUP_POLICY" "on"
+assert_eq "$BIOS_WOL_POLICY" "on"
+assert_eq "$BIOS_WOL_AVAILABLE" "true"
+bios_write_confirmation_required || fail "DXP4800 must require explicit write acknowledgement"
+bios_set_fan sys 128
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan set sys 128 "
+bios_set_startup off
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply power startup set off "
+bios_set_wol off
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply network wol set off "
+! bios_set_wol invalid || fail "DXP4800 WOL must reject unknown policies"
 
 UGREEN_PRODUCT_NAME="DXP4800S"
 cat > "$STATUS" <<'EOF'
@@ -150,6 +182,7 @@ cat > "$STATUS" <<'EOF'
 model: dxp480tplus (UGREEN DXP480T Plus (hardware-verified))
 controller: ITE IT8613 Super I/O
 startup: on
+wol: on
 fan cpu: pwm=120 mode=manual tach=675 rpm=1000
 fan sys1: pwm=96 mode=manual tach=750 rpm=900
 fan sys2: pwm=104 mode=auto tach=450 rpm=1500
@@ -172,6 +205,8 @@ assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan 
 ! bios_set_fan all 39 || fail "DXP480T PWM below 40 must be rejected"
 bios_set_startup on
 assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --apply power startup set on "
+bios_set_wol off
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply network wol set off "
 
 BIOS_TEST_IT87_MODULE_PATH="$TMP/it87-unloaded"
 cat > "$STATUS" <<'EOF'

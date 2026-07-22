@@ -97,6 +97,12 @@ class PreviewState:
         self.bios_sys_manual = False
         self.bios_sys2_manual = False
         self.bios_startup = "last"
+        self.bios_wol = "on"
+        self.bios_power_schedule_enabled = False
+        self.bios_power_schedule_days = ""
+        self.bios_power_schedule_wake_time = ""
+        self.bios_power_schedule_shutdown_time = ""
+        self.bios_rtc_wake_epoch = 0
         self.log_level = "info"
         self.logs = [
             "[2026-07-16T22:40:01+0800] [INFO] [service] [pid=2401] [event=service.start_requested] [source=main:main:51] msg=\"收到应用启动请求\" | kernel=\"6.12.0-preview\" cli=\"server/bin/ugreen_leds_cli\"",
@@ -142,8 +148,9 @@ class PreviewState:
 
     def bios_payload(self, message: str = "") -> dict[str, object]:
         profile = self.selected_profile()
-        supported = profile in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}
+        supported = profile in {"dxp4800", "dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}
         is_480t = profile == "dxp480t_plus"
+        is_4800 = profile == "dxp4800"
         is_4800s = profile == "dxp4800s"
         is_6800 = profile == "dxp6800"
         payload: dict[str, object] = {
@@ -151,28 +158,41 @@ class PreviewState:
             "supported": supported,
             "available": supported,
             "model": "dxp6800pro" if is_6800 else profile if supported else "unknown",
-            "experimental": is_4800s or is_6800,
-            "min_pwm": 64 if is_4800s else 40,
+            "experimental": is_4800 or is_4800s or is_6800,
+            "min_pwm": 40,
             "fan_write_target": "all" if is_480t else "sys",
-            "cpu_fan_present": not is_4800s,
+            "cpu_fan_present": not (is_4800 or is_4800s),
             "fan_mode_writable": False,
-            "pwm_readable": not is_4800s,
-            "write_confirmation_required": is_4800s or is_6800,
+            "pwm_readable": True,
+            "write_confirmation_required": supported,
             "product_name": f"{self.profile_meta()[0]}（预览）",
             "backend": "ugreenctl" if supported else "unavailable",
             "chip_id": "0x8613" if supported else "",
             "revision": 2 if supported else 0,
-            "cpu_pwm": self.bios_cpu_pwm if supported and not is_4800s else -1,
-            "sys_pwm": self.bios_sys_pwm if supported and not is_4800s else -1,
+            "cpu_pwm": self.bios_cpu_pwm if supported and not (is_4800 or is_4800s) else -1,
+            "sys_pwm": self.bios_sys_pwm if supported else -1,
             "sys2_pwm": self.bios_sys2_pwm if is_480t or is_6800 else -1,
-            "cpu_rpm": 1120 if is_480t else 1280 if supported and not is_4800s else 0,
-            "sys_rpm": 860 if is_480t else 920 if is_4800s else 940 if supported else 0,
+            "cpu_rpm": 1120 if is_480t else 1280 if supported and not (is_4800 or is_4800s) else 0,
+            "sys_rpm": 860 if is_480t else 920 if is_4800 or is_4800s else 940 if supported else 0,
             "sys2_rpm": 790 if is_480t else 820 if is_6800 else 0,
             "cpu_manual": self.bios_cpu_manual if supported else False,
             "sys_manual": self.bios_sys_manual if supported else False,
             "sys2_manual": self.bios_sys2_manual if is_480t or is_6800 else False,
             "startup": self.bios_startup if supported else "unknown",
-            "error": "" if supported else "BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro",
+            "startup_available": supported,
+            "wol_available": supported,
+            "wol": self.bios_wol if supported else "unknown",
+            "wol_error": "" if supported else "此机型没有固件证明的网络唤醒映射",
+            "power_schedule": {
+                "available": supported,
+                "enabled": self.bios_power_schedule_enabled if supported else False,
+                "days": self.bios_power_schedule_days if supported else "",
+                "wake_time": self.bios_power_schedule_wake_time if supported else "",
+                "shutdown_time": self.bios_power_schedule_shutdown_time if supported else "",
+                "rtc_epoch": self.bios_rtc_wake_epoch if supported else 0,
+                "error": "" if supported else "RTC 定时开机仅适用于有官方固件映射的机型",
+            },
+            "error": "" if supported else "BIOS 控制仅支持 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro",
         }
         if message:
             payload["message"] = message
@@ -182,7 +202,7 @@ class PreviewState:
     def bios_telemetry_sample(self, at: int) -> dict[str, int]:
         """Return a deterministic-looking read-only telemetry sample for local UI preview."""
         profile = self.selected_profile()
-        supported = profile in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}
+        supported = profile in {"dxp4800", "dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}
         is_480t = profile == "dxp480t_plus"
         is_4800s = profile == "dxp4800s"
         is_6800 = profile == "dxp6800"
@@ -685,6 +705,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
             channel = (query.get("channel") or [""])[0]
             profile = STATE.selected_profile()
             is_480t = profile == "dxp480t_plus"
+            is_4800 = profile == "dxp4800"
             is_4800s = profile == "dxp4800s"
             is_6800 = profile == "dxp6800"
             try:
@@ -694,14 +715,14 @@ class PreviewHandler(BaseHTTPRequestHandler):
             if method != "POST":
                 self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
                 return
-            if profile not in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}:
-                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"})
+            if profile not in {"dxp4800", "dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}:
+                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"})
                 return
-            if (is_4800s or is_6800) and (query.get("confirm") or [""])[0] != "firmware-reversed":
+            if (query.get("confirm") or [""])[0] != "firmware-reversed":
                 self.send_json({"ok": False, "error": "固件逆向写入尚未实机验证，请先确认风险"})
                 return
-            valid_channels = {"sys"} if is_4800s else {"cpu", "all"} if is_480t else {"cpu", "sys"}
-            minimum = 64 if is_4800s else 40
+            valid_channels = {"sys"} if is_4800 or is_4800s else {"cpu", "all"} if is_480t else {"cpu", "sys"}
+            minimum = 40
             if channel not in valid_channels or not minimum <= pwm <= 255:
                 self.send_json({"ok": False, "error": "风扇参数无效"})
                 return
@@ -731,11 +752,11 @@ class PreviewHandler(BaseHTTPRequestHandler):
             if method != "POST":
                 self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
                 return
-            if profile not in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}:
-                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"})
+            if profile not in {"dxp4800", "dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}:
+                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"})
                 return
-            if profile == "dxp4800s":
-                self.send_json({"ok": False, "error": "DXP4800S 当前模式不可读，只开放受保护的手动 PWM 写入"})
+            if profile in {"dxp4800", "dxp4800s"}:
+                self.send_json({"ok": False, "error": "DXP4800 系列当前模式不可读，只开放受保护的手动 PWM 写入"})
                 return
             valid_channels = {"cpu", "all"} if is_480t else {"cpu", "sys"}
             if channel not in valid_channels or fan_mode not in {"auto", "manual"}:
@@ -768,10 +789,10 @@ class PreviewHandler(BaseHTTPRequestHandler):
             if method != "POST":
                 self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
                 return
-            if profile not in {"dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}:
-                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"})
+            if profile not in {"dxp4800", "dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}:
+                self.send_json({"ok": False, "error": "BIOS 控制仅支持 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"})
                 return
-            if profile in {"dxp4800s", "dxp6800"} and (query.get("confirm") or [""])[0] != "firmware-reversed":
+            if (query.get("confirm") or [""])[0] != "firmware-reversed":
                 self.send_json({"ok": False, "error": "固件逆向写入尚未实机验证，请先确认风险"})
                 return
             if policy not in {"on", "off", "last"}:
@@ -780,6 +801,56 @@ class PreviewHandler(BaseHTTPRequestHandler):
             with STATE.lock:
                 STATE.bios_startup = policy
             self.send_json(STATE.bios_payload("来电启动策略已更新"))
+            return
+        if path == "/bios/wol":
+            policy = (query.get("policy") or [""])[0]
+            if method != "POST":
+                self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
+                return
+            if STATE.selected_profile() not in {"dxp4800", "dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}:
+                self.send_json({"ok": False, "error": "网络唤醒仅在官方固件明确映射的机型中可用"})
+                return
+            if (query.get("confirm") or [""])[0] != "firmware-reversed":
+                self.send_json({"ok": False, "error": "固件逆向网络唤醒写入尚未实机验证，请先确认风险"})
+                return
+            if policy not in {"on", "off"}:
+                self.send_json({"ok": False, "error": "网络唤醒参数无效"})
+                return
+            with STATE.lock:
+                STATE.bios_wol = policy
+            self.send_json(STATE.bios_payload("网络唤醒策略已更新"))
+            return
+        if path == "/bios/power-schedule":
+            enabled = (query.get("enabled") or [""])[0]
+            days = (query.get("days") or [""])[0]
+            wake_time = (query.get("wake_time") or [""])[0]
+            shutdown_time = (query.get("shutdown_time") or [""])[0]
+            supported = STATE.selected_profile() in {"dxp4800", "dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}
+            if method != "POST":
+                self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
+                return
+            if not supported:
+                self.send_json({"ok": False, "error": "scheduled power is unavailable for this model"})
+                return
+            if (query.get("confirm") or [""])[0] != "firmware-reversed":
+                self.send_json({"ok": False, "error": "固件逆向 RTC 定时开机尚未实机验证，请先确认风险"})
+                return
+            valid_time = re.compile(r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
+            day_values = days.split(",") if days else []
+            valid_days = bool(day_values) and len(day_values) == len(set(day_values)) and all(day in {"1", "2", "3", "4", "5", "6", "7"} for day in day_values)
+            if enabled not in {"true", "false"}:
+                self.send_json({"ok": False, "error": "invalid scheduled power switch"})
+                return
+            if enabled == "true" and (not valid_days or not valid_time.fullmatch(wake_time) or not valid_time.fullmatch(shutdown_time)):
+                self.send_json({"ok": False, "error": "invalid scheduled power calendar or time"})
+                return
+            with STATE.lock:
+                STATE.bios_power_schedule_enabled = enabled == "true"
+                STATE.bios_power_schedule_days = days if enabled == "true" else ""
+                STATE.bios_power_schedule_wake_time = wake_time if enabled == "true" else ""
+                STATE.bios_power_schedule_shutdown_time = shutdown_time if enabled == "true" else ""
+                STATE.bios_rtc_wake_epoch = int(time.time()) + 86400 if enabled == "true" else 0
+            self.send_json(STATE.bios_payload("定时开关机计划已更新"))
             return
         if path == "/power26/apply":
             color = (query.get("color") or [""])[0]

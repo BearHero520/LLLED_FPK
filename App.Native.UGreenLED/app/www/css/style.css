@@ -556,6 +556,7 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
 .bios-policy-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
 .bios-policy-choice { position: relative; display: flex; align-items: center; gap: 14px; min-height: 86px; padding: 16px 17px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255, 255, 255, 0.46); cursor: pointer; transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease; }
 .bios-policy-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.bios-policy-choice input.bios-schedule-time { position: static; width: 100%; margin-top: 2px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255, 255, 255, 0.82); color: var(--text); font: inherit; opacity: 1; pointer-events: auto; }
 .bios-policy-choice > i { width: 28px; flex: 0 0 auto; color: var(--text-faint); font-size: 20px; text-align: center; }
 .bios-policy-choice > span, .bios-detail-surface > div { min-width: 0; }
 .bios-policy-choice strong, .bios-policy-choice small { display: block; overflow-wrap: anywhere; }

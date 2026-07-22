@@ -17,7 +17,7 @@ DEFAULT_SOURCE = ROOT / "App.Native.UGreenLED" / "app" / "server" / "vendor" / "
 DEFAULT_BINARY = ROOT / "App.Native.UGreenLED" / "app" / "server" / "bin" / "ugreenctl"
 DEFAULT_DAEMON = ROOT / "App.Native.UGreenLED" / "app" / "server" / "bin" / "ugreenctl-fand"
 DEFAULT_PLUGIN_DIR = ROOT / "App.Native.UGreenLED" / "app" / "server" / "lib" / "ugreenctl" / "models"
-MODELS = ("dxp4800plus", "dxp4800s", "dxp480tplus", "dxp6800pro")
+MODELS = ("dxp4800", "dxp4800plus", "dxp4800s", "dxp480tplus", "dxp6800pro")
 
 
 def run(command: list[str]) -> None:

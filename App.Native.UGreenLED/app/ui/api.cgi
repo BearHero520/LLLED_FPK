@@ -483,7 +483,7 @@ hardware_status_json() {
 }
 
 bios_status_json() {
-    local message="${1:-}" chip_id="" error="" fan_error="" startup_error="" fan_curve="" telemetry_at=0
+    local message="${1:-}" chip_id="" error="" fan_error="" startup_error="" wol_error="" fan_curve="" telemetry_at=0
     bios_read_status >/dev/null 2>&1 || true
     telemetry_at=$(date +%s 2>/dev/null || echo 0)
     fan_telemetry_append_bios_status "$telemetry_at" >/dev/null 2>&1 || true
@@ -493,14 +493,20 @@ bios_status_json() {
     error="$BIOS_LAST_ERROR"
     fan_error="$BIOS_FAN_ERROR"
     startup_error="$BIOS_STARTUP_ERROR"
+    wol_error="$BIOS_WOL_ERROR"
     fan_curve=$(bios_fan_curve_status_json)
-    printf '{"ok":true,"supported":%s,"available":%s,"startup_available":%s,"model":"%s","experimental":%s,"min_pwm":%s,"fan_write_target":"%s","cpu_fan_present":%s,"fan_mode_writable":%s,"pwm_readable":%s,"write_confirmation_required":%s,"direct_fan_fallback":%s,"product_name":"%s","backend":"%s","chip_id":"%s","revision":%s,"cpu_pwm":%s,"sys_pwm":%s,"sys2_pwm":%s,"cpu_rpm":%s,"sys_rpm":%s,"sys2_rpm":%s,"cpu_manual":%s,"sys_manual":%s,"sys2_manual":%s,"startup":"%s","error":"%s","fan_error":"%s","startup_error":"%s"' \
-        "$BIOS_SUPPORTED" "$BIOS_AVAILABLE" "$BIOS_STARTUP_AVAILABLE" "$(json_str "$BIOS_MODEL")" "$BIOS_EXPERIMENTAL" "${BIOS_MIN_PWM:-0}" "$(json_str "$BIOS_FAN_WRITE_TARGET")" \
+    printf '{"ok":true,"supported":%s,"available":%s,"startup_available":%s,"wol_available":%s,"model":"%s","experimental":%s,"min_pwm":%s,"fan_write_target":"%s","cpu_fan_present":%s,"fan_mode_writable":%s,"pwm_readable":%s,"write_confirmation_required":%s,"direct_fan_fallback":%s,"product_name":"%s","backend":"%s","chip_id":"%s","revision":%s,"cpu_pwm":%s,"sys_pwm":%s,"sys2_pwm":%s,"cpu_rpm":%s,"sys_rpm":%s,"sys2_rpm":%s,"cpu_manual":%s,"sys_manual":%s,"sys2_manual":%s,"startup":"%s","wol":"%s","error":"%s","fan_error":"%s","startup_error":"%s","wol_error":"%s"' \
+        "$BIOS_SUPPORTED" "$BIOS_AVAILABLE" "$BIOS_STARTUP_AVAILABLE" "$BIOS_WOL_AVAILABLE" "$(json_str "$BIOS_MODEL")" "$BIOS_EXPERIMENTAL" "${BIOS_MIN_PWM:-0}" "$(json_str "$BIOS_FAN_WRITE_TARGET")" \
         "$BIOS_CPU_FAN_PRESENT" "$BIOS_FAN_MODE_WRITABLE" "$BIOS_PWM_READABLE" "$BIOS_WRITE_CONFIRMATION_REQUIRED" "$BIOS_DIRECT_FAN_FALLBACK" "$(json_str "$BIOS_PRODUCT_NAME")" "$(json_str "$BIOS_BACKEND")" \
         "$(json_str "$chip_id")" "${BIOS_REVISION:-0}" "${BIOS_CPU_PWM:--1}" "${BIOS_SYS_PWM:--1}" "${BIOS_SYS2_PWM:--1}" \
         "${BIOS_CPU_RPM:-0}" "${BIOS_SYS_RPM:-0}" "${BIOS_SYS2_RPM:-0}" "$BIOS_CPU_MANUAL" "$BIOS_SYS_MANUAL" "$BIOS_SYS2_MANUAL" \
-        "$(json_str "$BIOS_STARTUP_POLICY")" "$(json_str "$error")" "$(json_str "$fan_error")" "$(json_str "$startup_error")"
+        "$(json_str "$BIOS_STARTUP_POLICY")" "$(json_str "$BIOS_WOL_POLICY")" "$(json_str "$error")" "$(json_str "$fan_error")" "$(json_str "$startup_error")" "$(json_str "$wol_error")"
     printf ',"fan_curve":%s' "$fan_curve"
+    printf ',"power_schedule":{"available":%s,"enabled":%s,"days":"%s","wake_time":"%s","shutdown_time":"%s","rtc_epoch":%s,"error":"%s"}' \
+        "$BIOS_POWER_SCHEDULE_AVAILABLE" "$BIOS_POWER_SCHEDULE_ENABLED" \
+        "$(json_str "$BIOS_POWER_SCHEDULE_DAYS")" "$(json_str "$BIOS_POWER_SCHEDULE_WAKE_TIME")" \
+        "$(json_str "$BIOS_POWER_SCHEDULE_SHUTDOWN_TIME")" "${BIOS_RTC_WAKE_EPOCH:-0}" \
+        "$(json_str "$BIOS_POWER_SCHEDULE_ERROR")"
     printf ',"telemetry":%s' "$(fan_telemetry_current_json "$telemetry_at")"
     [[ -n "$message" ]] && printf ',"message":"%s"' "$(json_str "$message")"
     printf '}'
@@ -525,7 +531,7 @@ bios_telemetry_json() {
 bios_write_confirmation_valid() {
     local confirmation="$(query_value confirm)"
 
-    if [[ "$(bios_detected_profile)" == "dxp4800s" || "$(bios_detected_profile)" == "dxp6800pro" ]]; then
+    if bios_write_confirmation_required; then
         [[ "$confirmation" == "firmware-reversed" ]]
     elif bios_direct_fan_fallback_active; then
         [[ "$confirmation" == "direct-superio" ]]
@@ -771,7 +777,7 @@ case "$API_PATH" in
         elif ! [[ "$channel" =~ ^(cpu|sys|all)$ && "$pwm" =~ ^[0-9]+$ ]] || (( pwm < 0 || pwm > 255 )); then
             echo '{"ok":false,"error":"风扇参数无效"}'
         elif ! bios_write_confirmation_valid; then
-            if [[ "$(bios_detected_profile)" == "dxp4800s" || "$(bios_detected_profile)" == "dxp6800pro" ]]; then
+            if [[ "$(bios_detected_profile)" == "dxp4800" || "$(bios_detected_profile)" == "dxp4800s" || "$(bios_detected_profile)" == "dxp6800pro" ]]; then
                 echo '{"ok":false,"error":"固件逆向风扇写入需要先确认风险"}'
             else
                 echo '{"ok":false,"error":"直控风扇写入需要先确认 IT8613 直控风险"}'
@@ -839,6 +845,39 @@ case "$API_PATH" in
             bios_status_json "来电启动策略已更新"
         else
             printf '{"ok":false,"error":"%s"}' "$(json_str "${BIOS_LAST_ERROR:-来电启动设置失败}")"
+        fi
+        ;;
+    /bios/wol)
+        policy=$(query_value policy)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif ! [[ "$policy" =~ ^(on|off)$ ]]; then
+            echo '{"ok":false,"error":"网络唤醒参数无效"}'
+        elif ! bios_write_confirmation_valid; then
+            echo '{"ok":false,"error":"固件逆向网络唤醒写入需要先在页面确认风险"}'
+        elif bios_set_wol "$policy"; then
+            bios_status_json "网络唤醒策略已更新"
+        else
+            printf '{"ok":false,"error":"%s"}' "$(json_str "${BIOS_LAST_ERROR:-网络唤醒设置失败}")"
+        fi
+        ;;
+    /bios/power-schedule)
+        enabled=$(query_value enabled)
+        days=$(query_value days)
+        wake_time=$(query_value wake_time)
+        shutdown_time=$(query_value shutdown_time)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif ! [[ "$enabled" =~ ^(true|false)$ ]]; then
+            echo '{"ok":false,"error":"定时开关机开关无效"}'
+        elif [[ "$enabled" == "true" ]] && ! { bios_schedule_days_valid "$days" && bios_schedule_time_valid "$wake_time" && bios_schedule_time_valid "$shutdown_time"; }; then
+            echo '{"ok":false,"error":"定时开关机的日期或时间无效"}'
+        elif ! bios_write_confirmation_valid; then
+            echo '{"ok":false,"error":"固件逆向 RTC 定时开机需要先在页面确认风险"}'
+        elif bios_power_schedule_set "$SETTINGS_FILE" "$enabled" "$days" "$wake_time" "$shutdown_time"; then
+            bios_status_json "定时开关机计划已更新"
+        else
+            printf '{"ok":false,"error":"%s"}' "$(json_str "${BIOS_LAST_ERROR:-定时开关机设置失败}")"
         fi
         ;;
     /mapping)

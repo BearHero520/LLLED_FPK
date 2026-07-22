@@ -88,6 +88,12 @@ class PreviewApiTests(unittest.TestCase):
                 state.bios_sys_pwm,
                 state.bios_sys2_pwm,
                 state.bios_startup,
+                state.bios_wol,
+                state.bios_power_schedule_enabled,
+                state.bios_power_schedule_days,
+                state.bios_power_schedule_wake_time,
+                state.bios_power_schedule_shutdown_time,
+                state.bios_rtc_wake_epoch,
                 tuple(state.logs),
             )
 
@@ -99,6 +105,8 @@ class PreviewApiTests(unittest.TestCase):
             "/bios/fan?channel=cpu&pwm=120",
             "/bios/fan/mode?channel=cpu&mode=manual",
             "/bios/startup?policy=on",
+            "/bios/wol?policy=off",
+            "/bios/power-schedule?enabled=true&days=1,2,3,4,5&wake_time=07%3A00&shutdown_time=23%3A00",
             "/power26/apply?color=white&effect=steady&threshold=32",
             "/driver/install?confirm=install-driver",
             "/driver/unload?confirm=unload-driver",
@@ -224,6 +232,49 @@ class PreviewApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(payload["ok"])
         self.assertEqual(preview.STATE.bios_startup, "off")
+
+    def test_dxp4800_bios_and_wol_require_firmware_reversed_confirmation(self) -> None:
+        preview.STATE.configure_profile("dxp4800")
+
+        status, payload, _ = self.request("GET", "/bios/status")
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["supported"])
+        self.assertEqual(payload["model"], "dxp4800")
+        self.assertTrue(payload["write_confirmation_required"])
+        self.assertTrue(payload["wol_available"])
+        self.assertEqual(payload["wol"], "on")
+        self.assertFalse(payload["cpu_fan_present"])
+
+        status, payload, _ = self.request("POST", "/bios/wol?policy=off")
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(preview.STATE.bios_wol, "on")
+
+        status, payload, _ = self.request(
+            "POST", "/bios/wol?policy=off&confirm=firmware-reversed"
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(preview.STATE.bios_wol, "off")
+
+        preview.STATE.configure_profile("dxp4800_plus")
+        status, payload, _ = self.request(
+            "POST", "/bios/wol?policy=on&confirm=firmware-reversed"
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["wol_available"])
+
+        status, payload, _ = self.request(
+            "POST", "/bios/power-schedule?enabled=true&days=1,2,3,4,5&wake_time=07%3A00&shutdown_time=23%3A00&confirm=firmware-reversed"
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        schedule = payload["power_schedule"]
+        self.assertTrue(schedule["available"])
+        self.assertTrue(schedule["enabled"])
+        self.assertEqual(schedule["days"], "1,2,3,4,5")
+        self.assertGreater(schedule["rtc_epoch"], 0)
 
     def test_bios_telemetry_returns_time_samples_for_each_window(self) -> None:
         preview.STATE.configure_profile("dxp6800")

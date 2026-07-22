@@ -12,9 +12,11 @@ BIOS_IT8613_ID=34323 # 0x8613; verified by the upstream model plugin.
 BIOS_LAST_ERROR=""
 BIOS_FAN_ERROR=""
 BIOS_STARTUP_ERROR=""
+BIOS_WOL_ERROR=""
 BIOS_SUPPORTED=false
 BIOS_AVAILABLE=false
 BIOS_STARTUP_AVAILABLE=false
+BIOS_WOL_AVAILABLE=false
 BIOS_BACKEND="unavailable"
 BIOS_MODEL="unknown"
 BIOS_EXPERIMENTAL=false
@@ -38,6 +40,14 @@ BIOS_CPU_MANUAL=false
 BIOS_SYS_MANUAL=false
 BIOS_SYS2_MANUAL=false
 BIOS_STARTUP_POLICY="unknown"
+BIOS_WOL_POLICY="unknown"
+BIOS_RTC_WAKE_EPOCH=0
+BIOS_POWER_SCHEDULE_ENABLED=false
+BIOS_POWER_SCHEDULE_DAYS=""
+BIOS_POWER_SCHEDULE_WAKE_TIME=""
+BIOS_POWER_SCHEDULE_SHUTDOWN_TIME=""
+BIOS_POWER_SCHEDULE_AVAILABLE=false
+BIOS_POWER_SCHEDULE_ERROR=""
 BIOS_CPU_FAN_PRESENT=true
 BIOS_FAN_MODE_WRITABLE=false
 BIOS_PWM_READABLE=true
@@ -64,6 +74,7 @@ bios_detected_profile() {
     product=$(hardware_detected_product_name 2>/dev/null || true)
     case "${product^^}" in
         "DXP480T PLUS"|"UGREEN DXP480T PLUS") echo "dxp480t_plus" ;;
+        "DXP4800") echo "dxp4800" ;;
         "DXP4800S") echo "dxp4800s" ;;
         "DXP4800 PLUS"|"UGREEN DXP4800 PLUS") echo "dxp4800_plus" ;;
         "DXP4800 PRO"|"UGREEN DXP4800 PRO") echo "dxp4800_pro" ;;
@@ -74,7 +85,14 @@ bios_detected_profile() {
 
 bios_supported_model() {
     case "$(bios_detected_profile)" in
-        dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) return 0 ;;
+        dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+bios_wol_supported_model() {
+    case "$(bios_detected_profile)" in
+        dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -91,7 +109,8 @@ bios_direct_fan_fallback_active() {
 
 bios_write_confirmation_required() {
     case "$(bios_detected_profile)" in
-        dxp4800s|dxp6800pro) return 0 ;;
+        # WOL and RTC scheduled wake are firmware-reversed on every mapped model.
+        dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) return 0 ;;
     esac
     bios_direct_fan_fallback_active
 }
@@ -124,7 +143,7 @@ bios_ugreenctl_plugin_dir() {
         "$BIOS_UGREENCTL_PLUGIN_DIR" \
         "${SERVER_DIR:-}/lib/ugreenctl/models" \
         "${APP_ROOT:-}/target/server/lib/ugreenctl/models"; do
-        [[ -n "$candidate" && -r "$candidate/dxp4800plus.so" && -r "$candidate/dxp4800s.so" && -r "$candidate/dxp480tplus.so" && -r "$candidate/dxp6800pro.so" ]] && {
+        [[ -n "$candidate" && -r "$candidate/dxp4800.so" && -r "$candidate/dxp4800plus.so" && -r "$candidate/dxp4800s.so" && -r "$candidate/dxp480tplus.so" && -r "$candidate/dxp6800pro.so" ]] && {
             printf '%s\n' "$candidate"
             return 0
         }
@@ -143,6 +162,7 @@ bios_fan_curve_log_path() { printf '%s\n' "${VAR_DIR:-/var/apps/App.Native.UGree
 
 bios_fan_curve_stock_profile_for_model() {
     case "$(bios_detected_profile)" in
+        dxp4800) echo "stock-4800" ;;
         dxp4800s) echo "stock-4800s" ;;
         dxp4800_plus|dxp4800_pro) echo "stock-4800plus" ;;
         dxp480t_plus) echo "stock-480tplus" ;;
@@ -465,13 +485,223 @@ bios_read_cli_startup() {
         "model=$(bios_detected_profile)" "policy=$BIOS_STARTUP_POLICY"
 }
 
+bios_read_cli_wol() {
+    local output policy
+
+    if ! output=$(bios_cli network wol get 2>&1); then
+        bios_set_error_from_output "$output" "读取网络唤醒状态失败"
+        BIOS_WOL_ERROR="$BIOS_LAST_ERROR"
+        if declare -F ugreen_log_rate_limited >/dev/null; then
+            ugreen_log_rate_limited "bios-wol-status-$(bios_detected_profile)" 300 WARN \
+                "bios.wol_status_read_failed" "$BIOS_WOL_ERROR" \
+                "model=$(bios_detected_profile)" "output=$output"
+        fi
+        return 1
+    fi
+    policy=$(printf '%s\n' "$output" | sed '/^[[:space:]]*$/d' | tail -n 1)
+    case "$policy" in
+        on|off) BIOS_WOL_POLICY="$policy" ;;
+        *)
+            BIOS_WOL_ERROR="网络唤醒返回了未知值：${policy:-<empty>}"
+            return 1
+            ;;
+    esac
+    BIOS_WOL_ERROR=""
+    BIOS_LAST_ERROR=""
+    _bios_log_debug "bios.wol_status_read" "网络唤醒状态读取完成" \
+        "model=$(bios_detected_profile)" "policy=$BIOS_WOL_POLICY"
+}
+
+bios_schedule_days_valid() {
+    local days="$1" day seen=","
+    local -a schedule_days
+
+    [[ "$days" =~ ^[1-7](,[1-7])*$ ]] || return 1
+    IFS=',' read -r -a schedule_days <<< "$days"
+    for day in "${schedule_days[@]}"; do
+        [[ "$seen" != *",${day},"* ]] || return 1
+        seen+="${day},"
+    done
+}
+
+bios_schedule_time_valid() {
+    local time_value="$1" hour minute
+
+    [[ "$time_value" =~ ^([0-1][0-9]|2[0-3]):[0-5][0-9]$ ]] || return 1
+    hour=${time_value%:*}
+    minute=${time_value#*:}
+    (( 10#$hour <= 23 && 10#$minute <= 59 ))
+}
+
+bios_schedule_next_epoch() {
+    local days="$1" wake_time="$2" offset day candidate now
+
+    now=$(date +%s) || return 1
+    for ((offset = 0; offset <= 7; ++offset)); do
+        candidate=$(date -d "today +${offset} days ${wake_time}" +%s 2>/dev/null) || return 1
+        day=$(date -d "@${candidate}" +%u 2>/dev/null) || return 1
+        [[ ",$days," == *",${day},"* ]] || continue
+        (( candidate > now + 60 )) || continue
+        printf '%s\n' "$candidate"
+        return 0
+    done
+    return 1
+}
+
+bios_read_cli_rtc_wake() {
+    local output epoch
+
+    if ! output=$(bios_cli power rtc-wake get 2>&1); then
+        bios_set_error_from_output "$output" "读取定时开机 RTC 状态失败"
+        BIOS_POWER_SCHEDULE_ERROR="$BIOS_LAST_ERROR"
+        return 1
+    fi
+    epoch=$(printf '%s\n' "$output" | sed '/^[[:space:]]*$/d' | tail -n 1)
+    [[ "$epoch" =~ ^[0-9]+$ ]] || {
+        BIOS_POWER_SCHEDULE_ERROR="RTC 定时开机返回了无效时间"
+        return 1
+    }
+    BIOS_RTC_WAKE_EPOCH="$epoch"
+    BIOS_POWER_SCHEDULE_ERROR=""
+    BIOS_LAST_ERROR=""
+}
+
+bios_schedule_cron_file() {
+    printf '%s\n' "${BIOS_SCHEDULE_CRON_FILE:-/etc/cron.d/app-native-ugreen-led-power}"
+}
+
+bios_schedule_install_shutdown_cron() {
+    local days="$1" shutdown_time="$2" cron_file temp minute hour
+
+    cron_file=$(bios_schedule_cron_file)
+    minute=${shutdown_time#*:}
+    hour=${shutdown_time%:*}
+    mkdir -p "$(dirname "$cron_file")" || { BIOS_LAST_ERROR="无法创建定时关机目录"; return 1; }
+    temp=$(mktemp "${cron_file}.tmp.XXXXXX") || { BIOS_LAST_ERROR="无法创建定时关机配置"; return 1; }
+    {
+        printf '%s\n' '# Managed by App.Native.UGreenLED. Do not edit manually.'
+        printf '%s\n' 'SHELL=/bin/bash'
+        printf '%s %s * * %s root %q shutdown\n' "$minute" "$hour" "$days" "${SERVER_DIR}/scheduled_power.sh"
+    } > "$temp" || { rm -f "$temp"; BIOS_LAST_ERROR="无法写入定时关机配置"; return 1; }
+    chmod 0644 "$temp" || { rm -f "$temp"; BIOS_LAST_ERROR="无法设置定时关机配置权限"; return 1; }
+    mv "$temp" "$cron_file" || { rm -f "$temp"; BIOS_LAST_ERROR="无法启用定时关机配置"; return 1; }
+}
+
+bios_schedule_remove_shutdown_cron() {
+    local cron_file
+
+    cron_file=$(bios_schedule_cron_file)
+    [[ -e "$cron_file" ]] || return 0
+    rm -f -- "$cron_file" || { BIOS_LAST_ERROR="无法移除定时关机配置"; return 1; }
+}
+
+bios_schedule_rearm() {
+    local days="$1" wake_time="$2" epoch output
+
+    bios_schedule_days_valid "$days" && bios_schedule_time_valid "$wake_time" || {
+        BIOS_LAST_ERROR="定时开机日期或时间无效"
+        return 1
+    }
+    epoch=$(bios_schedule_next_epoch "$days" "$wake_time") || {
+        BIOS_LAST_ERROR="无法计算下一次定时开机时间"
+        return 1
+    }
+    if ! output=$(bios_cli --force --apply power rtc-wake set "$epoch" 2>&1); then
+        bios_set_error_from_output "$output" "设置 RTC 定时开机失败"
+        return 1
+    fi
+    BIOS_RTC_WAKE_EPOCH="$epoch"
+    BIOS_LAST_ERROR=""
+    _bios_log_info "bios.power_schedule_rearmed" "RTC 定时开机已重设" \
+        "model=$(bios_detected_profile)" "days=$days" "wake_time=$wake_time" "epoch=$epoch"
+}
+
+bios_power_schedule_set() {
+    local settings_file="$1" enabled="$2" days="$3" wake_time="$4" shutdown_time="$5"
+
+    BIOS_LAST_ERROR=""
+    bios_wol_supported_model || { BIOS_LAST_ERROR="当前机型没有固件映射的 RTC 定时开机路径"; return 1; }
+    case "$enabled" in
+        true)
+            bios_schedule_days_valid "$days" && bios_schedule_time_valid "$wake_time" && \
+                bios_schedule_time_valid "$shutdown_time" || {
+                    BIOS_LAST_ERROR="定时开关机的日期或时间无效"
+                    return 1
+                }
+            bios_schedule_install_shutdown_cron "$days" "$shutdown_time" || return 1
+            if ! bios_schedule_rearm "$days" "$wake_time"; then
+                bios_schedule_remove_shutdown_cron >/dev/null 2>&1 || true
+                return 1
+            fi
+            if ! settings_apply_updates "$settings_file" <<EOF
+power_schedule.enabled=true
+power_schedule.days=$days
+power_schedule.wake_time=$wake_time
+power_schedule.shutdown_time=$shutdown_time
+EOF
+            then
+                BIOS_LAST_ERROR="无法保存定时开关机配置"
+                bios_schedule_remove_shutdown_cron >/dev/null 2>&1 || true
+                bios_cli --force --apply power rtc-wake clear >/dev/null 2>&1 || true
+                return 1
+            fi
+            ;;
+        false)
+            bios_schedule_remove_shutdown_cron || return 1
+            if ! bios_cli --force --apply power rtc-wake clear >/dev/null 2>&1; then
+                BIOS_LAST_ERROR="清除 RTC 定时开机失败"
+                return 1
+            fi
+            BIOS_RTC_WAKE_EPOCH=0
+            if ! settings_apply_updates "$settings_file" <<'EOF'
+power_schedule.enabled=false
+power_schedule.days=
+power_schedule.wake_time=
+power_schedule.shutdown_time=
+EOF
+            then
+                BIOS_LAST_ERROR="无法保存定时开关机配置"
+                return 1
+            fi
+            ;;
+        *) BIOS_LAST_ERROR="定时开关机开关无效"; return 1 ;;
+    esac
+}
+
+bios_read_power_schedule() {
+    local settings_file="$1"
+
+    if ! declare -F settings_get >/dev/null; then
+        BIOS_POWER_SCHEDULE_ENABLED=false
+        BIOS_POWER_SCHEDULE_DAYS=""
+        BIOS_POWER_SCHEDULE_WAKE_TIME=""
+        BIOS_POWER_SCHEDULE_SHUTDOWN_TIME=""
+        BIOS_POWER_SCHEDULE_AVAILABLE=false
+        BIOS_POWER_SCHEDULE_ERROR="定时开关机配置服务不可用"
+        BIOS_RTC_WAKE_EPOCH=0
+        return 0
+    fi
+    BIOS_POWER_SCHEDULE_ENABLED=$(settings_get "$settings_file" power_schedule enabled false)
+    BIOS_POWER_SCHEDULE_DAYS=$(settings_get "$settings_file" power_schedule days "")
+    BIOS_POWER_SCHEDULE_WAKE_TIME=$(settings_get "$settings_file" power_schedule wake_time "")
+    BIOS_POWER_SCHEDULE_SHUTDOWN_TIME=$(settings_get "$settings_file" power_schedule shutdown_time "")
+    BIOS_POWER_SCHEDULE_AVAILABLE=false
+    BIOS_POWER_SCHEDULE_ERROR=""
+    BIOS_RTC_WAKE_EPOCH=0
+    if bios_wol_supported_model && bios_read_cli_rtc_wake; then
+        BIOS_POWER_SCHEDULE_AVAILABLE=true
+    fi
+}
+
 bios_read_status() {
     BIOS_LAST_ERROR=""
     BIOS_FAN_ERROR=""
     BIOS_STARTUP_ERROR=""
+    BIOS_WOL_ERROR=""
     BIOS_SUPPORTED=false
     BIOS_AVAILABLE=false
     BIOS_STARTUP_AVAILABLE=false
+    BIOS_WOL_AVAILABLE=false
     BIOS_BACKEND="unavailable"
     BIOS_PRODUCT_NAME=$(hardware_detected_product_name 2>/dev/null || true)
     BIOS_MODEL=$(bios_detected_profile)
@@ -495,6 +725,14 @@ bios_read_status() {
     BIOS_SYS_MANUAL=false
     BIOS_SYS2_MANUAL=false
     BIOS_STARTUP_POLICY="unknown"
+    BIOS_WOL_POLICY="unknown"
+    BIOS_RTC_WAKE_EPOCH=0
+    BIOS_POWER_SCHEDULE_ENABLED=false
+    BIOS_POWER_SCHEDULE_DAYS=""
+    BIOS_POWER_SCHEDULE_WAKE_TIME=""
+    BIOS_POWER_SCHEDULE_SHUTDOWN_TIME=""
+    BIOS_POWER_SCHEDULE_AVAILABLE=false
+    BIOS_POWER_SCHEDULE_ERROR=""
     BIOS_CPU_FAN_PRESENT=true
     BIOS_FAN_MODE_WRITABLE=false
     BIOS_PWM_READABLE=true
@@ -502,13 +740,13 @@ bios_read_status() {
     BIOS_DIRECT_FAN_FALLBACK=false
 
     if ! bios_supported_model; then
-        BIOS_LAST_ERROR="BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S 与 DXP480T Plus"
+        BIOS_LAST_ERROR="BIOS 控制仅支持 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"
         return 0
     fi
     BIOS_SUPPORTED=true
     if [[ "$BIOS_MODEL" == "dxp480t_plus" ]]; then
         BIOS_FAN_WRITE_TARGET="all"
-    elif [[ "$BIOS_MODEL" == "dxp4800s" ]]; then
+    elif [[ "$BIOS_MODEL" == "dxp4800" || "$BIOS_MODEL" == "dxp4800s" ]]; then
         BIOS_EXPERIMENTAL=true
         BIOS_MIN_PWM=40
         BIOS_CPU_FAN_PRESENT=false
@@ -516,8 +754,8 @@ bios_read_status() {
         BIOS_WRITE_CONFIRMATION_REQUIRED=true
     elif [[ "$BIOS_MODEL" == "dxp6800pro" ]]; then
         BIOS_EXPERIMENTAL=true
-        BIOS_WRITE_CONFIRMATION_REQUIRED=true
     fi
+    bios_write_confirmation_required && BIOS_WRITE_CONFIRMATION_REQUIRED=true
     if bios_direct_fan_fallback_active; then
         BIOS_DIRECT_FAN_FALLBACK=true
         BIOS_WRITE_CONFIRMATION_REQUIRED=true
@@ -532,6 +770,7 @@ bios_read_status() {
         fi
         BIOS_FAN_ERROR="$BIOS_LAST_ERROR"
         BIOS_STARTUP_ERROR="$BIOS_LAST_ERROR"
+        BIOS_WOL_ERROR="$BIOS_LAST_ERROR"
         return 1
     fi
     if bios_read_cli_fans; then
@@ -540,9 +779,13 @@ bios_read_status() {
     if bios_read_cli_startup; then
         BIOS_STARTUP_AVAILABLE=true
     fi
+    if bios_wol_supported_model && bios_read_cli_wol; then
+        BIOS_WOL_AVAILABLE=true
+    fi
+    bios_read_power_schedule "${SETTINGS_FILE:-${VAR_DIR:-/tmp}/settings.conf}"
     bios_read_thermal_snapshot >/dev/null 2>&1 || true
     BIOS_LAST_ERROR="$BIOS_FAN_ERROR"
-    $BIOS_AVAILABLE || $BIOS_STARTUP_AVAILABLE
+    $BIOS_AVAILABLE || $BIOS_STARTUP_AVAILABLE || $BIOS_WOL_AVAILABLE
 }
 
 bios_set_fan() {
@@ -552,16 +795,16 @@ bios_set_fan() {
     # ugreenctl still requires exact DMI, chip-ID and owner checks.
     local -a args=(--force --apply)
     BIOS_LAST_ERROR=""
-    bios_supported_model || { BIOS_LAST_ERROR="BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S 与 DXP480T Plus"; return 1; }
+    bios_supported_model || { BIOS_LAST_ERROR="BIOS 控制仅支持 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"; return 1; }
     model=$(bios_detected_profile)
     case "$model" in
-        dxp4800s)
+        dxp4800|dxp4800s)
             [[ "$pwm" =~ ^[0-9]+$ ]] && (( pwm >= 40 && pwm <= 255 )) || {
-                BIOS_LAST_ERROR="DXP4800S PWM 必须在 40 到 255 之间"
+                BIOS_LAST_ERROR="DXP4800 系列 PWM 必须在 40 到 255 之间"
                 return 1
             }
             [[ "$channel" == "sys" ]] || {
-                BIOS_LAST_ERROR="DXP4800S 仅支持系统风扇写入"
+                BIOS_LAST_ERROR="DXP4800 仅支持系统风扇写入"
                 return 1
             }
             ;;
@@ -599,7 +842,7 @@ bios_set_fan() {
     if ! output=$(bios_cli "${args[@]}" fan set "$channel" "$pwm" 2>&1); then
         bios_set_error_from_output "$output" "设置风扇 PWM 失败"
         _bios_log_error "bios.fan_set_failed" "$BIOS_LAST_ERROR" \
-        "model=$model" "channel=$channel" "pwm=$pwm" "forced=$([[ "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)" \
+        "model=$model" "channel=$channel" "pwm=$pwm" "forced=$([[ "$model" == "dxp4800" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)" \
             "output=$output"
         return 1
     fi
@@ -620,9 +863,9 @@ bios_set_startup() {
     local policy="$1" upstream_policy output model
     local -a args=(--apply)
     BIOS_LAST_ERROR=""
-    bios_supported_model || { BIOS_LAST_ERROR="BIOS 控制仅支持 DXP4800 Plus / Pro、DXP4800S 与 DXP480T Plus"; return 1; }
+    bios_supported_model || { BIOS_LAST_ERROR="BIOS 控制仅支持 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"; return 1; }
     model=$(bios_detected_profile)
-    [[ "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && args=(--force --apply)
+    [[ "$model" == "dxp4800" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && args=(--force --apply)
     case "$policy" in
         on|off) upstream_policy="$policy" ;;
         last) upstream_policy="restore" ;;
@@ -636,5 +879,28 @@ bios_set_startup() {
     fi
     _bios_log_info "bios.startup_set" "来电启动策略写入成功" \
         "model=$model" "policy=$policy" "upstream_policy=$upstream_policy" \
-        "forced=$([[ "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)"
+        "forced=$([[ "$model" == "dxp4800" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)"
+}
+
+bios_set_wol() {
+    local policy="$1" output model
+
+    BIOS_LAST_ERROR=""
+    model=$(bios_detected_profile)
+    bios_wol_supported_model || {
+        BIOS_LAST_ERROR="网络唤醒仅在固件已映射的 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro 上可用"
+        return 1
+    }
+    [[ "$policy" =~ ^(on|off)$ ]] || {
+        BIOS_LAST_ERROR="未知网络唤醒策略"
+        return 1
+    }
+    if ! output=$(bios_cli --force --apply network wol set "$policy" 2>&1); then
+        bios_set_error_from_output "$output" "设置网络唤醒失败"
+        _bios_log_error "bios.wol_set_failed" "$BIOS_LAST_ERROR" \
+            "model=$model" "policy=$policy" "output=$output"
+        return 1
+    fi
+    _bios_log_info "bios.wol_set" "网络唤醒策略写入成功" \
+        "model=$model" "policy=$policy" "forced=true"
 }
