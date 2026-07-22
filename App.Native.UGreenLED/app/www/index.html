@@ -7,7 +7,7 @@
   <title>绿联 LED 灯控</title>
   <base href="/cgi/ThirdParty/App.Native.UGreenLED/index.cgi/">
   <link rel="stylesheet" href="./vendor/bootstrap-icons/font/bootstrap-icons.min.css?v=1.11.3">
-  <link rel="stylesheet" href="./css/style.css?v=fan-echarts-5">
+  <link rel="stylesheet" href="./css/style.css?v=ui-1.9.6">
 </head>
 <body>
   <div class="app-shell">
@@ -668,7 +668,9 @@
             </div>
           </article>
 
-          <article class="glass-surface bios-startup-surface">
+          <div class="bios-card-waterfall">
+            <div class="bios-card-column">
+              <article class="glass-surface bios-startup-surface">
             <div class="section-heading">
               <div><span class="section-kicker">AC POWER RECOVERY</span><h2>来电启动策略</h2></div>
               <span class="soft-badge" id="biosStartupBadge">读取中</span>
@@ -694,14 +696,51 @@
             <div class="bios-startup-actions">
               <button type="button" class="primary-button" id="btnApplyBiosStartup" disabled><i class="bi bi-floppy" aria-hidden="true"></i>保存来电启动策略</button>
             </div>
-          </article>
+              </article>
 
-          <article class="glass-surface bios-startup-surface" id="biosWolSurface" hidden>
+              <article class="glass-surface bios-startup-surface" id="biosPowerScheduleSurface" hidden>
+                <div class="section-heading">
+                  <div><span class="section-kicker">SCHEDULED POWER</span><h2>定时开关机</h2></div>
+                  <span class="soft-badge" id="biosPowerScheduleBadge">读取中</span>
+                </div>
+                <p class="surface-help" id="biosPowerScheduleHelp">按选择的工作日设置 RTC 定时开机；定时关机前会重设下一次 RTC 唤醒，然后调用系统安全关机。</p>
+                <div class="bios-policy-grid" role="group" aria-label="定时开关机设置">
+                  <label class="bios-policy-choice">
+                    <input type="checkbox" id="biosPowerScheduleEnabled">
+                    <i class="bi bi-calendar2-check" aria-hidden="true"></i>
+                    <span><strong>启用定时开关机</strong><small>未启用时会移除定时关机任务并清除 RTC 唤醒</small></span>
+                  </label>
+                  <label class="bios-policy-choice">
+                    <i class="bi bi-clock-history" aria-hidden="true"></i>
+                    <span><strong>定时开机</strong><small><input class="bios-schedule-time" type="time" id="biosPowerScheduleWakeTime" value="07:00" aria-label="定时开机时间"></small></span>
+                  </label>
+                  <label class="bios-policy-choice">
+                    <i class="bi bi-power" aria-hidden="true"></i>
+                    <span><strong>定时关机</strong><small><input class="bios-schedule-time" type="time" id="biosPowerScheduleShutdownTime" value="23:00" aria-label="定时关机时间"></small></span>
+                  </label>
+                </div>
+                <div class="bios-policy-grid" role="group" aria-label="重复日期">
+                  <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="1"><span><strong>周一</strong><small>重复执行</small></span></label>
+                  <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="2"><span><strong>周二</strong><small>重复执行</small></span></label>
+                  <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="3"><span><strong>周三</strong><small>重复执行</small></span></label>
+                  <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="4"><span><strong>周四</strong><small>重复执行</small></span></label>
+                  <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="5"><span><strong>周五</strong><small>重复执行</small></span></label>
+                  <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="6"><span><strong>周六</strong><small>重复执行</small></span></label>
+                  <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="7"><span><strong>周日</strong><small>重复执行</small></span></label>
+                </div>
+                <div class="bios-startup-actions">
+                  <button type="button" class="primary-button" id="btnApplyBiosPowerSchedule" disabled><i class="bi bi-calendar2-check" aria-hidden="true"></i>保存定时开关机计划</button>
+                </div>
+              </article>
+            </div>
+
+            <div class="bios-card-column">
+              <article class="glass-surface bios-startup-surface" id="biosWolSurface" hidden>
             <div class="section-heading">
               <div><span class="section-kicker">WAKE-ON-LAN</span><h2>网络唤醒</h2></div>
               <span class="soft-badge" id="biosWolBadge">读取中</span>
             </div>
-            <p class="surface-help" id="biosWolHelp">仅使用官方固件明确映射的 eth0 与 eth1 网卡；支持的精确机型写入后会由 UGREEN-NAS-Hardware 回读校验。</p>
+            <p class="surface-help" id="biosWolHelp">优先使用官方固件映射；飞牛等系统重命名网卡时，仅识别两张物理 PCI 以太网卡，并由 UGREEN-NAS-Hardware 回读校验。</p>
             <div class="bios-policy-grid" role="radiogroup" aria-label="网络唤醒策略">
               <label class="bios-policy-choice">
                 <input type="radio" name="biosWolPolicy" value="on">
@@ -717,44 +756,9 @@
             <div class="bios-startup-actions">
               <button type="button" class="primary-button" id="btnApplyBiosWol" disabled><i class="bi bi-floppy" aria-hidden="true"></i>保存网络唤醒策略</button>
             </div>
-          </article>
+              </article>
 
-          <article class="glass-surface bios-startup-surface" id="biosPowerScheduleSurface" hidden>
-            <div class="section-heading">
-              <div><span class="section-kicker">SCHEDULED POWER</span><h2>定时开关机</h2></div>
-              <span class="soft-badge" id="biosPowerScheduleBadge">读取中</span>
-            </div>
-            <p class="surface-help" id="biosPowerScheduleHelp">按选择的工作日设置 RTC 定时开机；定时关机前会重设下一次 RTC 唤醒，然后调用系统安全关机。</p>
-            <div class="bios-policy-grid" role="group" aria-label="定时开关机设置">
-              <label class="bios-policy-choice">
-                <input type="checkbox" id="biosPowerScheduleEnabled">
-                <i class="bi bi-calendar2-check" aria-hidden="true"></i>
-                <span><strong>启用定时开关机</strong><small>未启用时会移除定时关机任务并清除 RTC 唤醒</small></span>
-              </label>
-              <label class="bios-policy-choice">
-                <i class="bi bi-clock-history" aria-hidden="true"></i>
-                <span><strong>定时开机</strong><small><input class="bios-schedule-time" type="time" id="biosPowerScheduleWakeTime" value="07:00" aria-label="定时开机时间"></small></span>
-              </label>
-              <label class="bios-policy-choice">
-                <i class="bi bi-power" aria-hidden="true"></i>
-                <span><strong>定时关机</strong><small><input class="bios-schedule-time" type="time" id="biosPowerScheduleShutdownTime" value="23:00" aria-label="定时关机时间"></small></span>
-              </label>
-            </div>
-            <div class="bios-policy-grid" role="group" aria-label="重复日期">
-              <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="1"><span><strong>周一</strong><small>重复执行</small></span></label>
-              <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="2"><span><strong>周二</strong><small>重复执行</small></span></label>
-              <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="3"><span><strong>周三</strong><small>重复执行</small></span></label>
-              <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="4"><span><strong>周四</strong><small>重复执行</small></span></label>
-              <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="5"><span><strong>周五</strong><small>重复执行</small></span></label>
-              <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="6"><span><strong>周六</strong><small>重复执行</small></span></label>
-              <label class="bios-policy-choice"><input type="checkbox" name="biosPowerScheduleDay" value="7"><span><strong>周日</strong><small>重复执行</small></span></label>
-            </div>
-            <div class="bios-startup-actions">
-              <button type="button" class="primary-button" id="btnApplyBiosPowerSchedule" disabled><i class="bi bi-calendar2-check" aria-hidden="true"></i>保存定时开关机计划</button>
-            </div>
-          </article>
-
-          <aside class="glass-surface bios-detail-surface">
+              <aside class="glass-surface bios-detail-surface">
             <span class="bios-detail-icon"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
             <div>
               <span class="section-kicker">MODEL GUARD</span>
@@ -765,7 +769,9 @@
                 <span><strong id="biosExperimentalConfirmTitle">我已了解固件逆向写入风险</strong><small id="biosExperimentalConfirmText">已准备独立温度监控与恢复原厂控制的方案，并接受当前尚无 DXP4800S 实机写入验证。</small></span>
               </label>
             </div>
-          </aside>
+              </aside>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -853,6 +859,6 @@
   </div>
 
   <script src="./vendor/echarts/echarts.min.js?v=6.1.0"></script>
-  <script src="./js/app.js?v=fan-echarts-5"></script>
+  <script src="./js/app.js?v=ui-1.9.6"></script>
 </body>
 </html>

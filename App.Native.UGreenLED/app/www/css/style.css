@@ -342,11 +342,16 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .preset-surface { display: flex; align-items: flex-start; flex-direction: column; justify-content: flex-start; gap: 14px; }
 .surface-help { margin: 6px 0 12px; color: var(--text-soft); font-size: 12px; line-height: 1.5; }
 .color-grid { display: flex; flex-direction: column; }
-.color-row { display: grid; grid-template-columns: minmax(90px, 1fr) 82px 74px; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.color-row { display: grid; grid-template-columns: minmax(90px, 1fr) 72px minmax(112px, 1fr) 46px; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--line); font-size: 13px; }
 .color-row:last-child { border-bottom: 0; }
 .color-row > label { color: var(--text-soft); font-weight: 650; }
+.color-row.is-color-only { grid-template-columns: minmax(90px, 1fr) 72px; }
+.color-row.is-brightness-only { grid-template-columns: minmax(90px, 1fr) minmax(112px, 1fr) 46px; }
 .off-tag { grid-column: 2 / -1; color: var(--text-faint); font-size: 12px; }
 input[type="color"] { width: 72px; height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255, 255, 255, 0.70); cursor: pointer; }
+.brightness-input[type="range"] { width: 100%; min-width: 0; margin: 0; accent-color: var(--blue); cursor: pointer; }
+.brightness-input[type="range"]:focus-visible { outline: 3px solid rgba(22, 119, 255, 0.24); outline-offset: 3px; }
+.brightness-value { min-width: 0; color: var(--text-soft); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
 input[type="number"] { width: 100%; min-height: 38px; padding: 0 11px; border: 1px solid var(--line-strong); border-radius: 12px; background: rgba(255, 255, 255, 0.66); color: var(--text); }
 input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -478,12 +483,16 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
 .hardware-protocol-note { background: rgba(255, 255, 255, 0.50); }
 .hardware-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 #view-bios { max-width: 1380px; padding: 6px 10px 36px; }
-.bios-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.7fr); align-items: start; gap: 24px; }
+.bios-layout { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 24px; }
 .bios-layout > * { min-width: 0; }
 .bios-layout > .glass-surface { padding: 26px 28px; }
 .bios-status-surface, .bios-system-surface, .fan-curve-surface, .bios-fan-surface { grid-column: 1 / -1; }
+.bios-startup-surface, .bios-detail-surface { align-self: start; }
+.bios-card-waterfall { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 24px; }
+.bios-card-column { display: grid; align-content: start; gap: 24px; min-width: 0; }
+.bios-card-column > .glass-surface { min-width: 0; padding: 26px 28px; }
 .bios-layout .section-heading { flex-wrap: wrap; margin-bottom: 6px; }
-.bios-layout .surface-help { max-width: 920px; margin-top: 10px; line-height: 1.65; }
+.bios-layout .surface-help { max-width: 920px; min-width: 0; margin-top: 10px; overflow-wrap: anywhere; line-height: 1.65; }
 .bios-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
 .bios-facts span { min-width: 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 255, 255, 0.48); }
 .bios-facts small, .bios-facts strong { display: block; }
@@ -563,10 +572,17 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
 .bios-policy-choice strong { font-size: 12px; }
 .bios-policy-choice small { margin-top: 5px; color: var(--text-faint); font-size: 10px; line-height: 1.5; }
 .bios-policy-choice:hover { border-color: rgba(22, 119, 255, 0.24); background: rgba(255, 255, 255, 0.68); }
-.bios-policy-choice:focus-within { outline: 3px solid rgba(22, 119, 255, 0.24); outline-offset: 3px; }
+.bios-policy-choice:focus-within { outline: 0; }
+.bios-policy-choice:has(input:focus-visible) { outline: 3px solid rgba(22, 119, 255, 0.24); outline-offset: 3px; }
+.bios-policy-choice:has(input.bios-schedule-time:focus) { outline: 0; }
 .bios-policy-choice.active, .bios-policy-choice:has(input:checked) { border-color: rgba(22, 119, 255, 0.36); background: rgba(225, 239, 255, 0.72); box-shadow: 0 8px 24px rgba(22, 119, 255, 0.09); }
 .bios-policy-choice.active > i, .bios-policy-choice:has(input:checked) > i { color: var(--blue); }
 .bios-policy-choice:has(input:disabled) { cursor: not-allowed; opacity: 0.52; }
+#biosWolSurface .bios-policy-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#biosWolSurface .bios-policy-choice { align-items: flex-start; gap: 10px; padding: 15px 13px; }
+#biosWolSurface .bios-policy-choice > i { width: 22px; font-size: 18px; }
+#biosWolSurface .bios-startup-actions { display: block; }
+#biosWolSurface .bios-startup-actions .primary-button { width: 100%; }
 .fan-curve-live { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
 .fan-curve-live > div { min-width: 0; padding: 13px 15px; border: 1px solid var(--line); border-radius: 15px; background: rgba(235, 242, 251, 0.56); }
 .fan-curve-live span, .fan-curve-live strong, .fan-curve-live small { display: block; }
@@ -790,6 +806,8 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   .settings-layout { grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr); }
   #view-bios { padding: 4px 8px 32px; }
   .bios-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .bios-card-waterfall { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .bios-card-column { gap: 20px; }
   .bios-status-surface, .bios-system-surface, .fan-curve-surface, .bios-fan-surface { grid-column: auto; }
   .bios-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bios-system-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -827,11 +845,19 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   .settings-tabs { display: flex; width: 100%; }
   .settings-tab { flex: 1; padding: 0 8px; }
   .settings-layout, .activity-layout, .device-layout, .power26-layout { grid-template-columns: 1fr; }
+  .color-row { grid-template-columns: minmax(80px, 1fr) 64px minmax(96px, 1fr) 40px; gap: 8px; }
+  .color-row.is-color-only { grid-template-columns: minmax(80px, 1fr) 64px; }
+  .color-row.is-brightness-only { grid-template-columns: minmax(80px, 1fr) minmax(96px, 1fr) 40px; }
+  input[type="color"] { width: 64px; }
   #view-bios { padding: 0 4px 30px; }
   .bios-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .bios-layout > .glass-surface { padding: 22px; }
+  .bios-card-waterfall { gap: 18px; }
+  .bios-card-column { gap: 18px; }
+  .bios-card-column > .glass-surface { padding: 22px; }
   .bios-status-surface, .bios-system-surface, .fan-curve-surface, .bios-fan-surface { grid-column: auto; }
   .bios-facts, .bios-fan-grid, .bios-policy-grid { grid-template-columns: 1fr; }
+  #biosWolSurface .bios-policy-grid { grid-template-columns: 1fr; }
   .fan-curve-live { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .fan-curve-mode-group, .fan-curve-timing { grid-template-columns: 1fr; }
   .bios-system-grid { grid-template-columns: minmax(0, 1fr); }
@@ -888,6 +914,8 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   #view-bios { padding-right: 0; padding-left: 0; }
   .bios-layout { gap: 14px; }
   .bios-layout > .glass-surface { padding: 18px; }
+  .bios-card-waterfall, .bios-card-column { gap: 14px; }
+  .bios-card-column > .glass-surface { padding: 18px; }
   .bios-facts { gap: 10px; margin-top: 18px; }
   .bios-facts span { padding: 14px 15px; }
   .bios-system-grid { gap: 10px; margin-top: 18px; }

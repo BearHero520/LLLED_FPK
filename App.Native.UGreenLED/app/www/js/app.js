@@ -113,6 +113,7 @@
   let currentIni = {};
   let hardwareState = {};
   let biosState = { loaded: false, supported: false, available: false };
+  const biosPowerScheduleDraft = { dirty: false };
   let fanTelemetryChart = null;
   let fanCurveEditorChart = null;
   let fanChartResizeTimer = null;
@@ -856,6 +857,34 @@
     });
   }
 
+  function createBrightnessRange(labelText, rawValue, id) {
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.className = 'brightness-input';
+    range.min = '0';
+    range.max = '255';
+    range.step = '1';
+    range.value = boundedInt(rawValue, 0, 255, 64);
+    range.setAttribute('aria-label', `${labelText}亮度`);
+
+    const value = document.createElement('output');
+    value.className = 'brightness-value';
+    value.id = id;
+    value.setAttribute('aria-live', 'off');
+    range.setAttribute('aria-describedby', id);
+
+    const syncValue = () => {
+      const next = boundedInt(range.value, 0, 255, 64);
+      range.value = next;
+      value.value = String(next);
+      value.textContent = String(next);
+    };
+    range.addEventListener('input', syncValue);
+    range.addEventListener('change', syncValue);
+    syncValue();
+    return [range, value];
+  }
+
   function buildColorGrid(containerId, items, colorSection, brightnessSection) {
     const grid = $(containerId);
     grid.innerHTML = '';
@@ -884,14 +913,8 @@
         color.className = 'color-input';
         color.value = rgbToHex(rgb[0], rgb[1], rgb[2]);
         color.setAttribute('aria-label', `${item.label}颜色`);
-        const number = document.createElement('input');
-        number.type = 'number';
-        number.className = 'brightness-input';
-        number.min = '0';
-        number.max = '255';
-        number.value = brightness;
-        number.setAttribute('aria-label', `${item.label}亮度`);
-        row.append(color, number);
+        const [range, value] = createBrightnessRange(item.label, brightness, `brightness-${containerId}-${item.key}`);
+        row.append(color, range, value);
       }
       grid.appendChild(row);
     });
@@ -909,6 +932,7 @@
       row.appendChild(label);
       const raw = currentIni.power?.[item.key] || item.def;
       if (item.type === 'color') {
+        row.classList.add('is-color-only');
         const rgb = raw.split(/\s+/).map(Number);
         const color = document.createElement('input');
         color.type = 'color';
@@ -917,14 +941,9 @@
         color.setAttribute('aria-label', `${item.label}颜色`);
         row.appendChild(color);
       } else {
-        const number = document.createElement('input');
-        number.type = 'number';
-        number.className = 'brightness-input';
-        number.min = '0';
-        number.max = '255';
-        number.value = raw;
-        number.setAttribute('aria-label', '电源灯亮度');
-        row.appendChild(number);
+        row.classList.add('is-brightness-only');
+        const [range, value] = createBrightnessRange('电源灯', raw, `brightness-power-${item.key}`);
+        row.append(range, value);
       }
       grid.appendChild(row);
     });
@@ -2098,6 +2117,26 @@
     updateFanCurveControls();
   }
 
+  function resetBiosPowerScheduleDraft() {
+    biosPowerScheduleDraft.dirty = false;
+  }
+
+  function markBiosPowerScheduleDirty() {
+    biosPowerScheduleDraft.dirty = true;
+  }
+
+  function renderBiosPowerScheduleFields(powerSchedule) {
+    if (biosPowerScheduleDraft.dirty) return;
+    $('biosPowerScheduleEnabled').checked = Boolean(powerSchedule.enabled);
+    $('biosPowerScheduleWakeTime').value = powerSchedule.wake_time || '07:00';
+    $('biosPowerScheduleShutdownTime').value = powerSchedule.shutdown_time || '23:00';
+    const scheduledDays = String(powerSchedule.days || '').split(',').filter(Boolean);
+    document.querySelectorAll('input[name="biosPowerScheduleDay"]').forEach((input) => {
+      input.checked = scheduledDays.includes(input.value);
+      input.closest('.bios-policy-choice')?.classList.toggle('active', input.checked);
+    });
+  }
+
   function renderBios(data) {
     biosState = Object.assign({ loaded: true, supported: false, available: false }, data || {}, { loaded: true });
     applyBiosRouting();
@@ -2159,7 +2198,7 @@
       ? '不适用'
       : wolAvailable ? (biosState.wol === 'on' ? '已启用' : '已关闭') : '不可用';
     $('biosWolHelp').textContent = wolAvailable
-      ? '网络唤醒是 eth0 与 eth1 网卡的魔术包设置，不是 Super I/O 寄存器；写入后会读取两个网口的状态确认。'
+      ? '网络唤醒使用网卡驱动的魔术包设置，不是 Super I/O 寄存器；优先遵循固件映射，网卡改名时会安全识别两个物理 PCI 网口并回读确认。'
       : `网络唤醒当前不可用：${biosState.wol_error || '网卡不支持或状态读取失败'}。`;
     $('biosPowerScheduleSurface').hidden = !biosState.supported;
     $('biosPowerScheduleBadge').textContent = !biosState.supported
@@ -2168,14 +2207,7 @@
     $('biosPowerScheduleHelp').textContent = powerSchedule.available
       ? `原厂 OnSched 路径使用 RTC 唤醒。定时关机前会重设下一次开机时间；当前 RTC=${powerSchedule.rtc_epoch || 0}。`
       : `定时开机当前不可用：${powerSchedule.error || '未检测到可读写的 RTC wakealarm 接口'}。`;
-    $('biosPowerScheduleEnabled').checked = Boolean(powerSchedule.enabled);
-    $('biosPowerScheduleWakeTime').value = powerSchedule.wake_time || '07:00';
-    $('biosPowerScheduleShutdownTime').value = powerSchedule.shutdown_time || '23:00';
-    const scheduledDays = String(powerSchedule.days || '').split(',').filter(Boolean);
-    document.querySelectorAll('input[name="biosPowerScheduleDay"]').forEach((input) => {
-      input.checked = scheduledDays.includes(input.value);
-      input.closest('.bios-policy-choice')?.classList.toggle('active', input.checked);
-    });
+    renderBiosPowerScheduleFields(powerSchedule);
     const cpuRpm = available ? String(biosState.cpu_rpm ?? 0) : '—';
     const sysRpm = available ? String(biosState.sys_rpm ?? 0) : '—';
     const sys2Rpm = available ? String(biosState.sys2_rpm ?? 0) : '—';
@@ -2303,13 +2335,14 @@
       });
   }
 
-  function runBiosAction(button, promise) {
+  function runBiosAction(button, promise, onSuccess) {
     const icon = button?.querySelector('i');
     const iconClass = icon?.className || '';
     if (icon) icon.className = 'bi bi-arrow-repeat';
     setBusy(button, true);
     return promise
       .then((data) => {
+        if (typeof onSuccess === 'function') onSuccess(data);
         renderBios(data);
         showMessage(data.message || 'BIOS 设置已应用', 'ok');
       })
@@ -2571,6 +2604,12 @@
     }
     runBiosAction(this, api('/bios/wol', { method: 'POST', query: biosWriteQuery(`policy=${selected.value}`) }));
   });
+  $('biosPowerScheduleEnabled').addEventListener('change', markBiosPowerScheduleDirty);
+  $('biosPowerScheduleWakeTime').addEventListener('input', markBiosPowerScheduleDirty);
+  $('biosPowerScheduleShutdownTime').addEventListener('input', markBiosPowerScheduleDirty);
+  document.querySelectorAll('input[name="biosPowerScheduleDay"]').forEach((input) => {
+    input.addEventListener('change', markBiosPowerScheduleDirty);
+  });
   $('btnApplyBiosPowerSchedule').addEventListener('click', function () {
     const enabled = $('biosPowerScheduleEnabled').checked;
     const days = Array.from(document.querySelectorAll('input[name="biosPowerScheduleDay"]:checked')).map((input) => input.value).join(',');
@@ -2581,7 +2620,7 @@
       return;
     }
     const query = `enabled=${enabled ? 'true' : 'false'}&days=${encodeURIComponent(days)}&wake_time=${encodeURIComponent(wakeTime)}&shutdown_time=${encodeURIComponent(shutdownTime)}`;
-    runBiosAction(this, api('/bios/power-schedule', { method: 'POST', query: biosWriteQuery(query) }));
+    runBiosAction(this, api('/bios/power-schedule', { method: 'POST', query: biosWriteQuery(query) }), resetBiosPowerScheduleDraft);
   });
   $('biosExperimentalConfirmInput').addEventListener('change', () => {
     if ($('biosExperimentalConfirmInput').checked) rememberBiosWriteRisk();
