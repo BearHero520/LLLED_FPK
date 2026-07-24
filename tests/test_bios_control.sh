@@ -90,7 +90,7 @@ assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan 
 ! bios_set_fan cpu 39 || fail "PWM below the upstream safety floor must be rejected"
 ! bios_set_fan_mode cpu auto || fail "fan auto mode must remain unavailable"
 bios_set_startup last
-assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --apply power startup set restore "
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply power startup set restore "
 bios_set_wol on
 assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply network wol set on "
 
