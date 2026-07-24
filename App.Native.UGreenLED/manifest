@@ -1,5 +1,5 @@
 appname               = App.Native.UGreenLED
-version               = 1.9.10
+version               = 2.0.0
 display_name          = 绿联 LED 灯控
 desc                  = 绿联 NAS LED 控制；支持 BIOS 风扇、来电启动、多机型网络唤醒与 RTC 定时开机。
 platform              = x86
@@ -14,4 +14,4 @@ desktop_uidir         = ui
 desktop_applaunchname = App.Native.UGreenLED.Web
 service_port          = 5088
 checkport             = false
-changelog             = v1.9.10 修复 DXP480T Plus 飞牛单网卡网络唤醒识别；原厂直控风险确认改为按机型持久保存，仍逐写入复核
+changelog             = v2.0.0 修复 DXP480T Plus 飞牛单网卡网络唤醒识别；原厂直控风险确认改为按机型持久保存，仍逐写入复核
