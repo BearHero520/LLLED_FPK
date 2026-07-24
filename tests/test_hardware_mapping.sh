@@ -26,7 +26,7 @@ grep -Fq 'direct-superio' "$ROOT/App.Native.UGreenLED/app/ui/api.cgi" || fail "d
 grep -Fq '"it87_loaded"' "$ROOT/App.Native.UGreenLED/app/ui/api.cgi" || fail "hardware status must report it87"
 grep -Fq '"led_plugin_conflict"' "$ROOT/App.Native.UGreenLED/app/ui/api.cgi" || fail "hardware status must report LED plugin conflicts"
 grep -Fq '检测到 it87' "$ROOT/App.Native.UGreenLED/app/www/js/app.js" || fail "page must explain it87 compatibility"
-grep -Fq '共享 PWM' "$ROOT/App.Native.UGreenLED/app/www/js/app.js" || fail "page must explain the DXP480T Plus shared direct PWM path"
+grep -Fq '系统风扇 1/2 会同步写入' "$ROOT/App.Native.UGreenLED/app/www/js/app.js" || fail "page must explain the DXP480T Plus shared direct PWM path"
 
 UGREEN_PRODUCT_NAME="UGREEN DXP6800 Pro"
 assert_eq "$(hardware_profile_key)" "dxp6800"
