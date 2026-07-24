@@ -94,6 +94,7 @@ class PreviewApiTests(unittest.TestCase):
                 state.bios_power_schedule_wake_time,
                 state.bios_power_schedule_shutdown_time,
                 state.bios_rtc_wake_epoch,
+                tuple(sorted(state.bios_write_risk_acknowledgements)),
                 tuple(state.logs),
             )
 
@@ -104,6 +105,7 @@ class PreviewApiTests(unittest.TestCase):
             "/logs/client",
             "/bios/fan?channel=cpu&pwm=120",
             "/bios/fan/mode?channel=cpu&mode=manual",
+            "/bios/confirmation?confirm=firmware-reversed",
             "/bios/startup?policy=on",
             "/bios/wol?policy=off",
             "/bios/power-schedule?enabled=true&days=1,2,3,4,5&wake_time=07%3A00&shutdown_time=23%3A00",
@@ -232,6 +234,26 @@ class PreviewApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(payload["ok"])
         self.assertEqual(preview.STATE.bios_startup, "off")
+
+    def test_bios_risk_acknowledgement_persists_per_model_without_bypassing_write_confirmation(self) -> None:
+        preview.STATE.configure_profile("dxp480t_plus")
+
+        status, payload, _ = self.request("GET", "/bios/status")
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["write_confirmation_acknowledged"])
+
+        status, payload, _ = self.request("POST", "/bios/confirmation?confirm=firmware-reversed")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, {"ok": True, "write_confirmation_acknowledged": True})
+
+        status, payload, _ = self.request("GET", "/bios/status")
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["write_confirmation_acknowledged"])
+
+        status, payload, _ = self.request("POST", "/bios/wol?policy=off")
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(preview.STATE.bios_wol, "on")
 
     def test_dxp4800_bios_and_wol_require_firmware_reversed_confirmation(self) -> None:
         preview.STATE.configure_profile("dxp4800")

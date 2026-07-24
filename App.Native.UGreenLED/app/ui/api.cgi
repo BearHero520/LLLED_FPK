@@ -483,7 +483,7 @@ hardware_status_json() {
 }
 
 bios_status_json() {
-    local message="${1:-}" chip_id="" error="" fan_error="" startup_error="" wol_error="" fan_curve="" telemetry_at=0
+    local message="${1:-}" chip_id="" error="" fan_error="" startup_error="" wol_error="" fan_curve="" telemetry_at=0 risk_acknowledged=false
     bios_read_status >/dev/null 2>&1 || true
     telemetry_at=$(date +%s 2>/dev/null || echo 0)
     fan_telemetry_append_bios_status "$telemetry_at" >/dev/null 2>&1 || true
@@ -495,9 +495,10 @@ bios_status_json() {
     startup_error="$BIOS_STARTUP_ERROR"
     wol_error="$BIOS_WOL_ERROR"
     fan_curve=$(bios_fan_curve_status_json)
-    printf '{"ok":true,"supported":%s,"available":%s,"startup_available":%s,"wol_available":%s,"model":"%s","experimental":%s,"min_pwm":%s,"fan_write_target":"%s","cpu_fan_present":%s,"fan_mode_writable":%s,"pwm_readable":%s,"write_confirmation_required":%s,"direct_fan_fallback":%s,"product_name":"%s","backend":"%s","chip_id":"%s","revision":%s,"cpu_pwm":%s,"sys_pwm":%s,"sys2_pwm":%s,"cpu_rpm":%s,"sys_rpm":%s,"sys2_rpm":%s,"cpu_manual":%s,"sys_manual":%s,"sys2_manual":%s,"startup":"%s","wol":"%s","error":"%s","fan_error":"%s","startup_error":"%s","wol_error":"%s"' \
+    bios_write_risk_acknowledged && risk_acknowledged=true
+    printf '{"ok":true,"supported":%s,"available":%s,"startup_available":%s,"wol_available":%s,"model":"%s","experimental":%s,"min_pwm":%s,"fan_write_target":"%s","cpu_fan_present":%s,"fan_mode_writable":%s,"pwm_readable":%s,"write_confirmation_required":%s,"write_confirmation_acknowledged":%s,"direct_fan_fallback":%s,"product_name":"%s","backend":"%s","chip_id":"%s","revision":%s,"cpu_pwm":%s,"sys_pwm":%s,"sys2_pwm":%s,"cpu_rpm":%s,"sys_rpm":%s,"sys2_rpm":%s,"cpu_manual":%s,"sys_manual":%s,"sys2_manual":%s,"startup":"%s","wol":"%s","error":"%s","fan_error":"%s","startup_error":"%s","wol_error":"%s"' \
         "$BIOS_SUPPORTED" "$BIOS_AVAILABLE" "$BIOS_STARTUP_AVAILABLE" "$BIOS_WOL_AVAILABLE" "$(json_str "$BIOS_MODEL")" "$BIOS_EXPERIMENTAL" "${BIOS_MIN_PWM:-0}" "$(json_str "$BIOS_FAN_WRITE_TARGET")" \
-        "$BIOS_CPU_FAN_PRESENT" "$BIOS_FAN_MODE_WRITABLE" "$BIOS_PWM_READABLE" "$BIOS_WRITE_CONFIRMATION_REQUIRED" "$BIOS_DIRECT_FAN_FALLBACK" "$(json_str "$BIOS_PRODUCT_NAME")" "$(json_str "$BIOS_BACKEND")" \
+        "$BIOS_CPU_FAN_PRESENT" "$BIOS_FAN_MODE_WRITABLE" "$BIOS_PWM_READABLE" "$BIOS_WRITE_CONFIRMATION_REQUIRED" "$risk_acknowledged" "$BIOS_DIRECT_FAN_FALLBACK" "$(json_str "$BIOS_PRODUCT_NAME")" "$(json_str "$BIOS_BACKEND")" \
         "$(json_str "$chip_id")" "${BIOS_REVISION:-0}" "${BIOS_CPU_PWM:--1}" "${BIOS_SYS_PWM:--1}" "${BIOS_SYS2_PWM:--1}" \
         "${BIOS_CPU_RPM:-0}" "${BIOS_SYS_RPM:-0}" "${BIOS_SYS2_RPM:-0}" "$BIOS_CPU_MANUAL" "$BIOS_SYS_MANUAL" "$BIOS_SYS2_MANUAL" \
         "$(json_str "$BIOS_STARTUP_POLICY")" "$(json_str "$BIOS_WOL_POLICY")" "$(json_str "$error")" "$(json_str "$fan_error")" "$(json_str "$startup_error")" "$(json_str "$wol_error")"
@@ -510,6 +511,40 @@ bios_status_json() {
     printf ',"telemetry":%s' "$(fan_telemetry_current_json "$telemetry_at")"
     [[ -n "$message" ]] && printf ',"message":"%s"' "$(json_str "$message")"
     printf '}'
+}
+
+bios_write_confirmation_token() {
+    if bios_write_confirmation_required; then
+        printf '%s\n' 'firmware-reversed'
+    elif bios_direct_fan_fallback_active; then
+        printf '%s\n' 'direct-superio'
+    fi
+}
+
+bios_write_risk_acknowledgement_value() {
+    local profile token
+    profile=$(bios_detected_profile)
+    token=$(bios_write_confirmation_token)
+    case "$profile" in
+        dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) ;;
+        *) return 1 ;;
+    esac
+    [[ -n "$token" ]] || return 1
+    printf '%s\n' "v1:${token}:${profile}"
+}
+
+bios_write_risk_acknowledged() {
+    local expected accepted
+    bios_write_confirmation_required || return 0
+    expected=$(bios_write_risk_acknowledgement_value) || return 1
+    accepted=$(settings_get "$SETTINGS_FILE" bios write_risk_acknowledgement "")
+    [[ "$accepted" == "$expected" ]]
+}
+
+bios_remember_write_risk() {
+    local expected
+    expected=$(bios_write_risk_acknowledgement_value) || return 1
+    settings_set "$SETTINGS_FILE" bios write_risk_acknowledgement "$expected"
 }
 
 bios_telemetry_json() {
@@ -530,14 +565,8 @@ bios_telemetry_json() {
 
 bios_write_confirmation_valid() {
     local confirmation="$(query_value confirm)"
-
-    if bios_write_confirmation_required; then
-        [[ "$confirmation" == "firmware-reversed" ]]
-    elif bios_direct_fan_fallback_active; then
-        [[ "$confirmation" == "direct-superio" ]]
-    else
-        return 0
-    fi
+    local expected="$(bios_write_confirmation_token)"
+    [[ -z "$expected" || "$confirmation" == "$expected" ]]
 }
 
 application_logs_json() {
@@ -764,6 +793,21 @@ case "$API_PATH" in
         ;;
     /bios/status)
         bios_status_json
+        ;;
+    /bios/confirmation)
+        confirmation=$(query_value confirm)
+        expected_confirmation=$(bios_write_confirmation_token)
+        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+            echo '{"ok":false,"error":"method not allowed"}'
+        elif [[ -z "$expected_confirmation" ]]; then
+            echo '{"ok":false,"error":"this model has no protected BIOS write confirmation"}'
+        elif [[ "$confirmation" != "$expected_confirmation" ]]; then
+            echo '{"ok":false,"error":"invalid BIOS write confirmation"}'
+        elif bios_remember_write_risk; then
+            echo '{"ok":true,"write_confirmation_acknowledged":true}'
+        else
+            echo '{"ok":false,"error":"unable to save BIOS write confirmation"}'
+        fi
         ;;
     /bios/telemetry)
         bios_telemetry_json "$(query_value range)"

@@ -103,6 +103,7 @@ class PreviewState:
         self.bios_power_schedule_wake_time = ""
         self.bios_power_schedule_shutdown_time = ""
         self.bios_rtc_wake_epoch = 0
+        self.bios_write_risk_acknowledgements: set[tuple[str, str]] = set()
         self.log_level = "info"
         self.logs = [
             "[2026-07-16T22:40:01+0800] [INFO] [service] [pid=2401] [event=service.start_requested] [source=main:main:51] msg=\"收到应用启动请求\" | kernel=\"6.12.0-preview\" cli=\"server/bin/ugreen_leds_cli\"",
@@ -153,11 +154,12 @@ class PreviewState:
         is_4800 = profile == "dxp4800"
         is_4800s = profile == "dxp4800s"
         is_6800 = profile == "dxp6800"
+        model = "dxp6800pro" if is_6800 else profile if supported else "unknown"
         payload: dict[str, object] = {
             "ok": True,
             "supported": supported,
             "available": supported,
-            "model": "dxp6800pro" if is_6800 else profile if supported else "unknown",
+            "model": model,
             "experimental": is_4800 or is_4800s or is_6800,
             "min_pwm": 40,
             "fan_write_target": "all" if is_480t else "sys",
@@ -165,6 +167,7 @@ class PreviewState:
             "fan_mode_writable": False,
             "pwm_readable": True,
             "write_confirmation_required": supported,
+            "write_confirmation_acknowledged": (model, "firmware-reversed") in self.bios_write_risk_acknowledgements,
             "product_name": f"{self.profile_meta()[0]}（预览）",
             "backend": "ugreenctl" if supported else "unavailable",
             "chip_id": "0x8613" if supported else "",
@@ -696,6 +699,23 @@ class PreviewHandler(BaseHTTPRequestHandler):
             return
         if path == "/bios/status":
             self.send_json(STATE.bios_payload())
+            return
+        if path == "/bios/confirmation":
+            profile = STATE.selected_profile()
+            supported = profile in {"dxp4800", "dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}
+            model = "dxp6800pro" if profile == "dxp6800" else profile if supported else "unknown"
+            if method != "POST":
+                self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
+                return
+            if not supported:
+                self.send_json({"ok": False, "error": "this model has no protected BIOS write confirmation"})
+                return
+            if (query.get("confirm") or [""])[0] != "firmware-reversed":
+                self.send_json({"ok": False, "error": "invalid BIOS write confirmation"})
+                return
+            with STATE.lock:
+                STATE.bios_write_risk_acknowledgements.add((model, "firmware-reversed"))
+            self.send_json({"ok": True, "write_confirmation_acknowledged": True})
             return
         if path == "/bios/telemetry":
             range_name = (query.get("range") or ["1m"])[0]

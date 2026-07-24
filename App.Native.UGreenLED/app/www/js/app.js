@@ -1406,16 +1406,30 @@
 
   function biosWriteRiskAcknowledged() {
     if (!biosState.write_confirmation_required) return true;
+    if (biosState.write_confirmation_acknowledged === true) return true;
     try { return localStorage.getItem(biosWriteRiskAcknowledgementKey()) === 'accepted'; } catch (_) { return false; }
   }
 
   function rememberBiosWriteRisk() {
+    let rememberedLocally = false;
     try {
       localStorage.setItem(biosWriteRiskAcknowledgementKey(), 'accepted');
-      return true;
-    } catch (_) {
-      return false;
+      rememberedLocally = true;
+    } catch (_) {}
+    if (!biosState.write_confirmation_required || biosState.write_confirmation_acknowledged === true) {
+      return Promise.resolve(true);
     }
+    return api('/bios/confirmation', {
+      method: 'POST',
+      query: `confirm=${encodeURIComponent(biosWriteConfirmationToken())}`,
+      body: '',
+    }).then((data) => {
+      biosState.write_confirmation_acknowledged = data.write_confirmation_acknowledged === true;
+      return biosState.write_confirmation_acknowledged;
+    }).catch((error) => {
+      console.warn('[UGreenLED] BIOS write confirmation was not persisted on the NAS', error);
+      return rememberedLocally;
+    });
   }
 
   function updateBiosWriteRiskConfirmation(preserveCurrent = false) {
@@ -2198,7 +2212,7 @@
       ? '不适用'
       : wolAvailable ? (biosState.wol === 'on' ? '已启用' : '已关闭') : '不可用';
     $('biosWolHelp').textContent = wolAvailable
-      ? '网络唤醒使用网卡驱动的魔术包设置，不是 Super I/O 寄存器；优先遵循固件映射，网卡改名时会安全识别两个物理 PCI 网口并回读确认。'
+      ? '网络唤醒使用网卡驱动的魔术包设置，不是 Super I/O 寄存器；优先遵循固件映射，网卡改名时会按已验证机型拓扑安全识别物理 PCI 有线网卡并回读确认。'
       : `网络唤醒当前不可用：${biosState.wol_error || '网卡不支持或状态读取失败'}。`;
     $('biosPowerScheduleSurface').hidden = !biosState.supported;
     $('biosPowerScheduleBadge').textContent = !biosState.supported
@@ -2276,7 +2290,7 @@
         : 'DXP4800S 的单路系统风扇、固件逆向 PWM、来电启动、eth0/eth1 网络唤醒与 RTC 定时开机；写入前必须确认风险。')
       : is480t
         ? directFallback
-          ? 'DXP480T Plus 的三路转速与原厂 CPU/系统风扇对直控，并支持 eth0/eth1 网络唤醒与 RTC 定时开机。'
+          ? 'DXP480T Plus 的三路转速与原厂 CPU/系统风扇对直控，并支持经安全识别的 PCI 有线网卡网络唤醒与 RTC 定时开机。'
           : 'DXP480T Plus 的 IT8613 三风扇状态、固件逆向 CPU/系统风扇对 PWM、来电启动、网络唤醒与 RTC 定时开机控制。'
         : ROUTES.bios.description;
     document.querySelectorAll('input[name="biosStartupPolicy"]').forEach((input) => {
@@ -2599,7 +2613,12 @@
     runBiosAction(this, api('/bios/power-schedule', { method: 'POST', query: biosWriteQuery(query) }), resetBiosPowerScheduleDraft);
   });
   $('biosExperimentalConfirmInput').addEventListener('change', () => {
-    if ($('biosExperimentalConfirmInput').checked) rememberBiosWriteRisk();
+    if ($('biosExperimentalConfirmInput').checked) {
+      rememberBiosWriteRisk().then(() => {
+        updateBiosWriteRiskConfirmation(true);
+        updateBiosWriteAvailability();
+      });
+    }
     updateBiosWriteRiskConfirmation(true);
     updateBiosWriteAvailability();
     ['cpu', 'sys'].forEach((prefix) => {

@@ -865,7 +865,10 @@ bios_set_startup() {
     BIOS_LAST_ERROR=""
     bios_supported_model || { BIOS_LAST_ERROR="BIOS 控制仅支持 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"; return 1; }
     model=$(bios_detected_profile)
-    [[ "$model" == "dxp4800" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && args=(--force --apply)
+    # DXP4800 Plus / Pro use the firmware-recovered IT8613 AC-recovery
+    # path too.  Keep the app adapter aligned with ugreenctl: every
+    # protected startup-policy write carries both explicit write guards.
+    [[ "$model" == "dxp4800" || "$model" == "dxp4800_plus" || "$model" == "dxp4800_pro" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && args=(--force --apply)
     case "$policy" in
         on|off) upstream_policy="$policy" ;;
         last) upstream_policy="restore" ;;
@@ -879,7 +882,7 @@ bios_set_startup() {
     fi
     _bios_log_info "bios.startup_set" "来电启动策略写入成功" \
         "model=$model" "policy=$policy" "upstream_policy=$upstream_policy" \
-        "forced=$([[ "$model" == "dxp4800" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)"
+        "forced=$([[ "$model" == "dxp4800" || "$model" == "dxp4800_plus" || "$model" == "dxp4800_pro" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)"
 }
 
 bios_set_wol() {
