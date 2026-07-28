@@ -54,6 +54,16 @@ PROFILE_META = {
     "idx6011_pro": ("UGREEN iDX6011 Pro", "experimental", 6, 2, True),
 }
 
+# Preview-only fixture mirroring the records shipped with UGREEN-NAS-Hardware.
+PREVIEW_STOCK_CURVES = {
+    "dxp4800": {"profile": "stock-4800", "cpu": "45,50,70,75,85", "hdd": "35,40,45,50,65", "ssd": "40,45,55,60,65", "system_pwm": "64,128,204,255", "cpu_pwm": "64,128,204,255"},
+    "dxp4800s": {"profile": "stock-4800s", "cpu": "50,55,75,80,90", "hdd": "40,45,50,55,70", "ssd": "45,50,60,65,70", "system_pwm": "64,128,204,255", "cpu_pwm": "64,128,204,255"},
+    "dxp4800_plus": {"profile": "stock-4800plus", "cpu": "42,50,70,78,90", "hdd": "30,40,46,52,55", "ssd": "50,55,60,65,70", "system_pwm": "65,125,200,235", "cpu_pwm": "60,125,205,230"},
+    "dxp4800_pro": {"profile": "stock-4800plus", "cpu": "42,50,70,78,90", "hdd": "30,40,46,52,55", "ssd": "50,55,60,65,70", "system_pwm": "65,125,200,235", "cpu_pwm": "60,125,205,230"},
+    "dxp480t_plus": {"profile": "stock-480tplus", "cpu": "25,55,75,85,95", "hdd": "0,0,0,0,0", "ssd": "40,50,60,70,80", "system_pwm": "55,90,110,128", "cpu_pwm": "70,130,150,200"},
+    "dxp6800": {"profile": "stock-6800pro", "cpu": "25,38,55,75,90", "hdd": "30,35,43,48,55", "ssd": "45,50,60,65,70", "system_pwm": "64,130,210,230", "cpu_pwm": "80,130,210,230"},
+}
+
 
 def parse_ini(raw: str) -> OrderedDict[str, OrderedDict[str, str]]:
     data: OrderedDict[str, OrderedDict[str, str]] = OrderedDict()
@@ -104,6 +114,16 @@ class PreviewState:
         self.bios_power_schedule_shutdown_time = ""
         self.bios_rtc_wake_epoch = 0
         self.bios_write_risk_acknowledgements: set[tuple[str, str]] = set()
+        self.fan_curve_running = False
+        self.fan_curve_profile = "custom"
+        self.fan_curve_interval = 10
+        self.fan_curve_downshift = 60
+        self.fan_curve_minimum = 64
+        self.fan_curve_require_storage = False
+        self.fan_curve_cpu = "50,55,75,80,90"
+        self.fan_curve_hdd = "40,45,50,55,70"
+        self.fan_curve_ssd = "45,50,60,65,70"
+        self.fan_curve_pwm = "64,128,204,255"
         self.log_level = "info"
         self.logs = [
             "[2026-07-16T22:40:01+0800] [INFO] [service] [pid=2401] [event=service.start_requested] [source=main:main:51] msg=\"收到应用启动请求\" | kernel=\"6.12.0-preview\" cli=\"server/bin/ugreen_leds_cli\"",
@@ -200,6 +220,10 @@ class PreviewState:
         if message:
             payload["message"] = message
         payload["telemetry"] = self.bios_telemetry_sample(int(time.time()))
+        stock_curve = PREVIEW_STOCK_CURVES.get(profile)
+        payload["fan_curve"] = self.fan_curve_payload()
+        if stock_curve:
+            payload["fan_curve"]["stock_curve"] = {"available": True, **stock_curve}
         return payload
 
     def bios_telemetry_sample(self, at: int) -> dict[str, int]:
@@ -228,19 +252,57 @@ class PreviewState:
         }
 
     def bios_telemetry_payload(self, range_name: str) -> dict[str, object]:
-        ranges = {"1m": 60, "1h": 3600, "24h": 86400}
+        ranges = {"1m": (60, 10), "1h": (3600, 60), "24h": (86400, 1800)}
         if range_name not in ranges:
             return {"ok": False, "error": "invalid telemetry range"}
         now = int(time.time())
-        start = now - ranges[range_name]
-        history = [self.bios_telemetry_sample(at) for at in range(start, now + 1, 30)]
+        seconds, interval = ranges[range_name]
+        start = now - seconds
+        history = [self.bios_telemetry_sample(at) for at in range(start, now + 1, interval)]
         return {
             "ok": True,
             "range": range_name,
-            "sample_interval_seconds": 30,
+            "sample_interval_seconds": interval,
             "history": history,
             "current": self.bios_telemetry_sample(now),
         }
+
+    def fan_curve_payload(self, message: str = "") -> dict[str, object]:
+        sample = self.bios_telemetry_sample(int(time.time()))
+        stock_curve = PREVIEW_STOCK_CURVES.get(self.selected_profile())
+        payload: dict[str, object] = {
+            "ok": True,
+            "enabled": self.fan_curve_running,
+            "running": self.fan_curve_running,
+            "profile": self.fan_curve_profile,
+            "interval_seconds": self.fan_curve_interval,
+            "downshift_delay_seconds": self.fan_curve_downshift,
+            "minimum_pwm": self.fan_curve_minimum,
+            "require_storage_sensor": self.fan_curve_require_storage,
+            "cpu_curve": self.fan_curve_cpu,
+            "hdd_curve": self.fan_curve_hdd,
+            "ssd_curve": self.fan_curve_ssd,
+            "pwm_curve": self.fan_curve_pwm,
+            "timestamp": sample["at"],
+            "model": "dxp6800pro" if self.selected_profile() == "dxp6800" else self.selected_profile(),
+            "status": "running" if self.fan_curve_running else "stopped",
+            "cpu_celsius": sample["cpu"],
+            "cpu_peak_celsius": sample["cpu"],
+            "hdd_celsius": sample["hdd"],
+            "ssd_celsius": sample["ssd"],
+            "desired_pwm": self.fan_curve_minimum if self.fan_curve_running else -1,
+            "applied_pwm": self.fan_curve_minimum if self.fan_curve_running else -1,
+            "desired_cpu_pwm": self.fan_curve_minimum if self.fan_curve_running else -1,
+            "desired_system_pwm": self.fan_curve_minimum if self.fan_curve_running else -1,
+            "applied_cpu_pwm": self.fan_curve_minimum if self.fan_curve_running else -1,
+            "applied_system_pwm": self.fan_curve_minimum if self.fan_curve_running else -1,
+            "detail": "preview fan curve active" if self.fan_curve_running else "preview fan curve stopped",
+        }
+        if stock_curve:
+            payload["stock_curve"] = {"available": True, **stock_curve}
+        if message:
+            payload["message"] = message
+        return payload
 
     @property
     def mode(self) -> str:
@@ -720,6 +782,59 @@ class PreviewHandler(BaseHTTPRequestHandler):
         if path == "/bios/telemetry":
             range_name = (query.get("range") or ["1m"])[0]
             self.send_json(STATE.bios_telemetry_payload(range_name))
+            return
+        if path == "/bios/fan-curve":
+            profile = STATE.selected_profile()
+            supported = profile in {"dxp4800", "dxp4800_plus", "dxp4800_pro", "dxp4800s", "dxp480t_plus", "dxp6800"}
+            if method == "GET":
+                self.send_json(STATE.fan_curve_payload())
+                return
+            if method != "POST":
+                self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
+                return
+            if not supported:
+                self.send_json({"ok": False, "error": "当前机型不支持受保护的风扇温控曲线"})
+                return
+            action = (query.get("action") or [""])[0]
+            if action == "stop":
+                with STATE.lock:
+                    STATE.fan_curve_running = False
+                self.send_json(STATE.fan_curve_payload("自动温控曲线已停止"))
+                return
+            if action != "start":
+                self.send_json({"ok": False, "error": "温控曲线操作无效"})
+                return
+            if (query.get("confirm") or [""])[0] != "firmware-reversed":
+                self.send_json({"ok": False, "error": "受保护机型启动自动温控前需要先确认风险"})
+                return
+            try:
+                interval = int((query.get("interval") or ["10"])[0])
+                downshift = int((query.get("downshift") or ["60"])[0])
+                minimum = int((query.get("minimum") or ["64"])[0])
+                cpu = [int(value) for value in (query.get("cpu") or [""])[0].split(",")]
+                hdd = [int(value) for value in (query.get("hdd") or [""])[0].split(",")]
+                ssd = [int(value) for value in (query.get("ssd") or [""])[0].split(",")]
+                pwm = [int(value) for value in (query.get("pwm") or [""])[0].split(",")]
+            except ValueError:
+                self.send_json({"ok": False, "error": "温控曲线参数无效"})
+                return
+            valid_temperatures = all(len(values) == 5 and all(0 <= value <= 125 for value in values) and values == sorted(values) and len(set(values)) == 5 for values in (cpu, hdd, ssd))
+            valid_pwm = len(pwm) == 4 and all(0 <= value <= 255 for value in pwm) and pwm == sorted(pwm) and 40 <= minimum <= pwm[0]
+            if not (2 <= interval <= 300 and 0 <= downshift <= 3600 and valid_temperatures and valid_pwm):
+                self.send_json({"ok": False, "error": "温控曲线参数无效"})
+                return
+            with STATE.lock:
+                STATE.fan_curve_running = True
+                STATE.fan_curve_profile = (query.get("mode") or ["custom"])[0]
+                STATE.fan_curve_interval = interval
+                STATE.fan_curve_downshift = downshift
+                STATE.fan_curve_minimum = minimum
+                STATE.fan_curve_require_storage = (query.get("require_storage") or ["false"])[0] == "true"
+                STATE.fan_curve_cpu = ",".join(map(str, cpu))
+                STATE.fan_curve_hdd = ",".join(map(str, hdd))
+                STATE.fan_curve_ssd = ",".join(map(str, ssd))
+                STATE.fan_curve_pwm = ",".join(map(str, pwm))
+            self.send_json(STATE.fan_curve_payload("自动温控曲线已启动"))
             return
         if path == "/bios/fan":
             channel = (query.get("channel") or [""])[0]

@@ -171,6 +171,65 @@ bios_fan_curve_stock_profile_for_model() {
     esac
 }
 
+bios_fan_curve_stock_document() {
+    local candidate
+    for candidate in \
+        "${BIOS_UGREENCTL_STOCK_DOCUMENT:-}" \
+        "${SERVER_DIR:-}/vendor/UGREEN-NAS-Hardware/docs/FAN_CURVE.md" \
+        "${APP_ROOT:-}/target/server/vendor/UGREEN-NAS-Hardware/docs/FAN_CURVE.md"; do
+        [[ -n "$candidate" && -r "$candidate" && ! -L "$candidate" ]] && {
+            printf '%s\n' "$candidate"
+            return 0
+        }
+    done
+    return 1
+}
+
+bios_fan_curve_stock_csv() {
+    local source="$1" system_pwm="${2:-}" expected="$3" normalized
+    normalized=$(printf '%s' "$source" | tr -d '` ')
+    if [[ "$normalized" == "samechannel" ]]; then
+        printf '%s' "$system_pwm"
+        return 0
+    fi
+    if [[ "$normalized" == disabled* ]]; then
+        printf '0,0,0,0,0'
+        return 0
+    fi
+    normalized=$(printf '%s' "$normalized" | tr '/' ',' | tr -cd '0-9,')
+    IFS=',' read -r -a values <<< "$normalized"
+    [[ ${#values[@]} -eq "$expected" ]] || return 1
+    printf '%s' "$(IFS=,; echo "${values[*]}")"
+}
+
+# The recovered stock policy remains authored by UGREEN-NAS-Hardware.  This
+# adapter only exposes its bundled FAN_CURVE.md record to the application.
+bios_fan_curve_stock_json() {
+    local profile document row dmi cpu hdd ssd system_pwm cpu_pwm ignored
+    local cpu_csv hdd_csv ssd_csv system_csv cpu_pwm_csv
+    profile=$(bios_fan_curve_stock_profile_for_model) || {
+        printf '{"available":false}'
+        return 0
+    }
+    document=$(bios_fan_curve_stock_document) || {
+        printf '{"available":false,"profile":"%s"}' "$(json_str "$profile")"
+        return 0
+    }
+    row=$(awk -F'|' -v profile="\`$profile\`" '$0 ~ profile { print; exit }' "$document")
+    [[ -n "$row" ]] || {
+        printf '{"available":false,"profile":"%s"}' "$(json_str "$profile")"
+        return 0
+    }
+    IFS='|' read -r ignored dmi ignored cpu hdd ssd system_pwm cpu_pwm ignored <<< "$row"
+    cpu_csv=$(bios_fan_curve_stock_csv "$cpu" "" 5) || { printf '{"available":false,"profile":"%s"}' "$(json_str "$profile")"; return 0; }
+    hdd_csv=$(bios_fan_curve_stock_csv "$hdd" "" 5) || { printf '{"available":false,"profile":"%s"}' "$(json_str "$profile")"; return 0; }
+    ssd_csv=$(bios_fan_curve_stock_csv "$ssd" "" 5) || { printf '{"available":false,"profile":"%s"}' "$(json_str "$profile")"; return 0; }
+    system_csv=$(bios_fan_curve_stock_csv "$system_pwm" "" 4) || { printf '{"available":false,"profile":"%s"}' "$(json_str "$profile")"; return 0; }
+    cpu_pwm_csv=$(bios_fan_curve_stock_csv "$cpu_pwm" "$system_csv" 4) || { printf '{"available":false,"profile":"%s"}' "$(json_str "$profile")"; return 0; }
+    printf '{"available":true,"profile":"%s","cpu":"%s","hdd":"%s","ssd":"%s","system_pwm":"%s","cpu_pwm":"%s"}' \
+        "$(json_str "$profile")" "$cpu_csv" "$hdd_csv" "$ssd_csv" "$system_csv" "$cpu_pwm_csv"
+}
+
 bios_fan_curve_running() {
     local pid_file pid
     pid_file=$(bios_fan_curve_pid_path)
@@ -213,7 +272,7 @@ bios_fan_curve_read_state() {
 
 bios_fan_curve_status_json() {
     local enabled=false running=false config state pid profile interval downshift minimum require_storage cpu_curve hdd_curve ssd_curve pwm_curve
-    local timestamp model status cpu hdd ssd desired applied desired_cpu desired_system applied_cpu applied_system detail
+    local timestamp model status cpu hdd ssd desired applied desired_cpu desired_system applied_cpu applied_system detail stock_curve
     config=$(bios_fan_curve_config_path)
     state=$(bios_fan_curve_state_path)
     pid=$(bios_fan_curve_pid_path)
@@ -236,6 +295,7 @@ bios_fan_curve_status_json() {
     desired_cpu=$(bios_fan_curve_read_state desired_cpu_pwm -1); desired_system=$(bios_fan_curve_read_state desired_system_pwm -1)
     applied_cpu=$(bios_fan_curve_read_state applied_cpu_pwm -1); applied_system=$(bios_fan_curve_read_state applied_system_pwm -1)
     detail=$(bios_fan_curve_read_state detail "")
+    stock_curve=$(bios_fan_curve_stock_json)
     [[ "$timestamp" =~ ^[0-9]+$ ]] || timestamp=0
     [[ "$cpu" =~ ^-?[0-9]+$ ]] || cpu=-1; [[ "$cpu_peak" =~ ^-?[0-9]+$ ]] || cpu_peak=-1
     [[ "$hdd" =~ ^-?[0-9]+$ ]] || hdd=-1
@@ -243,9 +303,9 @@ bios_fan_curve_status_json() {
     [[ "$applied" =~ ^-?[0-9]+$ ]] || applied=-1
     [[ "$desired_cpu" =~ ^-?[0-9]+$ ]] || desired_cpu=-1; [[ "$desired_system" =~ ^-?[0-9]+$ ]] || desired_system=-1
     [[ "$applied_cpu" =~ ^-?[0-9]+$ ]] || applied_cpu=-1; [[ "$applied_system" =~ ^-?[0-9]+$ ]] || applied_system=-1
-    printf '{"enabled":%s,"running":%s,"profile":"%s","interval_seconds":%s,"downshift_delay_seconds":%s,"minimum_pwm":%s,"require_storage_sensor":%s,"cpu_curve":"%s","hdd_curve":"%s","ssd_curve":"%s","pwm_curve":"%s","timestamp":%s,"model":"%s","status":"%s","cpu_celsius":%s,"cpu_peak_celsius":%s,"hdd_celsius":%s,"ssd_celsius":%s,"desired_pwm":%s,"applied_pwm":%s,"desired_cpu_pwm":%s,"desired_system_pwm":%s,"applied_cpu_pwm":%s,"applied_system_pwm":%s,"detail":"%s"}' \
+    printf '{"enabled":%s,"running":%s,"profile":"%s","interval_seconds":%s,"downshift_delay_seconds":%s,"minimum_pwm":%s,"require_storage_sensor":%s,"cpu_curve":"%s","hdd_curve":"%s","ssd_curve":"%s","pwm_curve":"%s","stock_curve":%s,"timestamp":%s,"model":"%s","status":"%s","cpu_celsius":%s,"cpu_peak_celsius":%s,"hdd_celsius":%s,"ssd_celsius":%s,"desired_pwm":%s,"applied_pwm":%s,"desired_cpu_pwm":%s,"desired_system_pwm":%s,"applied_cpu_pwm":%s,"applied_system_pwm":%s,"detail":"%s"}' \
         "$enabled" "$running" "$(json_str "$profile")" "$interval" "$downshift" "$minimum" "$require_storage" \
-        "$(json_str "$cpu_curve")" "$(json_str "$hdd_curve")" "$(json_str "$ssd_curve")" "$(json_str "$pwm_curve")" "$timestamp" \
+        "$(json_str "$cpu_curve")" "$(json_str "$hdd_curve")" "$(json_str "$ssd_curve")" "$(json_str "$pwm_curve")" "$stock_curve" "$timestamp" \
         "$(json_str "$model")" "$(json_str "$status")" "$cpu" "$cpu_peak" "$hdd" "$ssd" "$desired" "$applied" "$desired_cpu" "$desired_system" "$applied_cpu" "$applied_system" "$(json_str "$detail")"
 }
 

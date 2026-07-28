@@ -128,7 +128,7 @@ start)
     fi
     if bash "${SERVER_DIR}/fan_telemetry_daemon.sh" start; then
         ugreen_log_info "fan_telemetry.started" "风扇遥测采样进程已启动" \
-            "pid_file=${RUNTIME_DIR}/fan-telemetry.pid" "interval_seconds=30"
+            "pid_file=${RUNTIME_DIR}/fan-telemetry.pid" "interval_seconds=10"
     else
         telemetry_rc=$?
         ugreen_log_warn "fan_telemetry.start_failed" "风扇遥测采样进程未启动；页面仍可读取当前状态" \

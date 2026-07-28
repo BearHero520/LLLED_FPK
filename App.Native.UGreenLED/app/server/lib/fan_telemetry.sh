@@ -79,26 +79,71 @@ fan_telemetry_current_json() {
         "$(fan_telemetry_number "${BIOS_SYS_RPM:-}" 0)" "$(fan_telemetry_number "$sys2_rpm")"
 }
 
+fan_telemetry_latest_json() {
+    local expected_model file
+    expected_model=$(fan_telemetry_model "${1:-unknown}")
+    file=$(fan_telemetry_history_path)
+    [[ -f "$file" && ! -L "$file" ]] || return 0
+    tail -n 256 "$file" 2>/dev/null | awk -F'|' -v expected_model="$expected_model" '
+        function number(value, fallback) {
+            return value ~ /^-?[0-9]+$/ ? value + 0 : fallback
+        }
+        NF == 8 && $1 ~ /^[0-9]+$/ && $2 == expected_model {
+            at = $1 + 0
+            cpu = number($3, -1)
+            hdd = number($4, -1)
+            ssd = number($5, -1)
+            cpu_rpm = number($6, 0)
+            sys_rpm = number($7, 0)
+            sys2_rpm = number($8, 0)
+            latest = sprintf("{\"at\":%.0f,\"cpu\":%d,\"cpuPeak\":%d,\"hdd\":%d,\"ssd\":%d,\"cpuRpm\":%d,\"sysRpm\":%d,\"sys2Rpm\":%d}", at, cpu, cpu, hdd, ssd, cpu_rpm, sys_rpm, sys2_rpm)
+        }
+        END {
+            if (latest != "") printf "%s", latest
+        }
+    '
+}
+
 fan_telemetry_history_json() {
-    local seconds="$(fan_telemetry_number "${1:-}" 60)" expected_model cutoff now file first=true
-    local at model cpu hdd ssd cpu_rpm sys_rpm sys2_rpm
+    local seconds="$(fan_telemetry_number "${1:-}" 60)" expected_model cutoff now file
+    local bucket_seconds="$(fan_telemetry_number "${3:-}" 1)"
     expected_model=$(fan_telemetry_model "${2:-unknown}")
     [[ "$seconds" =~ ^[0-9]+$ ]] || seconds=60
     (( seconds > 86400 )) && seconds=86400
+    [[ "$bucket_seconds" =~ ^[0-9]+$ ]] || bucket_seconds=1
+    (( bucket_seconds < 1 )) && bucket_seconds=1
+    (( bucket_seconds > seconds )) && bucket_seconds=seconds
     now=$(date +%s 2>/dev/null || echo 0)
     cutoff=$(( now - seconds ))
     file=$(fan_telemetry_history_path)
     printf '['
     [[ -f "$file" && ! -L "$file" ]] || { printf ']'; return 0; }
-    while IFS='|' read -r at model cpu hdd ssd cpu_rpm sys_rpm sys2_rpm extra; do
-        [[ -z "$extra" && "$at" =~ ^[0-9]+$ && "$model" == "$expected_model" ]] || continue
-        (( at >= cutoff && at <= now + 60 )) || continue
-        cpu=$(fan_telemetry_number "$cpu"); hdd=$(fan_telemetry_number "$hdd"); ssd=$(fan_telemetry_number "$ssd")
-        cpu_rpm=$(fan_telemetry_number "$cpu_rpm" 0); sys_rpm=$(fan_telemetry_number "$sys_rpm" 0); sys2_rpm=$(fan_telemetry_number "$sys2_rpm" 0)
-        $first || printf ','
-        printf '{"at":%s,"cpu":%s,"hdd":%s,"ssd":%s,"cpuRpm":%s,"sysRpm":%s,"sys2Rpm":%s}' \
-            "$at" "$cpu" "$hdd" "$ssd" "$cpu_rpm" "$sys_rpm" "$sys2_rpm"
-        first=false
-    done < "$file"
+    awk -F'|' -v expected_model="$expected_model" -v cutoff="$cutoff" -v future="$((now + 60))" -v bucket_seconds="$bucket_seconds" '
+        function number(value, fallback) {
+            return value ~ /^-?[0-9]+$/ ? value + 0 : fallback
+        }
+        function emit_pending() {
+            if (pending == "") return
+            if (!first) printf ","
+            printf "%s", pending
+            first = 0
+        }
+        BEGIN {
+            first = 1
+            pending = ""
+            pending_slot = -1
+        }
+        NF == 8 && $1 ~ /^[0-9]+$/ && $2 == expected_model {
+            at = $1 + 0
+            if (at < cutoff || at > future) next
+            slot = int(at / bucket_seconds)
+            if (pending != "" && slot != pending_slot) emit_pending()
+            pending_slot = slot
+            pending = sprintf("{\"at\":%.0f,\"cpu\":%d,\"hdd\":%d,\"ssd\":%d,\"cpuRpm\":%d,\"sysRpm\":%d,\"sys2Rpm\":%d}", at, number($3, -1), number($4, -1), number($5, -1), number($6, 0), number($7, 0), number($8, 0))
+        }
+        END {
+            emit_pending()
+        }
+    ' "$file"
     printf ']'
 }

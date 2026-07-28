@@ -25,8 +25,8 @@ settings_init "$SETTINGS_FILE" >/dev/null 2>&1 || true
 ugreen_log_configure_from_settings "$SETTINGS_FILE" 2>/dev/null || true
 
 PID_FILE="${RUNTIME_DIR}/fan-telemetry.pid"
-INTERVAL_SECONDS="${FAN_TELEMETRY_INTERVAL_SECONDS:-30}"
-[[ "$INTERVAL_SECONDS" =~ ^[0-9]+$ ]] || INTERVAL_SECONDS=30
+INTERVAL_SECONDS="${FAN_TELEMETRY_INTERVAL_SECONDS:-10}"
+[[ "$INTERVAL_SECONDS" =~ ^[0-9]+$ ]] || INTERVAL_SECONDS=10
 (( INTERVAL_SECONDS < 10 )) && INTERVAL_SECONDS=10
 
 run_sampler() {

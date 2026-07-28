@@ -1,0 +1,175 @@
+@import '@fontsource-variable/geist';
+@import '@fontsource/playfair-display/600.css';
+
+:root {
+  --newui-focus-ring: rgba(22, 119, 255, 0.34);
+  --newui-font-sans: 'Geist Variable', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --newui-font-display: 'Playfair Display', 'Microsoft YaHei', serif;
+}
+
+body { font-family: var(--newui-font-sans); }
+.page-header h1, .section-heading h2, .surface-heading h2 { font-family: var(--newui-font-display); }
+
+.react-view { width: 100%; max-width: 1480px; margin: 0 auto; animation: view-in 220ms ease; }
+
+.newui-dialog-backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  background: rgba(18, 30, 49, 0.28);
+  backdrop-filter: blur(5px);
+}
+
+.newui-dialog-popup {
+  position: fixed;
+  z-index: 51;
+  top: 50%;
+  left: 50%;
+  width: min(420px, calc(100vw - 36px));
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 24px 80px rgba(37, 59, 91, 0.26);
+  color: #172033;
+  transform: translate(-50%, -50%);
+}
+
+.newui-dialog-popup h2 { margin: 0 0 10px; font-size: 19px; }
+.newui-dialog-popup p { margin: 0; color: #5f6f86; font-size: 14px; line-height: 1.6; }
+.newui-dialog-actions { display: flex; justify-content: flex-end; margin-top: 20px; }
+
+.bios-controller-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(290px, 0.7fr);
+  align-items: stretch;
+  gap: 24px;
+}
+
+.bios-controller-row > .glass-surface {
+  min-width: 0;
+  height: 100%;
+  padding: 26px 28px;
+  box-sizing: border-box;
+}
+
+.bios-controller-row .bios-status-surface { grid-column: auto; }
+.bios-controller-row .bios-detail-surface { align-self: stretch; }
+
+.echarts-fan-frame {
+  position: relative;
+  margin-top: 13px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.echarts-fan-canvas {
+  display: block;
+  width: 100%;
+  height: 236px;
+  margin-top: 13px;
+  touch-action: none;
+}
+
+.echarts-fan-frame .echarts-fan-canvas { margin-top: 0; }
+
+.hardware-identity-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(120px, 0.55fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.hardware-identity-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 13px;
+  border: 1px solid rgba(120, 143, 174, 0.18);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.hardware-identity-item > i {
+  flex: 0 0 auto;
+  color: #4b68a6;
+  font-size: 16px;
+}
+
+.hardware-identity-item > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hardware-identity-item small { color: #7b8a9c; font-size: 10px; }
+.hardware-identity-item strong {
+  overflow: hidden;
+  color: #26354d;
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hardware-path-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 11px 13px;
+  border-radius: 13px;
+  color: #51637d;
+  background: rgba(225, 239, 255, 0.55);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.hardware-path-note i { margin-top: 1px; color: #1677ff; }
+
+.fan-telemetry-loading {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #425674;
+  background: rgba(244, 248, 253, 0.62);
+  backdrop-filter: blur(2px);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+
+.fan-telemetry-loading i {
+  color: #4b68a6;
+  font-size: 15px;
+  animation: fan-telemetry-spin 0.8s linear infinite;
+}
+
+@keyframes fan-telemetry-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fan-telemetry-loading i { animation: none; }
+}
+
+@media (max-width: 720px) {
+  .bios-controller-row { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .bios-controller-row > .glass-surface { height: auto; padding: 22px; }
+  .echarts-fan-canvas { height: 210px; }
+  .hardware-identity-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 520px) {
+  .bios-controller-row { gap: 14px; }
+  .bios-controller-row > .glass-surface { padding: 18px; }
+  .hardware-identity-strip { grid-template-columns: minmax(0, 1fr); }
+}

@@ -95,6 +95,16 @@ class PreviewApiTests(unittest.TestCase):
                 state.bios_power_schedule_shutdown_time,
                 state.bios_rtc_wake_epoch,
                 tuple(sorted(state.bios_write_risk_acknowledgements)),
+                state.fan_curve_running,
+                state.fan_curve_profile,
+                state.fan_curve_interval,
+                state.fan_curve_downshift,
+                state.fan_curve_minimum,
+                state.fan_curve_require_storage,
+                state.fan_curve_cpu,
+                state.fan_curve_hdd,
+                state.fan_curve_ssd,
+                state.fan_curve_pwm,
                 tuple(state.logs),
             )
 
@@ -300,21 +310,54 @@ class PreviewApiTests(unittest.TestCase):
 
     def test_bios_telemetry_returns_time_samples_for_each_window(self) -> None:
         preview.STATE.configure_profile("dxp6800")
-        expected_minimums = {"1m": 3, "1h": 121, "24h": 2881}
-        for range_name, minimum in expected_minimums.items():
+        expected_windows = {"1m": (10, 7), "1h": (60, 60), "24h": (1800, 49)}
+        for range_name, (interval, minimum_samples) in expected_windows.items():
             with self.subTest(range_name=range_name):
                 status, payload, _ = self.request("GET", f"/bios/telemetry?range={range_name}")
                 self.assertEqual(status, 200)
                 self.assertTrue(payload["ok"])
                 self.assertEqual(payload["range"], range_name)
-                self.assertEqual(payload["sample_interval_seconds"], 30)
-                self.assertGreaterEqual(len(payload["history"]), minimum)
+                self.assertEqual(payload["sample_interval_seconds"], interval)
+                self.assertLessEqual(len(payload["history"]), 61)
+                self.assertGreaterEqual(len(payload["history"]), minimum_samples)
                 self.assertLessEqual(payload["history"][0]["at"], payload["history"][-1]["at"])
-                self.assertIn("cpuRpm", payload["current"])
+                for field in ("cpu", "hdd", "ssd", "cpuRpm", "sysRpm", "sys2Rpm"):
+                    self.assertIn(field, payload["current"])
+                    self.assertIn(field, payload["history"][0])
 
         status, payload, _ = self.request("GET", "/bios/telemetry?range=bad")
         self.assertEqual(status, 200)
         self.assertEqual(payload, {"ok": False, "error": "invalid telemetry range"})
+
+    def test_fan_curve_can_load_start_and_stop(self) -> None:
+        preview.STATE.configure_profile("dxp6800")
+
+        status, payload, _ = self.request("GET", "/bios/fan-curve")
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertFalse(payload["running"])
+        self.assertEqual(payload["cpu_curve"], "50,55,75,80,90")
+        self.assertEqual(payload["stock_curve"]["profile"], "stock-6800pro")
+        self.assertEqual(payload["stock_curve"]["system_pwm"], "64,130,210,230")
+
+        status, payload, _ = self.request(
+            "POST",
+            "/bios/fan-curve?action=start&confirm=firmware-reversed&mode=custom"
+            "&interval=12&downshift=90&minimum=64&require_storage=true"
+            "&cpu=45,55,70,85,95&hdd=35,45,60,70,80"
+            "&ssd=40,50,65,75,85&pwm=64,128,200,255",
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["running"])
+        self.assertEqual(payload["cpu_curve"], "45,55,70,85,95")
+        self.assertEqual(payload["pwm_curve"], "64,128,200,255")
+        self.assertTrue(payload["require_storage_sensor"])
+
+        status, payload, _ = self.request("POST", "/bios/fan-curve?action=stop")
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertFalse(payload["running"])
 
     def test_unhandled_preview_exception_is_json(self) -> None:
         original: Callable[[str], None] = preview.STATE.set_mode

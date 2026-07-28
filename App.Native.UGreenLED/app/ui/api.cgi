@@ -548,19 +548,25 @@ bios_remember_write_risk() {
 }
 
 bios_telemetry_json() {
-    local range="${1:-1m}" seconds=60 telemetry_at=0 history
+    local range="${1:-1m}" seconds=60 bucket_seconds=10 telemetry_at=0 history current model
     case "$range" in
-        1m) seconds=60 ;;
-        1h) seconds=3600 ;;
-        24h) seconds=86400 ;;
+        1m) seconds=60; bucket_seconds=10 ;;
+        1h) seconds=3600; bucket_seconds=60 ;;
+        24h) seconds=86400; bucket_seconds=1800 ;;
         *) printf '{"ok":false,"error":"invalid telemetry range"}'; return 0 ;;
     esac
-    bios_read_status >/dev/null 2>&1 || true
-    telemetry_at=$(date +%s 2>/dev/null || echo 0)
-    fan_telemetry_append_bios_status "$telemetry_at" >/dev/null 2>&1 || true
-    history=$(fan_telemetry_history_json "$seconds" "$BIOS_MODEL")
-    printf '{"ok":true,"range":"%s","sample_interval_seconds":30,"history":%s,"current":%s}' \
-        "$range" "$history" "$(fan_telemetry_current_json "$telemetry_at")"
+    model=$(bios_detected_profile)
+    current=$(fan_telemetry_latest_json "$model")
+    if [[ -z "$current" ]]; then
+        bios_read_status >/dev/null 2>&1 || true
+        model="$BIOS_MODEL"
+        telemetry_at=$(date +%s 2>/dev/null || echo 0)
+        fan_telemetry_append_bios_status "$telemetry_at" >/dev/null 2>&1 || true
+        current=$(fan_telemetry_current_json "$telemetry_at")
+    fi
+    history=$(fan_telemetry_history_json "$seconds" "$model" "$bucket_seconds")
+    printf '{"ok":true,"range":"%s","sample_interval_seconds":%s,"history":%s,"current":%s}' \
+        "$range" "$bucket_seconds" "$history" "$current"
 }
 
 bios_write_confirmation_valid() {

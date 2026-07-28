@@ -28,6 +28,36 @@ grep -Fq '"led_plugin_conflict"' "$ROOT/App.Native.UGreenLED/app/ui/api.cgi" || 
 grep -Fq '检测到 it87' "$ROOT/App.Native.UGreenLED/app/www/js/app.js" || fail "page must explain it87 compatibility"
 grep -Fq '系统风扇 1/2 会同步写入' "$ROOT/App.Native.UGreenLED/app/www/js/app.js" || fail "page must explain the DXP480T Plus shared direct PWM path"
 
+json_str() { printf '%s' "$1"; }
+SERVER_DIR="$ROOT/App.Native.UGreenLED/app/server"
+source "$BIOS_CONTROL"
+UGREEN_PRODUCT_NAME="DXP6800 Pro"
+stock_curve=$(bios_fan_curve_stock_json)
+grep -Fq '"profile":"stock-6800pro"' <<< "$stock_curve" || fail "stock fan curve must come from the bundled hardware record"
+grep -Fq '"system_pwm":"64,130,210,230"' <<< "$stock_curve" || fail "stock fan curve must preserve the recovered system PWM points"
+
+source "$LIB/fan_telemetry.sh"
+grep -Fq '1m) seconds=60; bucket_seconds=10 ;;' "$ROOT/App.Native.UGreenLED/app/ui/api.cgi" || fail "one-minute telemetry must use ten-second buckets"
+grep -Fq 'FAN_TELEMETRY_INTERVAL_SECONDS:-10' "$ROOT/App.Native.UGreenLED/app/server/fan_telemetry_daemon.sh" || fail "telemetry sampler must capture every ten seconds by default"
+VAR_DIR="$TMP/telemetry"
+mkdir -p "$VAR_DIR"
+telemetry_now=$(date +%s)
+telemetry_anchor=$(( (telemetry_now / 1800) * 1800 ))
+telemetry_earlier=$(( telemetry_anchor - 3500 ))
+telemetry_latest=$(( telemetry_anchor - 3490 ))
+telemetry_next=$(( telemetry_anchor - 1700 ))
+printf '%s\n' \
+  "${telemetry_earlier}|dxp6800pro|40|35|42|1200|900|800" \
+  "${telemetry_latest}|dxp6800pro|41|36|43|1210|910|810" \
+  "${telemetry_next}|dxp6800pro|42|37|44|1220|920|820" > "$(fan_telemetry_history_path)"
+bucketed_history=$(fan_telemetry_history_json 86400 dxp6800pro 1800)
+bucketed_count=$(grep -o '"at":' <<< "$bucketed_history" | wc -l | tr -d ' ')
+assert_eq "$bucketed_count" "2"
+grep -Fq "\"at\":${telemetry_latest}" <<< "$bucketed_history" || fail "telemetry bucket must keep its latest sample"
+latest_telemetry=$(fan_telemetry_latest_json dxp6800pro)
+grep -Fq "\"at\":${telemetry_next}" <<< "$latest_telemetry" || fail "telemetry cache must return its latest model sample"
+grep -Fq '"sys2Rpm":820' <<< "$latest_telemetry" || fail "telemetry cache must retain secondary fan RPM"
+
 UGREEN_PRODUCT_NAME="UGREEN DXP6800 Pro"
 assert_eq "$(hardware_profile_key)" "dxp6800"
 assert_eq "$(hardware_disk_count)" "6"
