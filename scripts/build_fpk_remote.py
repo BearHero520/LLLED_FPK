@@ -11,7 +11,9 @@ from pathlib import Path
 
 import paramiko
 
-PROJECT = Path(__file__).resolve().parent.parent / "App.Native.UGreenLED"
+ROOT = Path(__file__).resolve().parent.parent
+PROJECT = ROOT / "App.Native.UGreenLED"
+DIST = ROOT / "dist"
 LED_BUILD_SCRIPT = Path(__file__).resolve().parent / "build_ugreen_leds_cli.py"
 FAN_CURVE_API_TEST = Path(__file__).resolve().parent.parent / "tests" / "test_fan_curve_api.sh"
 REMOTE_DIR = "/tmp/App.Native.UGreenLED-build"
@@ -170,7 +172,8 @@ def main():
         sys.exit(1)
 
     remote_fpk = f"{REMOTE_DIR}/{fpk_name}"
-    local_fpk = PROJECT.parent / fpk_name
+    DIST.mkdir(parents=True, exist_ok=True)
+    local_fpk = DIST / fpk_name
     print("\n=== verify FPK contents ===")
     required_entries = " ".join(
         shlex.quote(entry)

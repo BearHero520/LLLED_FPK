@@ -58,9 +58,11 @@ LLLED_FPK/
 ```bash
 cd App.Native.UGreenLED
 fnpack build
+mkdir -p ../dist
+mv ./*.fpk ../dist/
 ```
 
-生成 `App.Native.UGreenLED.fpk`，在 **应用中心 → 手动安装** 即可。
+最终安装包统一放入仓库根目录的 `dist/`；不要将 `.fpk` 或 `.fpk.sha256` 发布文件留在仓库根目录、`build-*`、`scripts/` 或源码目录。生成后可在 **应用中心 → 手动安装**。
 
 也可在仓库根目录执行（需能 SSH 到已安装 fnpack 的 NAS）：
 
@@ -70,7 +72,7 @@ python scripts/build_fpk_remote.py
 
 脚本会交互询问 NAS 地址、用户名和密码，也可通过 `FNOS_HOST`、`FNOS_USER`、`FNOS_PASSWORD` 环境变量传入；密码不会写入源码或打印到终端。
 
-安装包输出：`App.Native.UGreenLED.fpk`（不纳入 Git，可从 [Releases](https://github.com/BearHero520/LLLED_FPK/releases) 下载）。
+安装包输出：`dist/App.Native.UGreenLED.fpk`（不纳入 Git，可从 [Releases](https://github.com/BearHero520/LLLED_FPK/releases) 下载）。
 
 ### 本地无 NAS 打包
 
@@ -83,7 +85,7 @@ python scripts/build_fpk.py
 
 `ugreenctl` 与 DXP4800 / DXP4800 Plus / DXP4800S / DXP480T Plus / DXP6800 Pro 机型插件由 CI 在 Ubuntu 22.04 构建并随 FPK 分发；Windows 本地检出请通过 GitHub Actions 打包。`scripts/build_fpk_remote.py` 会在 NAS 端按需安装 CMake 和编译器再构建它。硬件源代码以 Git 子模块固定在 `App.Native.UGreenLED/app/server/vendor/UGREEN-NAS-Hardware`，克隆时请使用 `git clone --recurse-submodules`；升级时同步更新该子模块提交。
 
-输出目录为 `dist/`，其中包括：
+所有正式打包入口的最终输出目录均为 `dist/`，其中包括：
 
 - `App.Native.UGreenLED-<版本>.fpk`：带版本号的发布文件。
 - `App.Native.UGreenLED.fpk`：供应用更新检查使用的固定文件名。

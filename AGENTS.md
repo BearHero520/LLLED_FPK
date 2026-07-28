@@ -6,3 +6,9 @@ The following rules are mandatory for every change in this repository:
 - All LED operations must go through the bundled executable at `E:\工作台\LLLED_FPK\App.Native.UGreenLED\app\server\bin\ugreen_leds_cli` (runtime path: `server/bin/ugreen_leds_cli`). Do not add or retain an application-side LED path that directly writes I2C, sysfs, Super I/O, `/dev/port`, MCU registers, or another hardware backend.
 - Keep the two control planes separate: never use `ugreen_leds_cli` for BIOS/fan/AC-recovery work, and never add LED control to `UGREEN-NAS-Hardware`.
 - When a required hardware capability is missing, update or verify the responsible upstream implementation first instead of duplicating low-level hardware logic inside LLLED_FPK.
+
+# Packaging Output Boundary
+
+- All final FPK packages and their checksum files must be written to `E:\工作台\LLLED_FPK\dist` (repository path: `dist/`).
+- Do not leave final `.fpk` or `.fpk.sha256` artifacts in the repository root, `build-*` directories, `scripts/`, or source directories.
+- Local and remote packaging entry points must use `dist/` as their default final destination. Ephemeral CI smoke-test artifacts may use the CI runner's temporary directory.
