@@ -152,6 +152,7 @@ def validate_project() -> None:
         PROJECT / "app" / "server" / "nas_hardware_collect.sh",
         PROJECT / "app" / "server" / "lib" / "logging.sh",
         PROJECT / "app" / "server" / "lib" / "fan_telemetry.sh",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dx4600.so",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp4800.so",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp4800plus.so",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp4800s.so",
@@ -159,6 +160,7 @@ def validate_project() -> None:
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp6800pro.so",
         PROJECT / "app" / "server" / "vendor" / "UGREEN-NAS-Hardware" / "LICENSE",
         PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dxp480t-power.patch",
+        PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "diagnostics.patch",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
     if missing:
@@ -204,6 +206,7 @@ def verify_package(package: Path, *, expected_checksum: str, expected_version: s
                 "server/nas_hardware_collect.sh",
                 "server/lib/logging.sh",
                 "server/lib/fan_telemetry.sh",
+                "server/lib/ugreenctl/models/dx4600.so",
                 "server/lib/ugreenctl/models/dxp4800.so",
                 "server/lib/ugreenctl/models/dxp4800plus.so",
                 "server/lib/ugreenctl/models/dxp4800s.so",

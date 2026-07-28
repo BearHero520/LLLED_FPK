@@ -7,7 +7,7 @@ set -o pipefail
 umask 077
 shopt -s nullglob
 
-COLLECTOR_VERSION="1"
+COLLECTOR_VERSION="2"
 APP_NAME="App.Native.UGreenLED"
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)
 
@@ -30,6 +30,9 @@ I2C_PROBE_ENABLED=false
 I2C_ADAPTER_COUNT=0
 I2C_TARGET_DEVICE_COUNT=0
 IT87_BOUND_PATHS=()
+I2C_ADAPTER_PATHS=()
+LED_CLI=""
+LED_WRITE_PROTOCOL="auto"
 
 usage() {
     cat <<'EOF'
@@ -38,13 +41,13 @@ Usage: nas_hardware_collect.sh [options]
 Options:
   --stdout          Write the report to standard output.
   --output PATH     Create the report at PATH; refuses to overwrite existing files.
-  --i2c-probe       Run targeted, read-only 0x31/0x26 register reads.
-  --no-i2c-probe    Do not access I2C devices.
+  --i2c-probe       Run read-only controller probes through bundled ugreen_leds_cli.
+  --no-i2c-probe    Skip controller probes.
   -h, --help        Show this help.
 
-Without options, a mode-0600 report is created under /tmp. In auto mode, targeted
-I2C reads are attempted only on DXP480T-family systems. The collector never uses
-i2cget -f, i2cset, modprobe, rmmod, or state-changing control commands.
+Without options, a mode-0600 report is created under /tmp. In auto mode, the
+bundled CLI performs a read-only controller probe when available. The collector
+never uses i2cget, i2cset, modprobe, rmmod, or state-changing control commands.
 EOF
 }
 
@@ -118,8 +121,64 @@ run_with_timeout() {
     fi
 }
 
+find_led_cli() {
+    local candidate
+    if [[ -n "${UGREEN_DIAG_LED_CLI:-}" ]]; then
+        LED_CLI="$UGREEN_DIAG_LED_CLI"
+        return 0
+    fi
+    for candidate in \
+        "$SCRIPT_DIR/bin/ugreen_leds_cli" \
+        "${TRIM_APPDEST:-/var/apps/$APP_NAME}/server/bin/ugreen_leds_cli" \
+        "${TRIM_APPDEST:-/var/apps/$APP_NAME}/target/server/bin/ugreen_leds_cli"; do
+        if [[ -x "$candidate" && ! -L "$candidate" ]]; then
+            LED_CLI="$candidate"
+            return 0
+        fi
+    done
+    LED_CLI=""
+    return 1
+}
+
+read_selected_hardware_setting() {
+    local key="$1" fallback="$2" settings candidate value
+    settings="${UGREEN_DIAG_SETTINGS_FILE:-}"
+    if [[ -z "$settings" ]]; then
+        for candidate in \
+            "${TRIM_PKGVAR:-/var/apps/$APP_NAME/var}/settings.conf" \
+            "${TRIM_APPDEST:-/var/apps/$APP_NAME}/var/settings.conf"; do
+            if [[ -r "$candidate" && ! -L "$candidate" ]]; then
+                settings="$candidate"
+                break
+            fi
+        done
+    fi
+    [[ -n "$settings" && -r "$settings" && ! -L "$settings" ]] || {
+        printf '%s' "$fallback"
+        return 0
+    }
+    value=$(awk -v wanted="$key" '
+        /^\[hardware\][[:space:]]*$/ { in_hardware=1; next }
+        /^\[/ { in_hardware=0 }
+        in_hardware {
+            split($0, parts, "=")
+            current=parts[1]
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", current)
+            if (current == wanted) {
+                sub(/^[^=]*=/, "", $0)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+                print $0
+                exit
+            }
+        }
+    ' "$settings" 2>/dev/null)
+    [[ -n "$value" ]] || value="$fallback"
+    sanitize_value "$value"
+}
+
 detect_state() {
-    local h module_link module_target entry adapters target_devices
+    local h module_link module_target entry adapter class_root target_devices
+    local -A seen_adapters=()
 
     PRODUCT_NAME=$(read_value "$SYS_ROOT/class/dmi/id/product_name")
     [[ "$PRODUCT_NAME" == "<unavailable>" ]] && PRODUCT_NAME="unknown"
@@ -148,16 +207,31 @@ detect_state() {
         VENDOR_IT86_ACTIVE=true
     fi
 
-    adapters=("$SYS_ROOT"/class/i2c-adapter/i2c-*)
-    I2C_ADAPTER_COUNT=${#adapters[@]}
-    target_devices=("$SYS_ROOT"/bus/i2c/devices/*-0031 "$SYS_ROOT"/bus/i2c/devices/*-0026)
+    I2C_ADAPTER_PATHS=()
+    for class_root in "$SYS_ROOT/class/i2c-dev" "$SYS_ROOT/class/i2c-adapter"; do
+        for adapter in "$class_root"/i2c-*; do
+            [[ -e "$adapter" || -L "$adapter" ]] || continue
+            entry=${adapter##*/}
+            [[ -n "${seen_adapters[$entry]:-}" ]] && continue
+            seen_adapters[$entry]=1
+            I2C_ADAPTER_PATHS+=("$adapter")
+        done
+    done
+    I2C_ADAPTER_COUNT=${#I2C_ADAPTER_PATHS[@]}
+    target_devices=(
+        "$SYS_ROOT"/bus/i2c/devices/*-003a
+        "$SYS_ROOT"/bus/i2c/devices/*-0031
+        "$SYS_ROOT"/bus/i2c/devices/*-0026
+    )
     I2C_TARGET_DEVICE_COUNT=${#target_devices[@]}
+    find_led_cli || true
+    LED_WRITE_PROTOCOL=$(read_selected_hardware_setting write_protocol auto)
 
     case "${I2C_PROBE_MODE,,}" in
         on|yes|true|1) I2C_PROBE_ENABLED=true ;;
         off|no|false|0) I2C_PROBE_ENABLED=false ;;
         *)
-            [[ "$PRODUCT_NAME" == *DXP480T* ]] && I2C_PROBE_ENABLED=true || I2C_PROBE_ENABLED=false
+            [[ -n "$LED_CLI" ]] && I2C_PROBE_ENABLED=true || I2C_PROBE_ENABLED=false
             ;;
     esac
 }
@@ -180,6 +254,8 @@ collect_summary() {
     printf 'i2c_adapter_count=%s\n' "$I2C_ADAPTER_COUNT"
     printf 'i2c_target_device_count=%s\n' "$I2C_TARGET_DEVICE_COUNT"
     printf 'targeted_i2c_probe=%s\n' "$I2C_PROBE_ENABLED"
+    printf 'led_cli_path=%s\n' "${LED_CLI:-<unavailable>}"
+    printf 'configured_write_protocol=%s\n' "$LED_WRITE_PROTOCOL"
 }
 
 collect_system() {
@@ -313,7 +389,7 @@ collect_hwmon() {
 }
 
 collect_i2c() {
-    local output rc adapter dev_path name driver module modalias dev bus address reg
+    local output rc adapter dev_path name driver module modalias dev parameter
     section "i2c-and-led"
 
     if command -v lsmod >/dev/null 2>&1; then
@@ -331,26 +407,41 @@ collect_i2c() {
     run_command "modinfo-i2c-dev" modinfo i2c_dev
     run_command "i2cdetect-list" i2cdetect -l
 
+    printf '\n[i2c-i801-live-parameters]\n'
+    if [[ -d "$SYS_ROOT/module/i2c_i801/parameters" ]]; then
+        for parameter in "$SYS_ROOT/module/i2c_i801/parameters/"*; do
+            [[ -f "$parameter" ]] || continue
+            printf '%s=%s\n' "${parameter##*/}" "$(read_value "$parameter")"
+        done
+    else
+        printf '<unavailable>\n'
+    fi
+
     printf '\n[i2c-device-nodes]\n'
     if (( I2C_ADAPTER_COUNT == 0 )); then
-        printf '<no sysfs I2C adapters>\n'
+        printf '<no sysfs I2C adapters under class/i2c-dev or class/i2c-adapter>\n'
     fi
     for dev in "$DEV_ROOT"/i2c-*; do
         ls -l "$dev" 2>&1
     done
 
     printf '\n[i2c-adapters]\n'
-    for adapter in "$SYS_ROOT"/class/i2c-adapter/i2c-*; do
-        printf 'adapter=%s name=%s device=%s driver=%s module=%s\n' \
-            "${adapter##*/}" "$(read_value "$adapter/name")" "$(resolved_link "$adapter/device")" \
+    for adapter in "${I2C_ADAPTER_PATHS[@]}"; do
+        name=$(read_value "$adapter/name")
+        [[ "$name" == "<unavailable>" ]] && name=$(read_value "$adapter/device/name")
+        printf 'adapter=%s class_path=%s name=%s device=%s driver=%s module=%s\n' \
+            "${adapter##*/}" "$adapter" "$name" "$(resolved_link "$adapter/device")" \
             "$(resolved_link "$adapter/device/driver")" "$(resolved_link "$adapter/device/driver/module")"
     done
 
     printf '\n[target-i2c-devices]\n'
     if (( I2C_TARGET_DEVICE_COUNT == 0 )); then
-        printf '<no 0x31/0x26 sysfs devices>\n'
+        printf '<no 0x3a/0x31/0x26 sysfs devices>\n'
     fi
-    for dev_path in "$SYS_ROOT"/bus/i2c/devices/*-0031 "$SYS_ROOT"/bus/i2c/devices/*-0026; do
+    for dev_path in \
+        "$SYS_ROOT"/bus/i2c/devices/*-003a \
+        "$SYS_ROOT"/bus/i2c/devices/*-0031 \
+        "$SYS_ROOT"/bus/i2c/devices/*-0026; do
         [[ -e "$dev_path" || -L "$dev_path" ]] || continue
         name=$(read_value "$dev_path/name")
         driver=$(resolved_link "$dev_path/driver")
@@ -378,7 +469,7 @@ collect_i2c() {
         output=$(dmesg 2>&1)
         rc=$?
         if (( rc == 0 )); then
-            printf '%s\n' "$output" | grep -iE 'i2c|smbus|i801|it87|it8613|n76e003' | tail -n 200 || \
+            printf '%s\n' "$output" | grep -iE 'i2c|smbus|i801|it87|it8613|n76e003|ht32|led.?ugreen|0x3a' | tail -n 240 || \
                 printf '<no relevant kernel messages>\n'
         else
             printf '%s\nexit_code=%d\n' "$output" "$rc"
@@ -387,30 +478,43 @@ collect_i2c() {
         printf '<dmesg unavailable>\n'
     fi
 
-    printf '\n[targeted-i2c-read-probes]\n'
+    printf '\n[led-cli-read-only-probe]\n'
+    printf 'path=%s\n' "${LED_CLI:-<unavailable>}"
+    if [[ -n "$LED_CLI" && -x "$LED_CLI" ]]; then
+        printf 'sha256=%s\n' "$(sha256_file "$LED_CLI")"
+        output=$(run_with_timeout "$LED_CLI" --version 2>&1)
+        rc=$?
+        printf 'version_exit_code=%d\nversion_output=%s\n' "$rc" "$(sanitize_value "${output:-<empty>}")"
+    fi
     if ! $I2C_PROBE_ENABLED; then
-        printf '<disabled>\n'
-    elif ! command -v i2cget >/dev/null 2>&1; then
-        printf '<i2cget unavailable>\n'
+        printf 'probe=<disabled>\n'
+    elif [[ -z "$LED_CLI" || ! -x "$LED_CLI" ]]; then
+        printf 'probe=<bundled CLI unavailable>\n'
     else
-        dev_path=""
-        for dev in "$DEV_ROOT"/i2c-*; do
-            [[ -e "$dev" ]] || continue
-            dev_path="$dev"
-            bus=${dev##*-}
-            [[ "$bus" =~ ^[0-9]+$ ]] || continue
-            for address in 0x31 0x26; do
-                for reg in 0x5a 0x5b 0x5d; do
-                    output=$(run_with_timeout i2cget -y "$bus" "$address" "$reg" b 2>&1)
-                    rc=$?
-                    output=$(sanitize_value "$output")
-                    [[ -n "$output" ]] || output="<empty>"
-                    printf 'bus=i2c-%s address=%s register=%s exit_code=%d output=%s\n' \
-                        "$bus" "$address" "$reg" "$rc" "$output"
-                done
-            done
-        done
-        [[ -n "$dev_path" ]] || printf '<no /dev/i2c-* nodes to probe>\n'
+        if [[ "${PRODUCT_NAME^^}" == *DXP480T* ]]; then
+            output=$(run_with_timeout "$LED_CLI" --dxp480t-power-probe 2>&1)
+            rc=$?
+            printf 'command=--dxp480t-power-probe\n'
+        else
+            output=$(UGREEN_LEDS_WRITE_PROTOCOL="$LED_WRITE_PROTOCOL" \
+                run_with_timeout "$LED_CLI" --diagnose 2>&1)
+            rc=$?
+            printf 'command=--diagnose\n'
+        fi
+        printf 'exit_code=%d\n%s\n' "$rc" "${output:-<no output>}"
+    fi
+
+    printf '\n[led-controller-processes]\n'
+    if command -v ps >/dev/null 2>&1; then
+        output=$(ps -eo pid=,comm= 2>&1)
+        rc=$?
+        if (( rc == 0 )); then
+            printf '%s\n' "$output" | grep -Ei 'ugreen|led|i2c' || printf '<no matching process names>\n'
+        else
+            printf '%s\nexit_code=%d\n' "$output" "$rc"
+        fi
+    else
+        printf '<ps unavailable>\n'
     fi
 
     printf '\n[led-class]\n'
@@ -452,10 +556,57 @@ collect_controller() {
     printf 'command=info\nexit_code=%d\n%s\n' "$rc" "${output:-<no output>}"
 }
 
+collect_application() {
+    local app_root="${TRIM_APPDEST:-/var/apps/$APP_NAME}"
+    local var_root="${TRIM_PKGVAR:-/var/apps/$APP_NAME/var}"
+    local manifest="" candidate pid_file pid
+    section "application-runtime"
+    printf 'app_root=%s\n' "$app_root"
+    printf 'var_root=%s\n' "$var_root"
+    printf 'configured_profile=%s\n' "$(read_selected_hardware_setting profile auto)"
+    printf 'configured_backend=%s\n' "$(read_selected_hardware_setting backend cli)"
+    printf 'configured_write_protocol=%s\n' "$LED_WRITE_PROTOCOL"
+
+    for candidate in "$app_root/manifest" "$app_root/../manifest" "$SCRIPT_DIR/../../manifest"; do
+        if [[ -r "$candidate" && ! -L "$candidate" ]]; then
+            manifest="$candidate"
+            break
+        fi
+    done
+    printf '\n[package-manifest]\n'
+    if [[ -n "$manifest" ]]; then
+        printf 'path=%s\n' "$manifest"
+        awk '
+            /^[[:space:]]*(version|arch|os_min_version|display_name)[[:space:]]*=/ {
+                gsub(/\r/, "")
+                print
+            }
+        ' "$manifest" 2>/dev/null || true
+    else
+        printf '<unavailable>\n'
+    fi
+
+    printf '\n[daemon-runtime]\n'
+    for pid_file in \
+        "${UGREEN_RUNTIME_DIR:-/run/$APP_NAME}/led_daemon.pid" \
+        "$var_root/run/led_daemon.pid" \
+        "$var_root/led_daemon.pid"; do
+        [[ -r "$pid_file" && ! -L "$pid_file" ]] || continue
+        pid=$(read_value "$pid_file")
+        printf 'pid_file=%s pid=%s' "$pid_file" "$pid"
+        if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+            printf ' running=true\n'
+        else
+            printf ' running=false\n'
+        fi
+    done
+}
+
 collect_report() {
     detect_state
     collect_summary
     collect_system
+    collect_application
     collect_module_details
     collect_hwmon
     collect_i2c
@@ -465,6 +616,8 @@ collect_report() {
     printf 'no_pwm_or_policy_writes=true\n'
     printf 'no_i2c_data_writes=true\n'
     printf 'no_force_i2c_access=true\n'
+    printf 'led_controller_probes_via_bundled_cli=true\n'
+    printf 'direct_i2c_tools_used=false\n'
     printf 'network_addresses_collected=false\n'
     printf 'hardware_serials_collected=false\n'
     return 0

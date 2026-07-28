@@ -170,9 +170,11 @@ class PreviewApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(payload["ok"])
         self.assertTrue(str(payload["filename"]).startswith("ugreen-led-diagnostics-"))
+        self.assertIn("bundle_version=2", payload["content"])
         self.assertIn("===== hardware-diagnostics =====", payload["content"])
-        self.assertIn("collector_version=1", payload["content"])
-        self.assertIn("===== application-log-tail =====", payload["content"])
+        self.assertIn("collector_version=2", payload["content"])
+        self.assertIn("===== application-error-summary =====", payload["content"])
+        self.assertIn("===== application-log-history =====", payload["content"])
         self.assertTrue(headers["content-type"].startswith("application/json"))
 
     def test_invalid_settings_are_rejected_atomically(self) -> None:
@@ -307,6 +309,32 @@ class PreviewApiTests(unittest.TestCase):
         self.assertTrue(schedule["enabled"])
         self.assertEqual(schedule["days"], "1,2,3,4,5")
         self.assertGreater(schedule["rtc_epoch"], 0)
+
+    def test_dx4600_bios_preview_uses_single_fan_and_stock_curve(self) -> None:
+        preview.STATE.configure_profile("dx4600")
+
+        status, payload, _ = self.request("GET", "/bios/status")
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["supported"])
+        self.assertEqual(payload["model"], "dx4600")
+        self.assertTrue(payload["experimental"])
+        self.assertFalse(payload["cpu_fan_present"])
+        self.assertEqual(payload["fan_write_target"], "sys")
+        self.assertEqual(payload["fan_curve"]["stock_curve"]["profile"], "stock-4600")
+        self.assertEqual(payload["fan_curve"]["stock_curve"]["system_pwm"], "64,152,228,255")
+
+        status, payload, _ = self.request(
+            "POST", "/bios/fan?channel=cpu&pwm=120&confirm=firmware-reversed"
+        )
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["ok"])
+
+        status, payload, _ = self.request(
+            "POST", "/bios/fan?channel=sys&pwm=120&confirm=firmware-reversed"
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(preview.STATE.bios_sys_pwm, 120)
 
     def test_bios_telemetry_returns_time_samples_for_each_window(self) -> None:
         preview.STATE.configure_profile("dxp6800")

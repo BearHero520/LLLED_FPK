@@ -15,6 +15,7 @@ USR_SRC="$TMP/usr-src"
 BIN="$TMP/bin"
 MODULE="$TMP/it87.ko"
 UGREENCTL="$TMP/ugreenctl"
+LED_CLI="$TMP/ugreen_leds_cli"
 DANGER_LOG="$TMP/danger.log"
 
 mkdir -p \
@@ -64,20 +65,27 @@ cat > "$BIN/i2cdetect" <<'EOF'
 #!/bin/bash
 printf '%s\n' 'i2c-2 smbus SMBus I801 adapter'
 EOF
-cat > "$BIN/i2cget" <<'EOF'
+cat > "$LED_CLI" <<'EOF'
 #!/bin/bash
-address=${3:-}
-reg=${4:-}
-if [[ "$address" == "0x31" && "$reg" == "0x5a" ]]; then
-    echo 0xa5
-elif [[ "$address" == "0x31" && "$reg" == "0x5b" ]]; then
-    echo 0xb5
-elif [[ "$address" == "0x31" && "$reg" == "0x5d" ]]; then
-    echo 0x07
-else
-    echo 'Error: Device or resource busy' >&2
-    exit 1
-fi
+case "${1:-}" in
+    --version)
+        echo 'ugreen_leds_cli fixture-diag1'
+        ;;
+    --dxp480t-power-probe)
+        echo 'ready=true bus=2 status_address=0x31 control_address=0x26'
+        ;;
+    --diagnose)
+        printf '%s\n' \
+            'diagnostic_version=1' \
+            'read_only=true' \
+            'product_name=DXP480T Plus' \
+            'power_status_result=ok'
+        ;;
+    *)
+        echo 'unexpected mutating CLI command' >&2
+        exit 98
+        ;;
+esac
 EOF
 cat > "$BIN/lspci" <<'EOF'
 #!/bin/bash
@@ -91,7 +99,7 @@ cat > "$BIN/dkms" <<'EOF'
 #!/bin/bash
 printf '%s\n' 'it87/test, kernel, installed'
 EOF
-for dangerous in modprobe rmmod i2cset; do
+for dangerous in modprobe rmmod i2cget i2cset; do
     cat > "$BIN/$dangerous" <<EOF
 #!/bin/bash
 echo '$dangerous' >> '$DANGER_LOG'
@@ -103,7 +111,7 @@ cat > "$UGREENCTL" <<'EOF'
 echo 'error: controller owner is active: /sys/module/it87'
 exit 1
 EOF
-chmod +x "$BIN"/* "$UGREENCTL"
+chmod +x "$BIN"/* "$UGREENCTL" "$LED_CLI"
 
 COMMON_ENV=(
     "PATH=$BIN:$PATH"
@@ -113,10 +121,12 @@ COMMON_ENV=(
     "UGREEN_DIAG_ETC_ROOT=$ETC"
     "UGREEN_DIAG_USR_SRC_ROOT=$USR_SRC"
     "UGREEN_DIAG_UGREENCTL=$UGREENCTL"
+    "UGREEN_DIAG_LED_CLI=$LED_CLI"
 )
 
 REPORT=$(env "${COMMON_ENV[@]}" bash "$COLLECTOR" --stdout --i2c-probe)
 grep -Fq 'read_only=true' <<< "$REPORT"
+grep -Fq 'collector_version=2' <<< "$REPORT"
 grep -Fq 'product_name=DXP480T Plus' <<< "$REPORT"
 grep -Fq 'it87_loaded=true' <<< "$REPORT"
 grep -Fq 'it87_bound=true' <<< "$REPORT"
@@ -124,10 +134,12 @@ grep -Fq 'i2c_adapter_count=1' <<< "$REPORT"
 grep -Fq 'name=it8613' <<< "$REPORT"
 grep -Fq 'node=pwm2 mode=' <<< "$REPORT"
 grep -Fq 'value=96' <<< "$REPORT"
-grep -Fq 'address=0x31 register=0x5a exit_code=0 output=0xa5' <<< "$REPORT"
-grep -Fq 'address=0x26 register=0x5a exit_code=1 output=Error: Device or resource busy' <<< "$REPORT"
+grep -Fq 'ugreen_leds_cli fixture-diag1' <<< "$REPORT"
+grep -Fq 'command=--dxp480t-power-probe' <<< "$REPORT"
+grep -Fq 'ready=true bus=2 status_address=0x31 control_address=0x26' <<< "$REPORT"
 grep -Fq 'no_pwm_or_policy_writes=true' <<< "$REPORT"
 grep -Fq 'no_i2c_data_writes=true' <<< "$REPORT"
+grep -Fq 'direct_i2c_tools_used=false' <<< "$REPORT"
 [[ ! -e "$DANGER_LOG" ]] || { echo 'collector invoked a state-changing command' >&2; exit 1; }
 
 MESSAGE=$(env "${COMMON_ENV[@]}" TMPDIR="$TMP/out" TRIM_APPDEST="$ROOT/App.Native.UGreenLED/app" \

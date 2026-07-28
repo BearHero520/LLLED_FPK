@@ -15,3 +15,9 @@ ugreen_leds_cli --dxp480t-power <red|white> <off|steady|fast|slow|breath>
 
 The patch is intentionally applied to the CLI source, not to LLLED_FPK shell
 code. The application invokes only the bundled `server/bin/ugreen_leds_cli`.
+
+`patches/diagnostics.patch` adds detailed SMBus errno/operation reporting and a
+read-only `--diagnose` command. The diagnostic command reports the selected
+I801 adapter, `/dev/i2c-*` node, fixed `0x3a` address, effective write protocol,
+power-status read result, and raw acknowledgement register value without
+changing any LED state.

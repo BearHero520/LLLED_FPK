@@ -73,6 +73,7 @@ bios_detected_profile() {
     local product
     product=$(hardware_detected_product_name 2>/dev/null || true)
     case "${product^^}" in
+        "DX4600"|"DX4600+"|"DX4600 PRO") echo "dx4600" ;;
         "DXP480T PLUS"|"UGREEN DXP480T PLUS") echo "dxp480t_plus" ;;
         "DXP4800") echo "dxp4800" ;;
         "DXP4800S") echo "dxp4800s" ;;
@@ -85,14 +86,14 @@ bios_detected_profile() {
 
 bios_supported_model() {
     case "$(bios_detected_profile)" in
-        dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) return 0 ;;
+        dx4600|dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) return 0 ;;
         *) return 1 ;;
     esac
 }
 
 bios_wol_supported_model() {
     case "$(bios_detected_profile)" in
-        dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) return 0 ;;
+        dx4600|dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -110,7 +111,7 @@ bios_direct_fan_fallback_active() {
 bios_write_confirmation_required() {
     case "$(bios_detected_profile)" in
         # WOL and RTC scheduled wake are firmware-reversed on every mapped model.
-        dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) return 0 ;;
+        dx4600|dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) return 0 ;;
     esac
     bios_direct_fan_fallback_active
 }
@@ -143,7 +144,7 @@ bios_ugreenctl_plugin_dir() {
         "$BIOS_UGREENCTL_PLUGIN_DIR" \
         "${SERVER_DIR:-}/lib/ugreenctl/models" \
         "${APP_ROOT:-}/target/server/lib/ugreenctl/models"; do
-        [[ -n "$candidate" && -r "$candidate/dxp4800.so" && -r "$candidate/dxp4800plus.so" && -r "$candidate/dxp4800s.so" && -r "$candidate/dxp480tplus.so" && -r "$candidate/dxp6800pro.so" ]] && {
+        [[ -n "$candidate" && -r "$candidate/dx4600.so" && -r "$candidate/dxp4800.so" && -r "$candidate/dxp4800plus.so" && -r "$candidate/dxp4800s.so" && -r "$candidate/dxp480tplus.so" && -r "$candidate/dxp6800pro.so" ]] && {
             printf '%s\n' "$candidate"
             return 0
         }
@@ -162,6 +163,7 @@ bios_fan_curve_log_path() { printf '%s\n' "${VAR_DIR:-/var/apps/App.Native.UGree
 
 bios_fan_curve_stock_profile_for_model() {
     case "$(bios_detected_profile)" in
+        dx4600) echo "stock-4600" ;;
         dxp4800) echo "stock-4800" ;;
         dxp4800s) echo "stock-4800s" ;;
         dxp4800_plus|dxp4800_pro) echo "stock-4800plus" ;;
@@ -800,13 +802,13 @@ bios_read_status() {
     BIOS_DIRECT_FAN_FALLBACK=false
 
     if ! bios_supported_model; then
-        BIOS_LAST_ERROR="BIOS 控制仅支持 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"
+        BIOS_LAST_ERROR="BIOS 控制仅支持 DX4600 / DX4600+ / DX4600 Pro、DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"
         return 0
     fi
     BIOS_SUPPORTED=true
     if [[ "$BIOS_MODEL" == "dxp480t_plus" ]]; then
         BIOS_FAN_WRITE_TARGET="all"
-    elif [[ "$BIOS_MODEL" == "dxp4800" || "$BIOS_MODEL" == "dxp4800s" ]]; then
+    elif [[ "$BIOS_MODEL" == "dx4600" || "$BIOS_MODEL" == "dxp4800" || "$BIOS_MODEL" == "dxp4800s" ]]; then
         BIOS_EXPERIMENTAL=true
         BIOS_MIN_PWM=40
         BIOS_CPU_FAN_PRESENT=false
@@ -855,16 +857,16 @@ bios_set_fan() {
     # ugreenctl still requires exact DMI, chip-ID and owner checks.
     local -a args=(--force --apply)
     BIOS_LAST_ERROR=""
-    bios_supported_model || { BIOS_LAST_ERROR="BIOS 控制仅支持 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"; return 1; }
+    bios_supported_model || { BIOS_LAST_ERROR="BIOS 控制仅支持 DX4600 / DX4600+ / DX4600 Pro、DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"; return 1; }
     model=$(bios_detected_profile)
     case "$model" in
-        dxp4800|dxp4800s)
+        dx4600|dxp4800|dxp4800s)
             [[ "$pwm" =~ ^[0-9]+$ ]] && (( pwm >= 40 && pwm <= 255 )) || {
-                BIOS_LAST_ERROR="DXP4800 系列 PWM 必须在 40 到 255 之间"
+                BIOS_LAST_ERROR="DX4600 / DXP4800 系列 PWM 必须在 40 到 255 之间"
                 return 1
             }
             [[ "$channel" == "sys" ]] || {
-                BIOS_LAST_ERROR="DXP4800 仅支持系统风扇写入"
+                BIOS_LAST_ERROR="DX4600 / DXP4800 单风扇机型仅支持系统风扇写入"
                 return 1
             }
             ;;
@@ -902,7 +904,7 @@ bios_set_fan() {
     if ! output=$(bios_cli "${args[@]}" fan set "$channel" "$pwm" 2>&1); then
         bios_set_error_from_output "$output" "设置风扇 PWM 失败"
         _bios_log_error "bios.fan_set_failed" "$BIOS_LAST_ERROR" \
-        "model=$model" "channel=$channel" "pwm=$pwm" "forced=$([[ "$model" == "dxp4800" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)" \
+        "model=$model" "channel=$channel" "pwm=$pwm" "forced=$([[ "$model" == "dx4600" || "$model" == "dxp4800" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)" \
             "output=$output"
         return 1
     fi
@@ -923,12 +925,12 @@ bios_set_startup() {
     local policy="$1" upstream_policy output model
     local -a args=(--apply)
     BIOS_LAST_ERROR=""
-    bios_supported_model || { BIOS_LAST_ERROR="BIOS 控制仅支持 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"; return 1; }
+    bios_supported_model || { BIOS_LAST_ERROR="BIOS 控制仅支持 DX4600 / DX4600+ / DX4600 Pro、DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro"; return 1; }
     model=$(bios_detected_profile)
     # DXP4800 Plus / Pro use the firmware-recovered IT8613 AC-recovery
     # path too.  Keep the app adapter aligned with ugreenctl: every
     # protected startup-policy write carries both explicit write guards.
-    [[ "$model" == "dxp4800" || "$model" == "dxp4800_plus" || "$model" == "dxp4800_pro" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && args=(--force --apply)
+    [[ "$model" == "dx4600" || "$model" == "dxp4800" || "$model" == "dxp4800_plus" || "$model" == "dxp4800_pro" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && args=(--force --apply)
     case "$policy" in
         on|off) upstream_policy="$policy" ;;
         last) upstream_policy="restore" ;;
@@ -942,7 +944,7 @@ bios_set_startup() {
     fi
     _bios_log_info "bios.startup_set" "来电启动策略写入成功" \
         "model=$model" "policy=$policy" "upstream_policy=$upstream_policy" \
-        "forced=$([[ "$model" == "dxp4800" || "$model" == "dxp4800_plus" || "$model" == "dxp4800_pro" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)"
+        "forced=$([[ "$model" == "dx4600" || "$model" == "dxp4800" || "$model" == "dxp4800_plus" || "$model" == "dxp4800_pro" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)"
 }
 
 bios_set_wol() {
@@ -951,7 +953,7 @@ bios_set_wol() {
     BIOS_LAST_ERROR=""
     model=$(bios_detected_profile)
     bios_wol_supported_model || {
-        BIOS_LAST_ERROR="网络唤醒仅在固件已映射的 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro 上可用"
+        BIOS_LAST_ERROR="网络唤醒仅在固件已映射的 DX4600 系列、DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro 上可用"
         return 1
     }
     [[ "$policy" =~ ^(on|off)$ ]] || {

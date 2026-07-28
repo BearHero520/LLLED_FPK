@@ -295,15 +295,18 @@ tick_mode_smart() {
 }
 
 daemon_loop() {
-    local interval mode enabled
+    local interval mode enabled cli_version
     # The daemon outlives the request that started it. Avoid attributing all
     # subsequent runtime events to that one API/CGI request.
     unset UGREEN_REQUEST_ID
     trap 'ugreen_log_info "daemon.signal" "收到停止信号" "signal=TERM_OR_INT"; DAEMON_RUN=false' TERM INT
     trap 'reload_runtime' HUP
+    cli_version=$(led_cli_version)
     ugreen_log_info "daemon.started" "LED 守护循环已启动" \
         "mode=$(settings_get "$SETTINGS_FILE" mode global smart)" "backend=$(led_backend_name)" \
         "configured_backend=$(led_backend_configured)" "cli=${UGREEN_CLI:-missing}" \
+        "cli_version=$cli_version" "product=$(hardware_detected_product_name)" \
+        "profile=$(hardware_profile_key)" "write_protocol=$(hardware_write_protocol)" \
         "runtime_dir=$RUNTIME_DIR" "pid=${BASHPID:-$$}"
     ensure_mapping
 

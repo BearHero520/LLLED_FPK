@@ -1,0 +1,441 @@
+diff --git a/cli/i2c.cpp b/cli/i2c.cpp
+index 601a1e0..4d7afce 100644
+--- a/cli/i2c.cpp
++++ b/cli/i2c.cpp
+@@ -5,2 +5,3 @@
+ 
++#include <cerrno>
+ #include <unistd.h>
+@@ -15,4 +16,17 @@ i2c_device_t::~i2c_device_t() {
+ 
++void i2c_device_t::set_error(const char *operation, int error_number) {
++    _last_operation = operation;
++    _last_errno = error_number;
++}
++
++void i2c_device_t::clear_error() {
++    _last_operation.clear();
++    _last_errno = 0;
++}
++
+ int i2c_device_t::start(const char *filename, uint16_t addr) {
+     close();
++    _device_path = filename ? filename : "";
++    _address = addr;
++    clear_error();
+     _fd = open(filename, O_RDWR);
+@@ -21,2 +35,3 @@ int i2c_device_t::start(const char *filename, uint16_t addr) {
+         int rc = _fd;
++        set_error("open", errno);
+         _fd = -1;
+@@ -27,2 +42,3 @@ int i2c_device_t::start(const char *filename, uint16_t addr) {
+     if (rc < 0) {
++        set_error("I2C_SLAVE", errno);
+         ::close(_fd);
+@@ -32,2 +48,3 @@ int i2c_device_t::start(const char *filename, uint16_t addr) {
+ 
++    clear_error();
+     return 0;
+@@ -43,6 +60,11 @@ void i2c_device_t::close() {
+ std::vector<uint8_t> i2c_device_t::read_block_data(uint8_t command, uint32_t size) {
+-    if (_fd < 0) return { };
++    if (_fd < 0) {
++        set_error("I2C_SMBUS_READ_I2C_BLOCK", EBADF);
++        return { };
++    }
+ 
+-    if (size > I2C_SMBUS_BLOCK_MAX)
++    if (size > I2C_SMBUS_BLOCK_MAX) {
++        set_error("I2C_SMBUS_READ_I2C_BLOCK", EMSGSIZE);
+         return { };
++    }
+ 
+@@ -59,3 +81,7 @@ std::vector<uint8_t> i2c_device_t::read_block_data(uint8_t command, uint32_t siz
+ 
+-    if (rc < 0) return { };
++    if (rc < 0) {
++        set_error("I2C_SMBUS_READ_I2C_BLOCK", errno);
++        return { };
++    }
++    clear_error();
+ 
+@@ -69,3 +95,6 @@ std::vector<uint8_t> i2c_device_t::read_block_data(uint8_t command, uint32_t siz
+ int i2c_device_t::write_block_data(uint8_t command, std::vector<uint8_t> data) {
+-    if (_fd < 0) return -1;
++    if (_fd < 0) {
++        set_error("I2C_SMBUS_WRITE_I2C_BLOCK", EBADF);
++        return -1;
++    }
+ 
+@@ -88,2 +117,7 @@ int i2c_device_t::write_block_data(uint8_t command, std::vector<uint8_t> data) {
+ 
++    if (rc < 0) {
++        set_error("I2C_SMBUS_WRITE_I2C_BLOCK", errno);
++    } else {
++        clear_error();
++    }
+     return rc;
+@@ -92,3 +126,6 @@ int i2c_device_t::write_block_data(uint8_t command, std::vector<uint8_t> data) {
+ int i2c_device_t::read_byte_data(uint8_t command, uint8_t &data) {
+-    if (_fd < 0) return -1;
++    if (_fd < 0) {
++        set_error("I2C_SMBUS_READ_BYTE_DATA", EBADF);
++        return -1;
++    }
+ 
+@@ -104,5 +141,9 @@ int i2c_device_t::read_byte_data(uint8_t command, uint8_t &data) {
+ 
+-    if (rc < 0) return rc;
++    if (rc < 0) {
++        set_error("I2C_SMBUS_READ_BYTE_DATA", errno);
++        return rc;
++    }
+ 
+     data = smbus_data.byte & 0xff;
++    clear_error();
+     return 0;
+@@ -111,3 +152,6 @@ int i2c_device_t::read_byte_data(uint8_t command, uint8_t &data) {
+ int i2c_device_t::write_byte_data(uint8_t command, uint8_t data) {
+-    if (_fd < 0) return -1;
++    if (_fd < 0) {
++        set_error("I2C_SMBUS_WRITE_BYTE_DATA", EBADF);
++        return -1;
++    }
+ 
+@@ -122,3 +166,9 @@ int i2c_device_t::write_byte_data(uint8_t command, uint8_t data) {
+ 
+-    return ioctl(_fd, I2C_SMBUS, &ioctl_data);
++    const int rc = ioctl(_fd, I2C_SMBUS, &ioctl_data);
++    if (rc < 0) {
++        set_error("I2C_SMBUS_WRITE_BYTE_DATA", errno);
++    } else {
++        clear_error();
++    }
++    return rc;
+ }
+diff --git a/cli/i2c.h b/cli/i2c.h
+index 8901cf3..29f9c75 100644
+--- a/cli/i2c.h
++++ b/cli/i2c.h
+@@ -4,2 +4,3 @@
+ #include <stdint.h>
++#include <string>
+ #include <vector>
+@@ -10,2 +11,9 @@ private:
+     int _fd = -1;
++    int _last_errno = 0;
++    std::string _last_operation;
++    std::string _device_path;
++    uint16_t _address = 0;
++
++    void set_error(const char *operation, int error_number);
++    void clear_error();
+ 
+@@ -21,2 +29,6 @@ public:
+ 
++    int last_errno() const { return _last_errno; }
++    const std::string &last_operation() const { return _last_operation; }
++    const std::string &device_path() const { return _device_path; }
++    uint16_t address() const { return _address; }
+ };
+diff --git a/cli/ugreen_leds.cpp b/cli/ugreen_leds.cpp
+index 358bcee..3b002ba 100644
+--- a/cli/ugreen_leds.cpp
++++ b/cli/ugreen_leds.cpp
+@@ -1,2 +1,3 @@
+ #include "ugreen_leds.h"
++#include <cstring>
+ #include <string>
+@@ -4,3 +5,5 @@
+ #include <fstream>
++#include <iomanip>
+ #include <iostream>
++#include <sstream>
+ 
+@@ -8,2 +11,35 @@
+ 
++void ugreen_leds_t::set_i2c_error(const std::string &context) {
++    std::ostringstream output;
++    output << context
++           << ": operation=" << (_i2c.last_operation().empty() ? "unknown" : _i2c.last_operation())
++           << " device=" << (_i2c.device_path().empty() ? "<unknown>" : _i2c.device_path())
++           << " address=0x" << std::hex << static_cast<int>(_i2c.address()) << std::dec
++           << " errno=" << _i2c.last_errno();
++    if (_i2c.last_errno() != 0) output << " (" << std::strerror(_i2c.last_errno()) << ")";
++    _last_error = output.str();
++}
++
++static std::string read_adapter_name(const std::filesystem::path &entry) {
++    std::ifstream input(entry / "name");
++    std::string value;
++    std::getline(input, value);
++    if (!value.empty()) return value;
++
++    input.close();
++    input.open(entry / "device" / "name");
++    std::getline(input, value);
++    return value;
++}
++
++static std::string format_hex_bytes(const std::vector<uint8_t> &data) {
++    std::ostringstream output;
++    for (std::size_t i = 0; i < data.size(); ++i) {
++        if (i != 0) output << ' ';
++        output << std::hex << std::setfill('0') << std::setw(2)
++               << static_cast<int>(data[i]);
++    }
++    return output.str();
++}
++
+ int ugreen_leds_t::start() {
+@@ -11,18 +47,30 @@ int ugreen_leds_t::start() {
+ 
+-    if (!fs::exists(I2C_DEV_PATH))
++    _adapter_name.clear();
++    _last_error.clear();
++    if (!fs::exists(I2C_DEV_PATH)) {
++        _last_error = "i2c-dev sysfs class is unavailable: /sys/class/i2c-dev";
+         return -1;
++    }
+ 
+-    for (const auto& entry : fs::directory_iterator(I2C_DEV_PATH)) {
+-        if (entry.is_directory()) {
+-            std::ifstream ifs(entry.path() / "device/name");
+-            std::string line;
+-            std::getline(ifs, line);
+-
+-            if (line.rfind("SMBus I801 adapter", 0) == 0) {
+-                const auto i2c_dev = "/dev/" + entry.path().filename().string();
+-                return _i2c.start(i2c_dev.c_str(), UGREEN_LED_I2C_ADDR);
++    try {
++        for (const auto& entry : fs::directory_iterator(I2C_DEV_PATH)) {
++            if (entry.is_directory()) {
++                const auto name = read_adapter_name(entry.path());
++                if (name.rfind("SMBus I801 adapter", 0) == 0) {
++                    const auto i2c_dev = "/dev/" + entry.path().filename().string();
++                    _adapter_name = name;
++                    if (_i2c.start(i2c_dev.c_str(), UGREEN_LED_I2C_ADDR) == 0) {
++                        return 0;
++                    }
++                    set_i2c_error("failed to open LED MCU");
++                    return -1;
++                }
+             }
+         }
++    } catch (const fs::filesystem_error &error) {
++        _last_error = std::string("failed to enumerate /sys/class/i2c-dev: ") + error.what();
++        return -1;
+     }
+ 
++    _last_error = "SMBus I801 adapter was not found under /sys/class/i2c-dev";
+     return -1;
+@@ -60,4 +108,20 @@ ugreen_leds_t::led_data_t ugreen_leds_t::get_status(led_type_t id) {
+     auto raw_data = _i2c.read_block_data(0x81 + (uint8_t)id, 0xb);
+-    if (raw_data.size() != 0xb || !verify_checksum(raw_data)) 
++    if (raw_data.size() != 0xb) {
++        if (_i2c.last_errno() != 0) {
++            set_i2c_error("LED status read failed");
++        } else {
++            std::ostringstream output;
++            output << "LED status length mismatch: led_id=" << static_cast<int>(id)
++                   << " expected=11 actual=" << raw_data.size();
++            _last_error = output.str();
++        }
+         return data;
++    }
++    if (!verify_checksum(raw_data)) {
++        std::ostringstream output;
++        output << "LED status checksum mismatch: led_id=" << static_cast<int>(id)
++               << " raw=" << format_hex_bytes(raw_data);
++        _last_error = output.str();
++        return data;
++    }
+ 
+@@ -68,3 +132,5 @@ ugreen_leds_t::led_data_t ugreen_leds_t::get_status(led_type_t id) {
+         case 3: data.op_mode = op_mode_t::breath; break;
+-        default: return data;
++        default:
++            _last_error = "LED status contains an unsupported operation mode";
++            return data;
+     };
+@@ -81,2 +147,3 @@ ugreen_leds_t::led_data_t ugreen_leds_t::get_status(led_type_t id) {
+     data.is_available = true;
++    _last_error.clear();
+ 
+@@ -100,3 +167,12 @@ int ugreen_leds_t::_change_status(led_type_t id, uint8_t command, std::array<std
+     data[0] = (uint8_t)id;
+-    return _i2c.write_block_data((uint8_t)id, data);
++    const int rc = _i2c.write_block_data((uint8_t)id, data);
++    if (rc != 0) {
++        std::ostringstream context;
++        context << "legacy LED write failed: led_id=" << static_cast<int>(id)
++                << " command=0x" << std::hex << static_cast<int>(command) << std::dec;
++        set_i2c_error(context.str());
++    } else {
++        _last_error.clear();
++    }
++    return rc;
+ }
+@@ -127,5 +203,24 @@ int ugreen_leds_t::set_brightness(led_type_t id, uint8_t brightness) {
+ 
++int ugreen_leds_t::read_acknowledgement(uint8_t &status) {
++    const int rc = _i2c.read_byte_data(0x80, status);
++    if (rc != 0) {
++        set_i2c_error("LED MCU acknowledgement read failed");
++    } else {
++        _last_error.clear();
++    }
++    return rc;
++}
++
+ bool ugreen_leds_t::is_last_modification_successful() {
+     uint8_t status = 0;
+-    return _i2c.read_byte_data(0x80, status) == 0 && status == 1;
++    if (read_acknowledgement(status) != 0) return false;
++    if (status != 1) {
++        std::ostringstream output;
++        output << "LED MCU acknowledgement mismatch: register=0x80 expected=0x01 actual=0x"
++               << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(status);
++        _last_error = output.str();
++        return false;
++    }
++    _last_error.clear();
++    return true;
+ }
+diff --git a/cli/ugreen_leds.h b/cli/ugreen_leds.h
+index 026f1ca..c1a7543 100644
+--- a/cli/ugreen_leds.h
++++ b/cli/ugreen_leds.h
+@@ -5,2 +5,3 @@
+ #include <optional>
++#include <string>
+ 
+@@ -25,2 +26,4 @@ class ugreen_leds_t {
+     i2c_device_t _i2c;
++    std::string _adapter_name;
++    std::string _last_error;
+ 
+@@ -56,4 +59,12 @@ public:
+     bool is_last_modification_successful();
++    int read_acknowledgement(uint8_t &status);
++
++    const std::string &adapter_name() const { return _adapter_name; }
++    const std::string &device_path() const { return _i2c.device_path(); }
++    uint16_t address() const { return _i2c.address(); }
++    int last_errno() const { return _i2c.last_errno(); }
++    const std::string &last_error() const { return _last_error; }
+ 
+ private:
++    void set_i2c_error(const std::string &context);
+     int _set_blink_or_breath(uint8_t command, led_type_t id, uint16_t t_on, uint16_t t_off);
+diff --git a/cli/ugreen_leds_cli.cpp b/cli/ugreen_leds_cli.cpp
+index 4e79d0d..54b6528 100644
+--- a/cli/ugreen_leds_cli.cpp
++++ b/cli/ugreen_leds_cli.cpp
+@@ -2,2 +2,5 @@
+ #include <unistd.h>
++#include <cstdlib>
++#include <fstream>
++#include <iomanip>
+ #include <iostream>
+@@ -53,3 +56,4 @@ void show_leds_info(ugreen_leds_t &leds_controller, const std::vector<led_type_p
+         if (!data.is_available) {
+-            std::printf("%s: unavailable or non-existent\n", led.first.c_str());
++            std::printf("%s: unavailable or non-existent; detail=%s\n",
++                    led.first.c_str(), leds_controller.last_error().c_str());
+             continue;
+@@ -99,2 +103,5 @@ void show_help() {
+             "       -status:     display the status of corresponding LEDs.\n\n"
++            "Read-only diagnostics:\n"
++            "       --diagnose\n"
++            "       --version\n\n"
+             "DXP480T-family power LED:\n"
+@@ -149,2 +156,61 @@ int run_dxp480t_power_probe() {
+ 
++std::string read_product_name() {
++    for (const char *path : {
++            "/sys/class/dmi/id/product_name",
++            "/sys/devices/virtual/dmi/id/product_name",
++        }) {
++        std::ifstream input(path);
++        std::string value;
++        std::getline(input, value);
++        if (!value.empty()) return value;
++    }
++    return "<unavailable>";
++}
++
++int run_led_diagnostics() {
++    const char *requested_protocol = std::getenv("UGREEN_LEDS_WRITE_PROTOCOL");
++    std::cout << "diagnostic_version=1\n"
++              << "read_only=true\n"
++              << "upstream_commit=1e881da8b3d8598abadb50e859e8433c365c2840\n"
++              << "product_name=" << read_product_name() << "\n"
++              << "requested_write_protocol="
++              << (requested_protocol ? requested_protocol : "<unset>") << "\n"
++              << "effective_write_protocol=legacy\n";
++
++    ugreen_leds_t controller;
++    if (controller.start() != 0) {
++        std::cout << "controller_start=failed\n"
++                  << "controller_error=" << controller.last_error() << "\n";
++        return 2;
++    }
++
++    std::cout << "controller_start=ok\n"
++              << "adapter_name=" << controller.adapter_name() << "\n"
++              << "device=" << controller.device_path() << "\n"
++              << "address=0x" << std::hex << static_cast<int>(controller.address())
++              << std::dec << "\n";
++
++    const auto power = get_status_robust(controller, UGREEN_LED_POWER);
++    if (power.is_available) {
++        std::cout << "power_status_read=ok\n"
++                  << "power_mode=" << static_cast<int>(power.op_mode) << "\n"
++                  << "power_brightness=" << static_cast<int>(power.brightness) << "\n";
++    } else {
++        std::cout << "power_status_read=failed\n"
++                  << "power_status_error=" << controller.last_error() << "\n";
++    }
++
++    uint8_t acknowledgement = 0;
++    if (controller.read_acknowledgement(acknowledgement) == 0) {
++        std::cout << "ack_read=ok\n"
++                  << "ack_value=0x" << std::hex << std::setfill('0') << std::setw(2)
++                  << static_cast<int>(acknowledgement) << std::dec << "\n";
++    } else {
++        std::cout << "ack_read=failed\n"
++                  << "ack_error=" << controller.last_error() << "\n";
++    }
++
++    return power.is_available ? 0 : 3;
++}
++
+ int run_dxp480t_power(const std::string &color_name, const std::string &effect_name) {
+@@ -193,2 +259,11 @@ int main(int argc, char *argv[])
+     const std::string command = argv[1];
++    if (command == "--version") {
++        if (argc != 2) show_help_and_exit();
++        std::cout << "ugreen_leds_cli 1e881da+llled-diag1" << std::endl;
++        return 0;
++    }
++    if (command == "--diagnose") {
++        if (argc != 2) show_help_and_exit();
++        return run_led_diagnostics();
++    }
+     if (command == "--dxp480t-power-probe") {
+@@ -208,5 +283,4 @@ int main(int argc, char *argv[])
+     if (leds_controller.start() != 0) {
+-        std::cerr << "Err: fail to open the I2C device." << std::endl;
+-        std::cerr << "Please check that (1) you have the root permission; " << std::endl;
+-        std::cerr << "              and (2) the i2c-dev module is loaded. " << std::endl;
++        std::cerr << "Err: fail to open the I2C device: "
++                  << leds_controller.last_error() << std::endl;
+         return -1;
+@@ -346,3 +420,5 @@ int main(int argc, char *argv[])
+             if (last_status != 0) {
+-                std::cerr << "failed to change status!" << std::endl;
++                std::cerr << "failed to change status! led=" << led.first
++                          << " attempts=" << MAX_RETRY_COUNT
++                          << " detail=" << leds_controller.last_error() << std::endl;
+                 return -1;

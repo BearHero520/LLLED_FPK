@@ -36,6 +36,21 @@ led_cli_available() {
     [[ -n "$UGREEN_CLI" && -x "$UGREEN_CLI" ]]
 }
 
+led_cli_version() {
+    local output
+    led_cli_available || {
+        printf '<unavailable>\n'
+        return 0
+    }
+    if command -v timeout >/dev/null 2>&1; then
+        output=$(timeout 2 "$UGREEN_CLI" --version 2>/dev/null || true)
+    else
+        output=$("$UGREEN_CLI" --version 2>/dev/null || true)
+    fi
+    output="${output//$'\n'/ }"
+    printf '%s\n' "${output:-<unsupported>}"
+}
+
 ensure_cli() {
     if ! led_cli_available; then
         led_set_error "ugreen_leds_cli is missing or not executable: ${UGREEN_CLI:-<empty>}"

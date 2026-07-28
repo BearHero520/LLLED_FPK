@@ -60,12 +60,34 @@ assert_contains "$response" '"source":"application"'
 assert_contains "$response" '"write_level":"debug"'
 assert_contains "$response" 'test-request-123'
 
+printf '%s\n' \
+    'failed to change status!' \
+    '[event=led.cli_command_failed] LED CLI command failed' \
+    'fail to open the I2C device /dev/i2c-0' \
+    'I2C_SMBUS_WRITE_I2C_BLOCK errno=5' \
+    'LED MCU acknowledgement read failed errno=5' \
+    'LED MCU acknowledgement mismatch expected=0x55 actual=0x00' \
+    'LED status read failed errno=5' \
+    'LED status length mismatch expected=11 actual=0' \
+    'LED status checksum mismatch raw=00' > "$LOG_FILE.1"
 response=$(request /hardware/diagnostics '' GET hardware-diagnostics-test)
 assert_contains "$response" 'Status: 200 OK'
 assert_contains "$response" '"filename":"ugreen-led-diagnostics-'
+assert_contains "$response" 'bundle_version=2'
 assert_contains "$response" '===== hardware-diagnostics ====='
-assert_contains "$response" 'collector_version=1'
-assert_contains "$response" '===== application-log-tail ====='
+assert_contains "$response" 'collector_version=2'
+assert_contains "$response" '===== application-error-summary ====='
+assert_contains "$response" 'change_status_failures=1'
+assert_contains "$response" 'structured_cli_command_failures=1'
+assert_contains "$response" 'i2c_device_open_failures=1'
+assert_contains "$response" 'i2c_write_ioctl_failures=1'
+assert_contains "$response" 'mcu_ack_read_failures=1'
+assert_contains "$response" 'mcu_ack_mismatches=1'
+assert_contains "$response" 'status_read_failures=1'
+assert_contains "$response" 'status_length_mismatches=1'
+assert_contains "$response" 'status_checksum_mismatches=1'
+assert_contains "$response" '===== application-log-history ====='
+assert_contains "$response" '--- file=app.log.1'
 assert_contains "$response" 'hardware-diagnostics-test'
 
 response=$(request /hardware/diagnostics '' POST hardware-diagnostics-method-test)

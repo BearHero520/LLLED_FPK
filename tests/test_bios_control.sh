@@ -14,6 +14,7 @@ PLUGINS="$TMP/models"
 ARGS="$TMP/args"
 STATUS="$TMP/status"
 mkdir -p "$PLUGINS"
+: > "$PLUGINS/dx4600.so"
 : > "$PLUGINS/dxp4800.so"
 : > "$PLUGINS/dxp4800plus.so"
 : > "$PLUGINS/dxp4800s.so"
@@ -41,6 +42,18 @@ export UGREENCTL_ARGS UGREENCTL_STATUS
 source "$LIB/hardware_profile.sh"
 source "$LIB/bios_control.sh"
 
+UGREEN_PRODUCT_NAME="DX4600"
+bios_supported_model || fail "DX4600 should expose guarded firmware-reversed BIOS control"
+UGREEN_PRODUCT_NAME="DX4600+"
+bios_supported_model || fail "DX4600+ should use the exact upstream DX4600 plugin"
+UGREEN_PRODUCT_NAME="DX4600 Pro"
+bios_supported_model || fail "DX4600 Pro should use the exact upstream DX4600 plugin"
+UGREEN_PRODUCT_NAME="UGREEN DX4600"
+! bios_supported_model || fail "DX4600 BIOS control must reject an unlisted vendor-prefixed DMI"
+UGREEN_PRODUCT_NAME="DX4600 Engineering"
+! bios_supported_model || fail "DX4600 BIOS control must require an exact DMI product name"
+
+UGREEN_PRODUCT_NAME="UGREEN DXP4800 Plus"
 bios_supported_model || fail "DXP4800 Plus should expose BIOS control"
 UGREEN_PRODUCT_NAME="DXP4800"
 bios_supported_model || fail "DXP4800 should expose guarded firmware-reversed BIOS control"
@@ -145,6 +158,33 @@ assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan 
 ! bios_set_fan_mode sys manual || fail "DXP4800S mode writes must remain unavailable"
 bios_set_startup on
 assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply power startup set on "
+
+UGREEN_PRODUCT_NAME="DX4600"
+cat > "$STATUS" <<'EOF'
+model: dx4600 (UGREEN DX4600 / DX4600+ / DX4600 Pro (firmware-reversed))
+controller: ITE IT8613 hwmon/direct; WOL
+startup: restore
+wol: on
+fan sys: pwm=64 mode=manual tach=750 rpm=900
+EOF
+bios_read_status
+assert_eq "$BIOS_MODEL" "dx4600"
+assert_eq "$BIOS_EXPERIMENTAL" "true"
+assert_eq "$BIOS_MIN_PWM" "40"
+assert_eq "$BIOS_CPU_FAN_PRESENT" "false"
+assert_eq "$BIOS_SYS_PWM" "64"
+assert_eq "$BIOS_SYS_RPM" "900"
+assert_eq "$BIOS_STARTUP_POLICY" "last"
+assert_eq "$BIOS_WOL_POLICY" "on"
+assert_eq "$BIOS_WRITE_CONFIRMATION_REQUIRED" "true"
+bios_set_fan sys 64
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan set sys 64 "
+! bios_set_fan sys 39 || fail "DX4600 PWM below 40 must be rejected"
+! bios_set_fan cpu 120 || fail "DX4600 must not expose a CPU fan target"
+bios_set_startup last
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply power startup set restore "
+bios_set_wol off
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply network wol set off "
 
 UGREEN_PRODUCT_NAME="DXP6800 Pro"
 bios_supported_model || fail "DXP6800 Pro should expose guarded firmware-reversed BIOS control"

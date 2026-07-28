@@ -15,7 +15,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PROJECT = ROOT / "App.Native.UGreenLED"
 VENDOR = PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller"
-PATCH = VENDOR / "patches" / "dxp480t-power.patch"
+PATCHES = (
+    VENDOR / "patches" / "dxp480t-power.patch",
+    VENDOR / "patches" / "diagnostics.patch",
+)
 UPSTREAM_REPOSITORY = "https://github.com/miskcoo/ugreen_leds_controller.git"
 UPSTREAM_COMMIT = "1e881da8b3d8598abadb50e859e8433c365c2840"
 DEFAULT_BINARY = PROJECT / "app" / "server" / "bin" / "ugreen_leds_cli"
@@ -34,10 +37,14 @@ def run(command: list[str], *, cwd: Path | None = None) -> None:
 
 
 def require_source_metadata() -> None:
-    if not PATCH.is_file():
-        raise SystemExit(f"Missing LED CLI patch: {PATCH}")
-    if "DXP480T" not in PATCH.read_text(encoding="utf-8"):
+    missing = [str(patch) for patch in PATCHES if not patch.is_file()]
+    if missing:
+        raise SystemExit(f"Missing LED CLI patch: {', '.join(missing)}")
+    if "DXP480T" not in PATCHES[0].read_text(encoding="utf-8"):
         raise SystemExit("The LED CLI patch does not contain the DXP480T implementation")
+    diagnostics = PATCHES[1].read_text(encoding="utf-8")
+    if "--diagnose" not in diagnostics or "last_errno" not in diagnostics:
+        raise SystemExit("The LED CLI diagnostics patch is incomplete")
 
 
 def checkout_upstream(source: Path) -> None:
@@ -53,8 +60,9 @@ def checkout_upstream(source: Path) -> None:
     ).stdout.strip()
     if resolved != UPSTREAM_COMMIT:
         raise SystemExit(f"Unexpected upstream revision: {resolved}")
-    run(["git", "-C", str(source), "apply", "--check", str(PATCH)])
-    run(["git", "-C", str(source), "apply", str(PATCH)])
+    for patch in PATCHES:
+        run(["git", "-C", str(source), "apply", "--check", str(patch)])
+        run(["git", "-C", str(source), "apply", str(patch)])
 
 
 def compiler_command(*, zig: Path | None) -> list[str]:

@@ -526,7 +526,7 @@ bios_write_risk_acknowledgement_value() {
     profile=$(bios_detected_profile)
     token=$(bios_write_confirmation_token)
     case "$profile" in
-        dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) ;;
+        dx4600|dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) ;;
         *) return 1 ;;
     esac
     [[ -n "$token" ]] || return 1
@@ -611,10 +611,26 @@ application_logs_json() {
         "$(json_str "${UGREEN_LOG_LEVEL,,}")" "$(json_str "$content")"
 }
 
+diagnostic_log_count() {
+    local needle="$1" file matches index total=0
+    for index in 0 1 2 3 4 5 6 7 8 9 10; do
+        if (( index == 0 )); then
+            file="$UGREEN_LOG_FILE"
+        else
+            file="${UGREEN_LOG_FILE}.${index}"
+        fi
+        [[ -f "$file" && ! -L "$file" ]] || continue
+        matches=$(grep -F -c -- "$needle" "$file" 2>/dev/null || true)
+        [[ "$matches" =~ ^[0-9]+$ ]] || matches=0
+        total=$((total + matches))
+    done
+    printf '%s\n' "$total"
+}
+
 hardware_diagnostics_json() {
     local collector="${SERVER_DIR}/nas_hardware_collect.sh"
-    local report_file bundle_file report_size=0 bundle_size=0 collector_rc=0 clipped=false
-    local filename content stamp
+    local report_file bundle_file log_history_file report_size=0 bundle_size=0 collector_rc=0 clipped=false
+    local filename content stamp index log_file log_size log_updated included_logs=0
 
     if [[ ! -f "$collector" || -L "$collector" ]]; then
         echo '{"ok":false,"error":"hardware diagnostics collector unavailable"}'
@@ -633,7 +649,12 @@ hardware_diagnostics_json() {
         echo '{"ok":false,"error":"failed to create hardware diagnostics bundle"}'
         return 0
     }
-    chmod 0600 "$report_file" "$bundle_file" 2>/dev/null || true
+    log_history_file=$(mktemp "$RUNTIME_DIR/application-log-history.XXXXXX" 2>/dev/null) || {
+        rm -f "$report_file" "$bundle_file" 2>/dev/null || true
+        echo '{"ok":false,"error":"failed to create diagnostics log history"}'
+        return 0
+    }
+    chmod 0600 "$report_file" "$bundle_file" "$log_history_file" 2>/dev/null || true
 
     if command -v timeout >/dev/null 2>&1; then
         timeout 60 bash "$collector" --stdout > "$report_file" 2>&1 || collector_rc=$?
@@ -648,22 +669,54 @@ hardware_diagnostics_json() {
         "collector_exit_code=$collector_rc" "collector_bytes=$report_size"
 
     {
+        printf 'history_order=oldest-to-newest\n'
+        printf 'per_rotated_file_limit_bytes=65536\n'
+        printf 'current_file_limit_bytes=131072\n'
+        for ((index = 10; index >= 0; index--)); do
+            if (( index == 0 )); then
+                log_file="$UGREEN_LOG_FILE"
+            else
+                log_file="${UGREEN_LOG_FILE}.${index}"
+            fi
+            [[ -f "$log_file" && ! -L "$log_file" ]] || continue
+            included_logs=$((included_logs + 1))
+            log_size=$(wc -c < "$log_file" 2>/dev/null || echo 0)
+            log_updated=$(stat -c %Y "$log_file" 2>/dev/null || echo 0)
+            printf '\n--- file=%s size_bytes=%s updated_at=%s ---\n' \
+                "${log_file##*/}" "${log_size:-0}" "${log_updated:-0}"
+            if (( index == 0 )); then
+                tail -n 1000 "$log_file" 2>/dev/null | tail -c 131072 || true
+            else
+                tail -n 300 "$log_file" 2>/dev/null | tail -c 65536 || true
+            fi
+            printf '\n'
+        done
+        (( included_logs > 0 )) || printf '<application logs are empty or unavailable>\n'
+    } > "$log_history_file"
+
+    {
         printf 'UGREEN LED diagnostic bundle\n'
-        printf 'bundle_version=1\n'
+        printf 'bundle_version=2\n'
         printf 'generated_at=%s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z' 2>/dev/null || echo unknown)"
         printf 'collector_exit_code=%s\n' "$collector_rc"
         printf 'collector_clipped=%s\n' "$clipped"
+        printf 'application_log_files=%s\n' "$included_logs"
         printf '\n===== hardware-diagnostics =====\n'
         head -c 524288 "$report_file" 2>/dev/null || true
-        printf '\n\n===== application-log-tail =====\n'
-        if [[ -L "$UGREEN_LOG_FILE" ]]; then
-            printf '<application log skipped: symlink is not allowed>\n'
-        elif [[ -f "$UGREEN_LOG_FILE" ]]; then
-            tail -n 1000 "$UGREEN_LOG_FILE" 2>/dev/null | tail -c 131072 || true
-            printf '\n'
-        else
-            printf '<application log is empty or unavailable>\n'
-        fi
+        printf '\n\n===== application-error-summary =====\n'
+        printf 'scope=current-and-rotated-logs\n'
+        printf 'change_status_failures=%s\n' "$(diagnostic_log_count 'failed to change status!')"
+        printf 'structured_cli_command_failures=%s\n' "$(diagnostic_log_count '[event=led.cli_command_failed]')"
+        printf 'i2c_device_open_failures=%s\n' "$(diagnostic_log_count 'fail to open the I2C device')"
+        printf 'i2c_write_ioctl_failures=%s\n' "$(diagnostic_log_count 'I2C_SMBUS_WRITE_I2C_BLOCK')"
+        printf 'mcu_ack_read_failures=%s\n' "$(diagnostic_log_count 'LED MCU acknowledgement read failed')"
+        printf 'mcu_ack_mismatches=%s\n' "$(diagnostic_log_count 'LED MCU acknowledgement mismatch')"
+        printf 'status_read_failures=%s\n' "$(diagnostic_log_count 'LED status read failed')"
+        printf 'status_length_mismatches=%s\n' "$(diagnostic_log_count 'LED status length mismatch')"
+        printf 'status_checksum_mismatches=%s\n' "$(diagnostic_log_count 'LED status checksum mismatch')"
+        printf '\n===== application-log-history =====\n'
+        tail -c 262144 "$log_history_file" 2>/dev/null || true
+        printf '\n'
     } > "$bundle_file"
 
     bundle_size=$(wc -c < "$bundle_file" 2>/dev/null || echo 0)
@@ -671,7 +724,7 @@ hardware_diagnostics_json() {
     content=$(cat "$bundle_file" 2>/dev/null || true)
     stamp=$(date '+%Y%m%d-%H%M%S' 2>/dev/null || echo unknown-time)
     filename="ugreen-led-diagnostics-${stamp}.txt"
-    rm -f "$report_file" "$bundle_file" 2>/dev/null || true
+    rm -f "$report_file" "$bundle_file" "$log_history_file" 2>/dev/null || true
 
     printf '{"ok":true,"filename":"%s","size_bytes":%s,"collector_exit_code":%s,"clipped":%s,"content":"%s"}' \
         "$(json_str "$filename")" "$bundle_size" "$collector_rc" "$clipped" "$(json_str "$content")"
@@ -827,7 +880,7 @@ case "$API_PATH" in
         elif ! [[ "$channel" =~ ^(cpu|sys|all)$ && "$pwm" =~ ^[0-9]+$ ]] || (( pwm < 0 || pwm > 255 )); then
             echo '{"ok":false,"error":"风扇参数无效"}'
         elif ! bios_write_confirmation_valid; then
-            if [[ "$(bios_detected_profile)" == "dxp4800" || "$(bios_detected_profile)" == "dxp4800s" || "$(bios_detected_profile)" == "dxp6800pro" ]]; then
+            if [[ "$(bios_detected_profile)" == "dx4600" || "$(bios_detected_profile)" == "dxp4800" || "$(bios_detected_profile)" == "dxp4800s" || "$(bios_detected_profile)" == "dxp6800pro" ]]; then
                 echo '{"ok":false,"error":"固件逆向风扇写入需要先确认风险"}'
             else
                 echo '{"ok":false,"error":"直控风扇写入需要先确认 IT8613 直控风险"}'

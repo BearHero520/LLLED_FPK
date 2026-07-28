@@ -138,6 +138,7 @@ def main():
         f"ctest --test-dir {hardware_build} --output-on-failure && "
         f"model_list=\"$({hardware_build}/ugreenctl --plugin-dir {hardware_build}/models models)\" && "
         f"printf '%s\\n' \"$model_list\" && "
+        f"printf '%s\\n' \"$model_list\" | grep -q '^dx4600[[:space:]]' && "
         f"printf '%s\\n' \"$model_list\" | grep -q '^dxp4800[[:space:]]' && "
         f"printf '%s\\n' \"$model_list\" | grep -q '^dxp4800plus[[:space:]]' && "
         f"printf '%s\\n' \"$model_list\" | grep -q '^dxp4800s[[:space:]]' && "
@@ -146,7 +147,7 @@ def main():
         f"mkdir -p {REMOTE_DIR}/app/server/bin {REMOTE_DIR}/app/server/lib/ugreenctl/models && "
         f"install -m 0755 {hardware_build}/ugreenctl {hardware_build}/ugreenctl-fand "
         f"{REMOTE_DIR}/app/server/bin/ && "
-        f"install -m 0644 {hardware_build}/models/dxp4800.so {hardware_build}/models/dxp4800plus.so {hardware_build}/models/dxp4800s.so "
+        f"install -m 0644 {hardware_build}/models/dx4600.so {hardware_build}/models/dxp4800.so {hardware_build}/models/dxp4800plus.so {hardware_build}/models/dxp4800s.so "
         f"{hardware_build}/models/dxp480tplus.so {hardware_build}/models/dxp6800pro.so "
         f"{REMOTE_DIR}/app/server/lib/ugreenctl/models/",
         8,
@@ -176,6 +177,7 @@ def main():
         for entry in (
             "server/bin/ugreenctl",
             "server/bin/ugreenctl-fand",
+            "server/lib/ugreenctl/models/dx4600.so",
             "server/lib/ugreenctl/models/dxp4800.so",
             "server/lib/ugreenctl/models/dxp4800plus.so",
             "server/lib/ugreenctl/models/dxp4800s.so",

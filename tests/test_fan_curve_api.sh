@@ -20,7 +20,7 @@ level=off
 [fan_curve]
 enabled=false
 EOF
-for model in dxp4800 dxp4800plus dxp4800s dxp480tplus dxp6800pro; do : > "$PLUGINS/$model.so"; done
+for model in dx4600 dxp4800 dxp4800plus dxp4800s dxp480tplus dxp6800pro; do : > "$PLUGINS/$model.so"; done
 cat > "$BIN" <<'EOF'
 #!/bin/sh
 printf 'CALL' >> "$UGREENCTL_CALLS"
@@ -64,11 +64,21 @@ request() {
   PATH_INFO="$path" QUERY_STRING="$query" REQUEST_METHOD="$method" CONTENT_LENGTH=0 bash "$API" | tail -n 1
 }
 
-json=$(request /bios/fan-curve 'action=start&mode=stock-4800s&confirm=firmware-reversed' POST)
+export UGREEN_PRODUCT_NAME="DX4600"
+json=$(request /bios/fan-curve 'action=start&mode=stock-4600&confirm=firmware-reversed' POST)
 FAND_PID=$(cat "$TMP/run/fan-curve.pid")
 assert_contains "$json" '"ok":true'
 assert_contains "$json" '"running":true'
 CONFIG="$TMP/var/fan-curve.conf"
+[[ "$(sed -n 's/^profile=//p' "$CONFIG")" == "stock-4600" ]] || fail "DX4600 stock profile was not persisted"
+json=$(request /bios/fan-curve 'action=stop' POST)
+assert_contains "$json" '"ok":true'
+
+export UGREEN_PRODUCT_NAME="DXP4800S"
+json=$(request /bios/fan-curve 'action=start&mode=stock-4800s&confirm=firmware-reversed' POST)
+FAND_PID=$(cat "$TMP/run/fan-curve.pid")
+assert_contains "$json" '"ok":true'
+assert_contains "$json" '"running":true'
 [[ "$(sed -n 's/^profile=//p' "$CONFIG")" == "stock-4800s" ]] || fail "stock profile was not persisted"
 [[ "$(sed -n 's/^allow_unvalidated_writes=//p' "$CONFIG")" == "true" ]] || fail "guarded curve did not retain confirmation"
 json=$(request /bios/fan-curve)
