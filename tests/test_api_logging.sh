@@ -14,6 +14,7 @@ export TRIM_PKGVAR="$TMP/var"
 export UGREEN_RUNTIME_DIR="$TMP/run"
 export UGREEN_DIAG_I2C_PROBE=off
 export UGREEN_DIAG_UGREENCTL=/bin/false
+export ABOUT_README_RAW_URL_OVERRIDE="file://$ROOT/README.md"
 
 request() {
     local path="$1" query="${2:-}" method="${3:-GET}" request_id="${4:-test-request-123}" body="${5:-}"
@@ -50,6 +51,16 @@ assert_contains "$response" 'settings payload too large'
 response=$(request /settings '' POST settings-secret-test $'private.password=supersecret\nmode.global=smart')
 assert_contains "$response" '"ok":true'
 ! grep -Fq 'supersecret' "$LOG_FILE" || fail "settings value leaked into log"
+
+response=$(request /about/info '' GET about-info-test)
+assert_contains "$response" '"display_name":"UGREEN工具箱"'
+assert_contains "$response" '"version":"2.1.0"'
+assert_contains "$response" '"qq_group":"1108837172"'
+
+response=$(request /about/readme 'force=1' GET about-readme-test)
+assert_contains "$response" 'Status: 200 OK'
+assert_contains "$response" '# UGREEN工具箱'
+assert_contains "$response" 'github.com/BearHero520/LLLED_FPK/blob/main/README.md'
 
 response=$(request /logs/config 'level=debug' POST log-config-test)
 assert_contains "$response" '"ok":true'

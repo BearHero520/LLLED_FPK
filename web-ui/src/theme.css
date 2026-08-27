@@ -12,6 +12,65 @@ body { font-family: var(--newui-font-sans); }
 
 .react-view { width: 100%; max-width: 1480px; margin: 0 auto; animation: view-in 220ms ease; }
 
+.brand-copy strong { font-size: 13px; line-height: 1.15; white-space: normal; }
+
+.fan-curve-table { min-width: 790px; table-layout: fixed; }
+.fan-curve-table th:first-child { width: 84px; }
+.curve-stage-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+}
+.curve-stage-input input { padding-right: 4px; padding-left: 4px; }
+.curve-stage-input span { color: #7b8a9c; font-size: 9px; }
+.curve-stage-unused { color: #9aa7b8; font-size: 15px; font-weight: 700; }
+
+.about-layout { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr); gap: 20px; }
+.about-hero-surface, .about-update-surface, .readme-surface { min-width: 0; padding: 24px 26px; }
+.about-hero-surface {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+  background: linear-gradient(135deg, rgba(255, 253, 246, 0.9), rgba(242, 248, 239, 0.76));
+}
+.about-logo { width: 112px; height: 112px; border-radius: 26px; object-fit: contain; filter: drop-shadow(0 16px 24px rgba(91, 96, 68, 0.16)); }
+.about-brand-copy h2 { margin: 4px 0 7px; color: #26354d; font-size: 26px; letter-spacing: -0.04em; }
+.about-brand-copy p { max-width: 580px; margin: 0; color: #66758a; font-size: 12px; line-height: 1.65; }
+.about-badges { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.about-badges span { padding: 5px 9px; border: 1px solid rgba(108, 137, 93, 0.16); border-radius: 999px; background: rgba(255, 255, 255, 0.66); color: #526449; font-size: 10px; font-weight: 760; }
+.about-contact { grid-column: 1 / -1; display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 10px 16px; padding: 14px 16px; border: 1px solid rgba(77, 141, 65, 0.16); border-radius: 16px; background: rgba(236, 247, 231, 0.62); }
+.about-contact span { display: inline-flex; align-items: center; gap: 7px; color: #526449; font-size: 11px; font-weight: 760; }
+.about-contact strong { color: #287b38; font-size: 16px; letter-spacing: 0.04em; }
+.about-contact small { color: #718069; font-size: 10px; text-align: right; }
+.about-update-surface { grid-column: auto; }
+.readme-surface { grid-column: 1 / -1; }
+.readme-toolbar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; margin: 14px 0; }
+.readme-toolbar a { text-decoration: none; }
+.readme-loading { display: flex; min-height: 180px; align-items: center; justify-content: center; gap: 10px; color: #718096; font-size: 12px; }
+.readme-loading i { color: #4c8f50; font-size: 20px; }
+.readme-loading.error { color: #a24b55; }
+.readme-loading.error i { color: #c44d5b; }
+.readme-document { max-height: 620px; padding: 24px 26px; overflow: auto; border: 1px solid rgba(120, 143, 174, 0.18); border-radius: 18px; background: rgba(255, 255, 255, 0.66); color: #344258; scrollbar-width: thin; }
+.readme-document h1, .readme-document h2, .readme-document h3, .readme-document h4 { color: #223047; font-family: var(--newui-font-sans); letter-spacing: -0.025em; }
+.readme-document h1 { margin: 0 0 18px; font-size: 24px; }
+.readme-document h2 { margin: 28px 0 10px; padding-bottom: 7px; border-bottom: 1px solid rgba(120, 143, 174, 0.2); font-size: 18px; }
+.readme-document h3 { margin: 22px 0 8px; font-size: 15px; }
+.readme-document h4 { margin: 18px 0 7px; font-size: 13px; }
+.readme-document p, .readme-document li { font-size: 12px; line-height: 1.75; }
+.readme-document p { margin: 9px 0; }
+.readme-document ul, .readme-document ol { margin: 8px 0; padding-left: 24px; }
+.readme-document a { color: #1677ff; text-decoration: none; }
+.readme-document a:hover { text-decoration: underline; }
+.readme-document code { padding: 2px 5px; border-radius: 6px; background: rgba(63, 90, 125, 0.08); font-family: SFMono-Regular, Consolas, monospace; font-size: 0.92em; }
+.readme-document pre { padding: 14px 16px; overflow: auto; border-radius: 13px; background: #1b2533; color: #dce8f5; }
+.readme-document pre code { padding: 0; background: transparent; color: inherit; }
+.readme-table-wrap { margin: 12px 0; overflow-x: auto; }
+.readme-document table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 11px; }
+.readme-document th, .readme-document td { padding: 9px 10px; border: 1px solid rgba(120, 143, 174, 0.2); text-align: left; }
+.readme-document th { background: rgba(235, 242, 249, 0.72); color: #465871; }
+
 .newui-dialog-backdrop {
   position: fixed;
   z-index: 50;
@@ -166,10 +225,21 @@ body { font-family: var(--newui-font-sans); }
   .bios-controller-row > .glass-surface { height: auto; padding: 22px; }
   .echarts-fan-canvas { height: 210px; }
   .hardware-identity-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .about-layout { grid-template-columns: minmax(0, 1fr); }
+  .about-hero-surface, .about-update-surface, .readme-surface { padding: 22px; }
+  .about-contact { grid-template-columns: 1fr auto; }
+  .about-contact small { grid-column: 1 / -1; text-align: left; }
 }
 
 @media (max-width: 520px) {
   .bios-controller-row { gap: 14px; }
   .bios-controller-row > .glass-surface { padding: 18px; }
   .hardware-identity-strip { grid-template-columns: minmax(0, 1fr); }
+  .about-hero-surface { grid-template-columns: minmax(0, 1fr); text-align: center; }
+  .about-logo { width: 96px; height: 96px; margin: 0 auto; }
+  .about-badges { justify-content: center; }
+  .about-contact { text-align: left; }
+  .readme-toolbar { align-items: stretch; flex-direction: column; }
+  .readme-toolbar > * { width: 100%; }
+  .readme-document { max-height: none; padding: 18px; }
 }

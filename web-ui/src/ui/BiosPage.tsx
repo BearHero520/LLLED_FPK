@@ -17,6 +17,7 @@ type BiosData = Record<string, unknown>;
 type FanCurve = Record<string, unknown>;
 type Toast = (message: string, type?: "ok" | "err") => void;
 type FanMode = "custom" | "fixed" | "stock";
+type TemperatureCurveKey = "cpu" | "hdd" | "ssd";
 
 const policyLabels: Record<string, string> = {
   on: "自动开机",
@@ -33,6 +34,31 @@ const defaultCurve = {
   pwm: "64,128,204,255",
   requireStorage: false,
 };
+const curveStages = ["停转", "启动", "中速", "全速", "安全满速"] as const;
+
+function curveFields(value: string, count: number, fallback: string) {
+  const fallbackValues = fallback.split(",");
+  const values = value.split(",").map((item) => item.trim()).slice(0, count);
+  while (values.length < count) values.push(fallbackValues[values.length] || "0");
+  return values;
+}
+
+function updateCurveField(
+  value: string,
+  index: number,
+  next: string,
+  count: number,
+  fallback: string,
+  min: number,
+  max: number,
+) {
+  const values = curveFields(value, count, fallback);
+  const previous = Number(values[index]);
+  values[index] = String(
+    boundedInt(next, min, max, Number.isFinite(previous) ? previous : min),
+  );
+  return values.join(",");
+}
 
 function uptime(value: unknown) {
   const total = Math.max(0, Math.floor(Number(value) || 0));
@@ -894,7 +920,7 @@ export function BiosPage({
                   <thead>
                     <tr>
                       <th>温度源</th>
-                      <th>停转 / 启动 / 中速 / 全速 / 安全满速</th>
+                      {curveStages.map((stage) => <th key={stage}>{stage}</th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -907,38 +933,70 @@ export function BiosPage({
                     ).map(([label, key]) => (
                       <tr key={key}>
                         <th>{label}</th>
-                        <td>
-                          <input
-                            type="text"
-                            value={curve[key]}
-                            aria-label={`${label} 温度曲线`}
-                            disabled={!curveEditable}
-                            onChange={(event) =>
-                              setCurve((current) => ({
-                                ...current,
-                                [key]: event.target.value,
-                              }))
-                            }
-                          />
-                        </td>
+                        {curveFields(curve[key], 5, defaultCurve[key]).map((value, index) => (
+                          <td key={`${key}-${curveStages[index]}`}>
+                            <label className="curve-stage-input">
+                              <input
+                                type="number"
+                                min="0"
+                                max="120"
+                                step="1"
+                                value={value}
+                                aria-label={`${label} ${curveStages[index]}温度`}
+                                disabled={!curveEditable}
+                                onChange={(event) =>
+                                  setCurve((current) => ({
+                                    ...current,
+                                    [key]: updateCurveField(
+                                      current[key],
+                                      index,
+                                      event.target.value,
+                                      5,
+                                      defaultCurve[key],
+                                      0,
+                                      120,
+                                    ),
+                                  }))
+                                }
+                              />
+                              <span>°C</span>
+                            </label>
+                          </td>
+                        ))}
                       </tr>
                     ))}
                     <tr className="fan-curve-pwm-row">
                       <th>PWM 档位</th>
-                      <td>
-                        <input
-                          type="text"
-                          value={curve.pwm}
-                          aria-label="PWM 档位"
-                          disabled={!curveEditable}
-                          onChange={(event) =>
-                            setCurve((current) => ({
-                              ...current,
-                              pwm: event.target.value,
-                            }))
-                          }
-                        />
-                      </td>
+                      <td className="curve-stage-unused" aria-label="停转阶段不写入 PWM">—</td>
+                      {curveFields(curve.pwm, 4, defaultCurve.pwm).map((value, index) => (
+                        <td key={`pwm-${curveStages[index + 1]}`}>
+                          <label className="curve-stage-input">
+                            <input
+                              type="number"
+                              min={minPwm}
+                              max="255"
+                              step="1"
+                              value={value}
+                              aria-label={`${curveStages[index + 1]} PWM`}
+                              disabled={!curveEditable}
+                              onChange={(event) =>
+                                setCurve((current) => ({
+                                  ...current,
+                                  pwm: updateCurveField(
+                                    current.pwm,
+                                    index,
+                                    event.target.value,
+                                    4,
+                                    defaultCurve.pwm,
+                                    minPwm,
+                                    255,
+                                  ),
+                                }))
+                              }
+                            />
+                          </label>
+                        </td>
+                      ))}
                     </tr>
                   </tbody>
                 </table>

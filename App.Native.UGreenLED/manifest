@@ -1,7 +1,7 @@
 appname               = App.Native.UGreenLED
-version               = 2.0.1
-display_name          = 绿联 LED 灯控
-desc                  = 绿联 NAS LED 控制；支持 BIOS 风扇、来电启动、多机型网络唤醒与 RTC 定时开机。
+version               = 2.1.0
+display_name          = UGREEN工具箱
+desc                  = 专为飞牛 fnOS 上的绿联 NAS 打造的硬件控制与增强工具。测试与反馈 QQ 群：1108837172。<br><br>支持电源灯、网络灯和硬盘灯的颜色、亮度、智能灯效与盘位映射；监控 CPU、硬盘和 NVMe 温度、风扇转速、网络流量与磁盘活动；兼容机型可使用风扇调速、自动温控、来电启动、网络唤醒（WOL）和 RTC 定时开机；另提供兼容性检测、诊断日志与应用更新。不同机型功能以应用内检测结果为准。
 platform              = x86
 source                = thirdparty
 maintainer            = BearHero520
@@ -14,4 +14,4 @@ desktop_uidir         = ui
 desktop_applaunchname = App.Native.UGreenLED.Web
 service_port          = 5088
 checkport             = false
-changelog             = v2.0.1 新增 DX4600、DX4600+、DX4600 Pro BIOS 风扇、来电启动、网络唤醒与 RTC 定时开机控制
+changelog             = v2.1.0 更名为 UGREEN工具箱，新增关于页面与新版图标，优化应用介绍、BIOS 风扇参数配置及 DX4600 系列电源管理

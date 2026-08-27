@@ -2,6 +2,7 @@ import { Dialog } from '@base-ui/react/dialog';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { boundedInt, parseIni, type IniData } from '../lib/ini';
+import { AboutPage, type AboutInfo } from './AboutPage';
 import { ActivityPage } from './ActivityPage';
 import { BiosPage } from './BiosPage';
 import { DevicesPage } from './DevicesPage';
@@ -9,7 +10,7 @@ import { LabPage } from './LabPage';
 import { LightingPage } from './LightingPage';
 import { OverviewPage, type MappingItem, type StatusData } from './OverviewPage';
 
-type Route = 'overview' | 'lighting' | 'activity' | 'devices' | 'bios' | 'lab';
+type Route = 'overview' | 'lighting' | 'activity' | 'devices' | 'bios' | 'lab' | 'about';
 type Toast = { message: string; type: 'ok' | 'err' } | null;
 type HardwareData = Record<string, unknown>;
 type BiosData = Record<string, unknown>;
@@ -18,12 +19,13 @@ const routeInfo: Record<Route, { title: string; description: string }> = {
   overview: { title: '概览', description: '查看灯控服务、实时网速与硬盘活动。' },
   lighting: { title: '灯光设置', description: '配置硬盘、网络和电源灯的状态颜色。' },
   activity: { title: '活动提示', description: '控制磁盘读写和网络流量的速度闪动。' },
-  devices: { title: '设备与高级', description: '管理盘位映射、机型后端、监测频率、更新与诊断日志。' },
+  devices: { title: '设备与高级', description: '管理盘位映射、机型后端、监测频率与诊断日志。' },
   bios: { title: 'BIOS 控制', description: '安全管理已支持机型的风扇、来电启动、网络唤醒与 RTC 定时开机。' },
   lab: { title: '实验室', description: '未经验证的高级硬件功能，请确认风险后谨慎使用。' },
+  about: { title: '关于', description: '查看应用版本、更新、测试群与 GitHub 项目说明。' },
 };
 const navItems: Array<{ route: Route; label: string; icon: string; warning?: string }> = [
-  { route: 'overview', label: '概览', icon: 'bi-grid-1x2' }, { route: 'lighting', label: '灯光设置', icon: 'bi-lightbulb' }, { route: 'activity', label: '活动提示', icon: 'bi-activity' }, { route: 'devices', label: '设备与高级', icon: 'bi-hdd-rack' }, { route: 'bios', label: 'BIOS 控制', icon: 'bi-motherboard' }, { route: 'lab', label: '实验室', icon: 'bi-eyedropper', warning: '未经验证' },
+  { route: 'overview', label: '概览', icon: 'bi-grid-1x2' }, { route: 'lighting', label: '灯光设置', icon: 'bi-lightbulb' }, { route: 'activity', label: '活动提示', icon: 'bi-activity' }, { route: 'devices', label: '设备与高级', icon: 'bi-hdd-rack' }, { route: 'bios', label: 'BIOS 控制', icon: 'bi-motherboard' }, { route: 'lab', label: '实验室', icon: 'bi-eyedropper', warning: '未经验证' }, { route: 'about', label: '关于', icon: 'bi-info-circle' },
 ];
 const diskStates = [
   { key: 'active', color: '0 255 0', brightness: 128 }, { key: 'idle', color: '255 255 0', brightness: 64 }, { key: 'standby', color: '0 100 255', brightness: 40 }, { key: 'deep_sleep', color: '40 0 80', brightness: 24 }, { key: 'offline', color: 'off', brightness: 0 },
@@ -40,7 +42,8 @@ function NavButton({ item, active, available, onNavigate }: { item: typeof navIt
 }
 
 function PageHeader({ route, running, onRefresh, refreshing }: { route: Route; running: boolean | null; onRefresh: () => void; refreshing: boolean }) {
-  return <header className="page-header"><div><p className="eyebrow">NAS LIGHTING CONTROL</p><h1>{routeInfo[route].title}</h1><p className="page-description">{routeInfo[route].description}</p></div><div className="header-actions"><Dialog.Root><Dialog.Trigger className="icon-button" title="界面说明" aria-label="界面说明"><i className="bi bi-question-circle" aria-hidden="true" /></Dialog.Trigger><Dialog.Portal><Dialog.Backdrop className="newui-dialog-backdrop" /><Dialog.Popup className="newui-dialog-popup"><Dialog.Title>绿联 LED 灯控</Dialog.Title><Dialog.Description>所有页面均由离线 React 组件管理；灯光请求经 CGI API 转交内置 CLI，BIOS 请求仅转交 UGREEN-NAS-Hardware。</Dialog.Description><div className="newui-dialog-actions"><Dialog.Close className="secondary-button">知道了</Dialog.Close></div></Dialog.Popup></Dialog.Portal></Dialog.Root><button type="button" className={`icon-button${refreshing ? ' busy' : ''}`} title="刷新状态" aria-label="刷新状态" disabled={refreshing} onClick={onRefresh}><i className="bi bi-arrow-clockwise" aria-hidden="true" /></button><span className="status-pill"><span className="status-dot" /><span>{running === null ? '连接中' : running ? '服务运行中' : '后台已停止'}</span></span></div></header>;
+  const dotClass = `status-dot${running === true ? ' online' : running === false ? ' offline' : ''}`;
+  return <header className="page-header"><div><p className="eyebrow">UGREEN NAS SYSTEM TOOLBOX</p><h1>{routeInfo[route].title}</h1><p className="page-description">{routeInfo[route].description}</p></div><div className="header-actions"><Dialog.Root><Dialog.Trigger className="icon-button" title="界面说明" aria-label="界面说明"><i className="bi bi-question-circle" aria-hidden="true" /></Dialog.Trigger><Dialog.Portal><Dialog.Backdrop className="newui-dialog-backdrop" /><Dialog.Popup className="newui-dialog-popup"><Dialog.Title>UGREEN工具箱</Dialog.Title><Dialog.Description>灯光请求经 CGI API 转交内置 CLI；BIOS 请求仅转交 UGREEN-NAS-Hardware，上层界面不会绕过硬件安全保护。</Dialog.Description><div className="newui-dialog-actions"><Dialog.Close className="secondary-button">知道了</Dialog.Close></div></Dialog.Popup></Dialog.Portal></Dialog.Root><button type="button" className={`icon-button${refreshing ? ' busy' : ''}`} title="刷新状态" aria-label="刷新状态" disabled={refreshing} onClick={onRefresh}><i className="bi bi-arrow-clockwise" aria-hidden="true" /></button><span className="status-pill"><span className={dotClass} /><span>{running === null ? '连接中' : running ? '服务运行中' : '后台已停止'}</span></span></div></header>;
 }
 
 function ModeDock({ mode, onModeChange }: { mode: string; onModeChange: (mode: string) => void }) {
@@ -64,6 +67,7 @@ export function App() {
   const [settings, setSettings] = useState<IniData>({});
   const [hardware, setHardware] = useState<HardwareData>({});
   const [bios, setBios] = useState<BiosData | null>(null);
+  const [aboutInfo, setAboutInfo] = useState<AboutInfo | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const toastTimer = useRef<number | undefined>(undefined);
@@ -79,6 +83,7 @@ export function App() {
   const loadSettings = useCallback(async () => { const data = await api<{ raw?: string }>('/settings'); setSettings(parseIni(data.raw || '')); }, []);
   useEffect(() => { const syncRoute = () => setRoute(normalizeRoute(location.hash.slice(1))); window.addEventListener('hashchange', syncRoute); return () => window.removeEventListener('hashchange', syncRoute); }, []);
   useEffect(() => { void loadSettings().catch((error) => showToast(error instanceof Error ? error.message : '读取设置失败', 'err')); void refresh(); const interval = window.setInterval(() => { if (!document.hidden) void refresh(); }, 10000); const onVisible = () => { if (!document.hidden) void refresh(); }; document.addEventListener('visibilitychange', onVisible); return () => { window.clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); }; }, [loadSettings, refresh, showToast]);
+  useEffect(() => { void api<AboutInfo>('/about/info').then(setAboutInfo).catch(() => setAboutInfo(null)); }, []);
   useEffect(() => () => { if (toastTimer.current) window.clearTimeout(toastTimer.current); }, []);
 
   const navigate = useCallback((next: Route) => { setRoute(next); if (location.hash !== `#${next}`) location.hash = next; document.getElementById('appMain')?.scrollTo({ top: 0, behavior: 'smooth' }); }, []);
@@ -88,5 +93,6 @@ export function App() {
   const applyPower26 = useCallback(async (color: string, effect: string, threshold: number, off: boolean) => { const data = await api<{ message?: string; mode?: string }>('/power26/apply', { method: 'POST', query: `color=${encodeURIComponent(color)}&effect=${encodeURIComponent(off ? 'off' : effect)}&threshold=${threshold}`, body: '' }); setStatus((current) => ({ ...current, mode: data.mode || (off ? 'off' : 'on') })); await Promise.all([loadSettings(), refresh()]); showToast(data.message || (off ? '电源灯已关闭' : '480T 电源灯设置已应用')); }, [loadSettings, refresh, showToast]);
   const power26 = hardware.profile === 'dxp480t_plus'; const running = status ? status.daemon === 'running' : null; const currentMode = status?.mode || settings.mode?.global || 'smart';
 
-  return <div className="app-shell"><aside className="app-rail" aria-label="主导航"><div className="brand-block"><img src="./images/logo.png" alt="绿联 LED 灯控" className="brand-logo" width="48" height="48" /><div className="brand-copy"><strong>LED 灯控</strong><span>UGREEN NAS</span></div></div><nav className="rail-nav">{navItems.map((item) => <NavButton key={item.route} item={item} active={item.route === route} available={item.route !== 'bios' || Boolean(bios?.supported)} onNavigate={navigate} />)}</nav><div className="rail-footer"><span className="rail-state"><span className="status-dot" /><span>{running === null ? '正在连接' : running ? '服务运行中' : '后台已停止'}</span></span><small>v1.9.0 · <a href="https://github.com/BearHero520/LLLED_FPK" target="_blank" rel="noopener noreferrer">源代码 / AGPL-3.0</a></small></div></aside><main className="app-main" id="appMain"><PageHeader route={route} running={running} refreshing={refreshing} onRefresh={() => void refresh(true)} /><div className={`action-message${toast ? ` visible ${toast.type}` : ''}`} aria-live="polite">{toast?.message}</div><OverviewPage hidden={route !== 'overview'} status={status} mapping={mapping} onDevices={() => navigate('devices')} /><LightingPage hidden={route !== 'lighting'} settings={settings} power26={power26} onSettingsChange={setSettings} onSave={saveLighting} onPower26Apply={applyPower26} onToast={showToast} /><ActivityPage hidden={route !== 'activity'} settings={settings} onSettingsChange={setSettings} onSave={saveSettings} onToast={showToast} /><DevicesPage hidden={route !== 'devices'} mapping={mapping} hardware={hardware} settings={settings} onSettingsChange={setSettings} onSaveSettings={saveSettings} onRefresh={refresh} onToast={showToast} /><BiosPage hidden={route !== 'bios'} bios={bios} hardware={hardware} onRefresh={refresh} onToast={showToast} /><LabPage hidden={route !== 'lab'} onRefresh={refresh} onToast={showToast} /></main><ModeDock mode={currentMode} onModeChange={(mode) => void setMode(mode)} /></div>;
+  const railDotClass = `status-dot${running === true ? ' online' : running === false ? ' offline' : ''}`;
+  return <div className="app-shell"><aside className="app-rail" aria-label="主导航"><div className="brand-block"><img src="./images/logo.png?v=2.1.0-toolbox" alt="UGREEN工具箱" className="brand-logo" width="48" height="48" /><div className="brand-copy"><strong>UGREEN工具箱</strong><span>BearHero · fnOS</span></div></div><nav className="rail-nav">{navItems.map((item) => <NavButton key={item.route} item={item} active={item.route === route} available={item.route !== 'bios' || Boolean(bios?.supported)} onNavigate={navigate} />)}</nav><div className="rail-footer"><span className="rail-state"><span className={railDotClass} /><span>{running === null ? '正在连接' : running ? '服务运行中' : '后台已停止'}</span></span><small>v{aboutInfo?.version || '—'} · BearHero</small></div></aside><main className="app-main" id="appMain"><PageHeader route={route} running={running} refreshing={refreshing} onRefresh={() => void refresh(true)} /><div className={`action-message${toast ? ` visible ${toast.type}` : ''}`} aria-live="polite">{toast?.message}</div><OverviewPage hidden={route !== 'overview'} status={status} mapping={mapping} onDevices={() => navigate('devices')} /><LightingPage hidden={route !== 'lighting'} settings={settings} power26={power26} onSettingsChange={setSettings} onSave={saveLighting} onPower26Apply={applyPower26} onToast={showToast} /><ActivityPage hidden={route !== 'activity'} settings={settings} onSettingsChange={setSettings} onSave={saveSettings} onToast={showToast} /><DevicesPage hidden={route !== 'devices'} mapping={mapping} hardware={hardware} settings={settings} onSettingsChange={setSettings} onSaveSettings={saveSettings} onRefresh={refresh} onToast={showToast} /><BiosPage hidden={route !== 'bios'} bios={bios} hardware={hardware} onRefresh={refresh} onToast={showToast} /><LabPage hidden={route !== 'lab'} onRefresh={refresh} onToast={showToast} /><AboutPage hidden={route !== 'about'} info={aboutInfo} onToast={showToast} /></main><ModeDock mode={currentMode} onModeChange={(mode) => void setMode(mode)} /></div>;
 }

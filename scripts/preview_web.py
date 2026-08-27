@@ -23,6 +23,7 @@ APP_ROOT = ROOT / "App.Native.UGreenLED" / "app"
 WWW_ROOT = APP_ROOT / "www"
 DEFAULT_SETTINGS = APP_ROOT / "server" / "default_settings.conf"
 MANIFEST = ROOT / "App.Native.UGreenLED" / "manifest"
+README = ROOT / "README.md"
 APP_BASE = "/cgi/ThirdParty/App.Native.UGreenLED"
 STATIC_BASE = f"{APP_BASE}/index.cgi/"
 API_BASE = f"{APP_BASE}/api.cgi"
@@ -1049,6 +1050,28 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 "checked_at": int(now),
             })
             return
+        if path == "/about/info":
+            self.send_json({
+                "ok": True,
+                "display_name": "UGREEN工具箱",
+                "version": CURRENT_VERSION,
+                "maintainer": "BearHero",
+                "license": "AGPL-3.0",
+                "repository_url": "https://github.com/BearHero520/LLLED_FPK",
+                "readme_url": "https://github.com/BearHero520/LLLED_FPK/blob/main/README.md",
+                "qq_group": "1108837172",
+            })
+            return
+        if path == "/about/readme":
+            self.send_json({
+                "ok": True,
+                "reachable": True,
+                "cached": False,
+                "source_url": "https://github.com/BearHero520/LLLED_FPK/blob/main/README.md",
+                "fetched_at": int(now),
+                "content": README.read_text(encoding="utf-8"),
+            })
+            return
         if path == "/lab/mapping/status":
             self.send_json(STATE.lab_payload())
             return
@@ -1170,7 +1193,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="预览绿联 LED 灯控 Web UI")
+    parser = argparse.ArgumentParser(description="预览 UGREEN工具箱 Web UI")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--profile", choices=sorted(PROFILE_META), default="dxp6800", help="预览指定机型能力")

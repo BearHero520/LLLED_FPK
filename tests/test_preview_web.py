@@ -108,6 +108,19 @@ class PreviewApiTests(unittest.TestCase):
                 tuple(state.logs),
             )
 
+    def test_about_info_and_readme_use_manifest_and_repository_readme(self) -> None:
+        status, payload, _ = self.request("GET", "/about/info")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["display_name"], "UGREEN工具箱")
+        self.assertEqual(payload["version"], preview.CURRENT_VERSION)
+        self.assertEqual(payload["qq_group"], "1108837172")
+
+        status, payload, _ = self.request("GET", "/about/readme")
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertIn("# UGREEN工具箱", payload["content"])
+        self.assertIn("github.com/BearHero520/LLLED_FPK", payload["source_url"])
+
     def test_mutating_routes_reject_get_without_changing_state(self) -> None:
         routes = [
             "/logs/config?level=debug",

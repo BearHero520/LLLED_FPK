@@ -113,6 +113,10 @@ UPDATE_REPOSITORY="BearHero520/LLLED_FPK"
 UPDATE_LATEST_URL="https://github.com/${UPDATE_REPOSITORY}/releases/latest"
 UPDATE_API_URL="https://api.github.com/repos/${UPDATE_REPOSITORY}/releases/latest"
 UPDATE_CACHE_TTL=21600
+ABOUT_README_CACHE_FILE="${RUNTIME_DIR}/github_readme.cache"
+ABOUT_README_RAW_URL="${ABOUT_README_RAW_URL_OVERRIDE:-https://raw.githubusercontent.com/${UPDATE_REPOSITORY}/main/README.md}"
+ABOUT_README_SOURCE_URL="https://github.com/${UPDATE_REPOSITORY}/blob/main/README.md"
+ABOUT_README_CACHE_TTL=21600
 UGREEN_CLI="${UGREEN_CLI_OVERRIDE:-}"
 if [[ -z "$UGREEN_CLI" ]]; then
     for c in "${SERVER_DIR}/bin/ugreen_leds_cli" "${APP_ROOT}/target/server/bin/ugreen_leds_cli"; do
@@ -340,6 +344,67 @@ update_check_json() {
     printf '{"ok":true,"reachable":true,"current_version":"%s","latest_version":"%s","latest_tag":"%s","release_url":"%s","download_url":"%s","checked_at":%s}' \
         "$(json_str "$current")" "$(json_str "$latest_version")" "$(json_str "$latest_tag")" \
         "$(json_str "$release_url")" "$(json_str "$download_url")" "$now"
+}
+
+fetch_github_readme() {
+    if [[ "$ABOUT_README_RAW_URL" == file://* ]]; then
+        cat "${ABOUT_README_RAW_URL#file://}"
+    elif command -v curl >/dev/null 2>&1; then
+        curl -fsSL --retry 2 --connect-timeout 5 --max-time 20 \
+            -H 'Accept: text/plain' -H 'User-Agent: UGREEN-Toolbox-fnOS' \
+            "$ABOUT_README_RAW_URL" 2>/dev/null
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO- --timeout=20 --header='Accept: text/plain' \
+            --header='User-Agent: UGREEN-Toolbox-fnOS' "$ABOUT_README_RAW_URL" 2>/dev/null
+    else
+        return 1
+    fi
+}
+
+about_info_json() {
+    printf '{"ok":true,"display_name":"UGREEN工具箱","version":"%s","maintainer":"BearHero","license":"AGPL-3.0","repository_url":"https://github.com/%s","readme_url":"%s","qq_group":"1108837172"}' \
+        "$(json_str "$(current_app_version)")" "$(json_str "$UPDATE_REPOSITORY")" \
+        "$(json_str "$ABOUT_README_SOURCE_URL")"
+}
+
+about_readme_json() {
+    local force="${1:-0}" now cached_at=0 cache_age=0 content="" reachable=false cached=false
+    now=$(date +%s)
+
+    if [[ "$force" != "1" && -f "$ABOUT_README_CACHE_FILE" ]]; then
+        cached_at=$(stat -c %Y "$ABOUT_README_CACHE_FILE" 2>/dev/null || printf '0')
+        if [[ "$cached_at" =~ ^[0-9]+$ ]]; then
+            cache_age=$((now - cached_at))
+            if (( cache_age >= 0 && cache_age <= ABOUT_README_CACHE_TTL )); then
+                content=$(cat "$ABOUT_README_CACHE_FILE" 2>/dev/null || true)
+                [[ -n "$content" ]] && { reachable=true; cached=true; }
+            fi
+        fi
+    fi
+
+    if [[ -z "$content" ]]; then
+        content=$(fetch_github_readme 2>/dev/null || true)
+        if [[ -n "$content" && ${#content} -le 262144 ]]; then
+            reachable=true
+            mkdir -p "$RUNTIME_DIR" 2>/dev/null || true
+            printf '%s\n' "$content" > "${ABOUT_README_CACHE_FILE}.tmp" 2>/dev/null && \
+                mv "${ABOUT_README_CACHE_FILE}.tmp" "$ABOUT_README_CACHE_FILE" 2>/dev/null || true
+        elif [[ -f "$ABOUT_README_CACHE_FILE" ]]; then
+            content=$(cat "$ABOUT_README_CACHE_FILE" 2>/dev/null || true)
+            cached=true
+        else
+            content=""
+        fi
+    fi
+
+    if [[ -z "$content" ]]; then
+        printf '{"ok":false,"reachable":false,"source_url":"%s","error":"无法从 GitHub 获取 README.md"}' \
+            "$(json_str "$ABOUT_README_SOURCE_URL")"
+        return
+    fi
+
+    printf '{"ok":true,"reachable":%s,"cached":%s,"source_url":"%s","fetched_at":%s,"content":"%s"}' \
+        "$reachable" "$cached" "$(json_str "$ABOUT_README_SOURCE_URL")" "$now" "$(json_str "$content")"
 }
 
 lab_mapping_resume_control() {
@@ -1029,6 +1094,13 @@ case "$API_PATH" in
     /update/check)
         force=$(query_value force)
         update_check_json "$force"
+        ;;
+    /about/info)
+        about_info_json
+        ;;
+    /about/readme)
+        force=$(query_value force)
+        about_readme_json "$force"
         ;;
     /lab/mapping/status)
         lab_mapping_status_json
