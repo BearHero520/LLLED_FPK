@@ -18,6 +18,7 @@ VENDOR = PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller"
 PATCHES = (
     VENDOR / "patches" / "dxp480t-power.patch",
     VENDOR / "patches" / "diagnostics.patch",
+    VENDOR / "patches" / "dx4600-firmware-1.19.patch",
 )
 UPSTREAM_REPOSITORY = "https://github.com/miskcoo/ugreen_leds_controller.git"
 UPSTREAM_COMMIT = "1e881da8b3d8598abadb50e859e8433c365c2840"

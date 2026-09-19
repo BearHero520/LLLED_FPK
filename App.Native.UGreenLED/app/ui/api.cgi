@@ -1009,7 +1009,7 @@ case "$API_PATH" in
             echo '{"ok":false,"error":"来电启动参数无效"}'
         elif ! bios_write_confirmation_valid; then
             echo '{"ok":false,"error":"受保护写入需要先在页面确认风险"}'
-        elif bios_set_startup "$policy"; then
+        elif bios_set_startup_saved "$policy"; then
             bios_status_json "来电启动策略已更新"
         else
             printf '{"ok":false,"error":"%s"}' "$(json_str "${BIOS_LAST_ERROR:-来电启动设置失败}")"
@@ -1377,6 +1377,12 @@ case "$API_PATH" in
     /daemon/start)
         if [[ "$REQUEST_METHOD" != "POST" ]]; then
             echo '{"ok":false,"error":"method not allowed"}'
+            return 0
+        fi
+        # Saving LED settings already signals a reload. Re-entering service
+        # startup here would unnecessarily restore BIOS policy and fan control.
+        if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+            echo '{"ok":true,"daemon":"running","message":"后台已运行"}'
             return 0
         fi
         daemon_rc=0

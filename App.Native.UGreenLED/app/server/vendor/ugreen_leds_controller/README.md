@@ -21,3 +21,9 @@ read-only `--diagnose` command. The diagnostic command reports the selected
 I801 adapter, `/dev/i2c-*` node, fixed `0x3a` address, effective write protocol,
 power-status read result, and raw acknowledgement register value without
 changing any LED state.
+
+`patches/dx4600-firmware-1.19.patch` retains the user-tested DX4600 controller
+selection, MCU signature checks, retry timing and CLI process lock. Color and
+on/off control are confirmed working on exact DX4600. Intermittent ACK errors
+remain separately tracked; DH2600 is maintained on its own branch. See
+[DX4600 validation baseline](DX4600_VALIDATION.zh-CN.md).

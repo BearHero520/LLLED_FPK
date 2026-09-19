@@ -530,7 +530,8 @@ collect_i2c() {
 }
 
 collect_controller() {
-    local controller="" candidate output rc
+    local controller="" candidate output rc plugin_dir
+    local -a controller_args=()
     section "bundled-controller-read"
     if [[ -n "${UGREEN_DIAG_UGREENCTL:-}" ]]; then
         controller="$UGREEN_DIAG_UGREENCTL"
@@ -551,7 +552,13 @@ collect_controller() {
         return 0
     fi
     printf 'path=%s\nsha256=%s\n' "$controller" "$(sha256_file "$controller")"
-    output=$(run_with_timeout "$controller" info 2>&1)
+    # Bundled plugins live beside server/bin, not in a build-host install path.
+    plugin_dir="${UGREEN_DIAG_PLUGIN_DIR:-$(dirname "$controller")/../lib/ugreenctl/models}"
+    if [[ -d "$plugin_dir" ]]; then
+        controller_args=(--plugin-dir "$plugin_dir")
+        printf 'plugin_dir=%s\n' "$plugin_dir"
+    fi
+    output=$(run_with_timeout "$controller" "${controller_args[@]}" info 2>&1)
     rc=$?
     printf 'command=info\nexit_code=%d\n%s\n' "$rc" "${output:-<no output>}"
 }

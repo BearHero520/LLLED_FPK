@@ -108,10 +108,16 @@ EOF
 done
 cat > "$UGREENCTL" <<'EOF'
 #!/bin/bash
+[[ "$#" == 3 && "$1" == "--plugin-dir" && "$2" == "$UGREEN_DIAG_PLUGIN_DIR" && "$3" == "info" ]] || {
+    echo 'unexpected controller arguments' >> "$DANGER_LOG"
+    exit 2
+}
 echo 'error: controller owner is active: /sys/module/it87'
 exit 1
 EOF
 chmod +x "$BIN"/* "$UGREENCTL" "$LED_CLI"
+mkdir -p "$TMP/models"
+export DANGER_LOG
 
 COMMON_ENV=(
     "PATH=$BIN:$PATH"
@@ -121,6 +127,7 @@ COMMON_ENV=(
     "UGREEN_DIAG_ETC_ROOT=$ETC"
     "UGREEN_DIAG_USR_SRC_ROOT=$USR_SRC"
     "UGREEN_DIAG_UGREENCTL=$UGREENCTL"
+    "UGREEN_DIAG_PLUGIN_DIR=$TMP/models"
     "UGREEN_DIAG_LED_CLI=$LED_CLI"
 )
 

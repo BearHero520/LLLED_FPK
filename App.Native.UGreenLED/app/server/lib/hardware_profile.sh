@@ -60,7 +60,7 @@ hardware_profile_key() {
 
 hardware_profile_display_name() {
     case "${1:-$(hardware_profile_key)}" in
-        dx4600) echo "UGREEN DX4600 Pro" ;;
+        dx4600) echo "UGREEN DX4600 / DX4600+ / DX4600 Pro" ;;
         dx4700) echo "UGREEN DX4700+" ;;
         dxp2800) echo "UGREEN DXP2800" ;;
         dxp2800_gt) echo "UGREEN DXP2800 GT" ;;

@@ -8,7 +8,7 @@ type LogData = { content?: string; write_level?: string; requested_lines?: numbe
 type Toast = (message: string, type?: 'ok' | 'err') => void;
 
 const profiles = [
-  ['auto', '自动识别'], ['dx4600', 'UGREEN DX4600 Pro'], ['dx4700', 'UGREEN DX4700+'], ['dxp2800', 'UGREEN DXP2800'], ['dxp2800_gt', 'UGREEN DXP2800 GT（待验证）'], ['dxp4800', 'UGREEN DXP4800'], ['dxp4800_plus', 'UGREEN DXP4800 Plus'], ['dxp4800_pro', 'UGREEN DXP4800 Pro（待验证）'], ['dxp4800s', 'UGREEN DXP4800S（BIOS 控制固件逆向）'], ['dxp4800_gt', 'UGREEN DXP4800 GT（实验性）'], ['dxp6800', 'UGREEN DXP6800 Pro'], ['dxp8800', 'UGREEN DXP8800 Plus'], ['dxp480t_plus', 'UGREEN DXP480T / Plus（仅电源灯）'], ['idx6011', 'UGREEN iDX6011（实验性）'], ['idx6011_pro', 'UGREEN iDX6011 Pro（实验性）'],
+  ['auto', '自动识别'], ['dx4600', 'UGREEN DX4600 / Plus / Pro'], ['dx4700', 'UGREEN DX4700+'], ['dxp2800', 'UGREEN DXP2800'], ['dxp2800_gt', 'UGREEN DXP2800 GT（待验证）'], ['dxp4800', 'UGREEN DXP4800'], ['dxp4800_plus', 'UGREEN DXP4800 Plus'], ['dxp4800_pro', 'UGREEN DXP4800 Pro（待验证）'], ['dxp4800s', 'UGREEN DXP4800S（BIOS 控制固件逆向）'], ['dxp4800_gt', 'UGREEN DXP4800 GT（实验性）'], ['dxp6800', 'UGREEN DXP6800 Pro'], ['dxp8800', 'UGREEN DXP8800 Plus'], ['dxp480t_plus', 'UGREEN DXP480T / Plus（仅电源灯）'], ['idx6011', 'UGREEN iDX6011（实验性）'], ['idx6011_pro', 'UGREEN iDX6011 Pro（实验性）'],
 ] as const;
 const diskLabels: Record<string, string> = { active: '活动', idle: '空闲', standby: '休眠', deep_sleep: '深度睡眠', offline: '离线', unknown: '未知', error: '异常', '?': '未知' };
 const supportLabels: Record<string, string> = { stable: '已验证', experimental: '实验性', unverified: '待验证', limited: '受限支持', unsupported: '暂不支持', unknown: '未知机型' };

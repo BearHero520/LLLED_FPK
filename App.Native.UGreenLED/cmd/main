@@ -68,6 +68,9 @@ recover_managed_driver() {
 case "$1" in
 start)
     mkdir -p "${VAR_DIR}/log" "$RUNTIME_DIR"
+    if ! bios_startup_restore; then
+        ugreen_log_warn "bios.startup_restore_failed" "启动时恢复来电策略失败" "error=$BIOS_LAST_ERROR"
+    fi
     ugreen_log_info "service.start_requested" "收到应用启动请求" \
         "app_root=$APP_ROOT" "var_dir=$VAR_DIR" "runtime_dir=$RUNTIME_DIR" \
         "server_dir=$SERVER_DIR" "uid=$(id -u 2>/dev/null || echo unknown)" \
@@ -161,6 +164,9 @@ stop)
             "exit_code=$telemetry_rc" "output=$telemetry_output"
     fi
     bios_fan_curve_stop true || true
+    if ! bios_startup_restore; then
+        ugreen_log_warn "bios.startup_restore_failed" "停止服务时恢复来电策略失败" "error=$BIOS_LAST_ERROR"
+    fi
     # 清理由旧版本自动启动的独立 5088 API；Web 管理页实际使用 fnOS CGI。
     if legacy_output=$(bash "${SERVER_DIR}/http_api.sh" stop 2>&1); then
         ugreen_log_debug "legacy_api.stopped" "旧版 5088 API 清理完成" "output=$legacy_output"

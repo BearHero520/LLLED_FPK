@@ -161,10 +161,18 @@ def validate_project() -> None:
         PROJECT / "app" / "server" / "vendor" / "UGREEN-NAS-Hardware" / "LICENSE",
         PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dxp480t-power.patch",
         PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "diagnostics.patch",
+        PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dx4600-firmware-1.19.patch",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
     if missing:
         raise SystemExit("缺少打包文件：" + ", ".join(missing))
+    # Ignored binaries survive git branch switches. Reject plugins from another
+    # model branch rather than silently shipping them in this branch's package.
+    model_dir = PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models"
+    allowed_models = {path.name for path in required if path.parent == model_dir}
+    unexpected_models = sorted(path.name for path in model_dir.glob("*.so") if path.name not in allowed_models)
+    if unexpected_models:
+        raise SystemExit("存在非当前分支的机型插件，请重新构建硬件组件：" + ", ".join(unexpected_models))
     cli = PROJECT / "app" / "server" / "bin" / "ugreen_leds_cli"
     cli_hash_file = cli.with_name(f"{cli.name}.sha256")
     expected = cli_hash_file.read_text(encoding="ascii").split(maxsplit=1)[0].lower()

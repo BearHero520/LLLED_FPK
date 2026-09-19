@@ -110,6 +110,7 @@ grep -Fq ' <--force> <--apply> <fan> <set> <sys> <64>' "$CALLS" || fail "DX4600 
 : > "$CALLS"
 json=$(request /bios/startup 'policy=last&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":true'
+grep -Fxq 'startup_selection=DX4600|last' "$TRIM_PKGVAR/settings.conf" || fail "DX4600 startup choice was not persisted by API"
 grep -Fq ' <--force> <--apply> <power> <startup> <set> <restore>' "$CALLS" || fail "DX4600 startup write did not use --force --apply"
 json=$(request /bios/wol 'policy=off&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":true'

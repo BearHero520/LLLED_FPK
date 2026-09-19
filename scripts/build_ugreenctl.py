@@ -79,6 +79,11 @@ def build(source: Path, binary: Path, daemon: Path, plugin_dir: Path) -> None:
             if not source_plugin.is_file():
                 raise SystemExit(f"UGREEN-NAS-Hardware build did not produce {model}.so")
             shutil.copy2(source_plugin, plugin_dir / source_plugin.name)
+        # Only remove stale plugins in the caller-selected output directory,
+        # after the new build and model loading check succeeded.
+        for stale in plugin_dir.glob("*.so"):
+            if stale.stem not in MODELS:
+                stale.unlink()
 
     print(f"Built ugreenctl: {binary}")
     print(f"Built ugreenctl-fand: {daemon}")

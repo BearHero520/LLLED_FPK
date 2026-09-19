@@ -947,6 +947,48 @@ bios_set_startup() {
         "forced=$([[ "$model" == "dx4600" || "$model" == "dxp4800" || "$model" == "dxp4800_plus" || "$model" == "dxp4800_pro" || "$model" == "dxp4800s" || "$model" == "dxp6800pro" ]] && echo true || echo false)"
 }
 
+# The upstream command writes and verifies live registers, not BIOS NVRAM.
+# Save only an explicitly selected policy after a successful guarded write.
+bios_set_startup_saved() {
+    local policy="$1" product
+    if [[ "$(bios_detected_profile)" != "dx4600" ]]; then
+        bios_set_startup "$policy"
+        return $?
+    fi
+    if [[ -z "${SETTINGS_FILE:-}" ]] || ! declare -F settings_set >/dev/null; then
+        BIOS_LAST_ERROR="来电启动配置服务不可用"
+        return 1
+    fi
+    product=$(hardware_detected_product_name) || return 1
+    bios_set_startup "$policy" || return 1
+    if ! settings_set "$SETTINGS_FILE" bios startup_selection "${product}|${policy}"; then
+        BIOS_LAST_ERROR="来电启动已写入硬件，但保存失败；重启后无法自动恢复，请重新设置"
+        _bios_log_error "bios.startup_save_failed" "$BIOS_LAST_ERROR"
+        return 1
+    fi
+}
+
+bios_startup_restore() {
+    local selection product policy
+    BIOS_LAST_ERROR=""
+    [[ "$(bios_detected_profile)" == "dx4600" ]] || return 0
+    [[ -n "${SETTINGS_FILE:-}" ]] && declare -F settings_get >/dev/null || {
+        BIOS_LAST_ERROR="来电启动配置服务不可用"; return 1;
+    }
+    selection=$(settings_get "$SETTINGS_FILE" bios startup_selection "")
+    [[ -n "$selection" ]] || return 0
+    product=$(hardware_detected_product_name) || return 1
+    # Bind the saved choice to exact DMI, including DX4600+/Pro distinctions.
+    [[ "${selection%|*}" == "$product" ]] || return 0
+    policy="${selection##*|}"
+    case "$policy" in
+        on|off|last) ;;
+        *) BIOS_LAST_ERROR="保存的来电启动策略无效"; return 1 ;;
+    esac
+    bios_set_startup "$policy" || return 1
+    _bios_log_info "bios.startup_restored" "已恢复保存的来电启动策略" "policy=$policy"
+}
+
 bios_set_wol() {
     local policy="$1" output model
 

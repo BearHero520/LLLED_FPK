@@ -1,0 +1,151 @@
+diff --git a/cli/i2c.cpp b/cli/i2c.cpp
+index 4d7afce..8a97ca3 100644
+--- a/cli/i2c.cpp
++++ b/cli/i2c.cpp
+@@ -172,3 +172,13 @@ int i2c_device_t::write_byte_data(uint8_t command, uint8_t data) {
+     }
+     return rc;
+ }
++
++int i2c_device_t::read_word_data(uint8_t command, uint16_t &data) {
++    if (_fd < 0) { set_error("I2C_SMBUS_READ_WORD", EBADF); return -1; }
++    i2c_smbus_data value {};
++    i2c_smbus_ioctl_data request {};
++    request.size=I2C_SMBUS_WORD_DATA; request.read_write=I2C_SMBUS_READ;
++    request.command=command; request.data=&value;
++    if(ioctl(_fd,I2C_SMBUS,&request)<0) { set_error("I2C_SMBUS_READ_WORD",errno); return -1; }
++    data=value.word; clear_error();return 0;
++}
+diff --git a/cli/i2c.h b/cli/i2c.h
+index 29f9c75..2873f0e 100644
+--- a/cli/i2c.h
++++ b/cli/i2c.h
+@@ -25,6 +25,7 @@ public:
+     std::vector<uint8_t> read_block_data(uint8_t command, uint32_t size);
+     int write_block_data(uint8_t command, std::vector<uint8_t> data);
+     int read_byte_data(uint8_t command, uint8_t &data);
++    int read_word_data(uint8_t command, uint16_t &data);
+     int write_byte_data(uint8_t command, uint8_t data);
+ 
+     int last_errno() const { return _last_errno; }
+diff --git a/cli/ugreen_leds.cpp b/cli/ugreen_leds.cpp
+index 3b002ba..bcd2ee7 100644
+--- a/cli/ugreen_leds.cpp
++++ b/cli/ugreen_leds.cpp
+@@ -1,5 +1,7 @@
+ #include "ugreen_leds.h"
+ #include <cstring>
++#include <algorithm>
++#include <unistd.h>
+ #include <string>
+ #include <filesystem>
+ #include <fstream>
+@@ -53,26 +55,36 @@ int ugreen_leds_t::start() {
+     }
+ 
+     try {
+-        for (const auto& entry : fs::directory_iterator(I2C_DEV_PATH)) {
+-            if (entry.is_directory()) {
+-                const auto name = read_adapter_name(entry.path());
+-                if (name.rfind("SMBus I801 adapter", 0) == 0) {
+-                    const auto i2c_dev = "/dev/" + entry.path().filename().string();
+-                    _adapter_name = name;
+-                    if (_i2c.start(i2c_dev.c_str(), UGREEN_LED_I2C_ADDR) == 0) {
+-                        return 0;
+-                    }
+-                    set_i2c_error("failed to open LED MCU");
+-                    return -1;
+-                }
++        std::ifstream dmi("/sys/class/dmi/id/product_name"); std::string product; std::getline(dmi, product);
++        const bool dx4600 = product == "DX4600" || product == "DX4600+" || product == "DX4600 Pro";
++        std::vector<fs::path> candidates;
++        for (const auto &entry:fs::directory_iterator(I2C_DEV_PATH)) {
++            auto name=read_adapter_name(entry.path());
++            if(name.rfind("SMBus I801 adapter",0)==0 || (dx4600 &&
++               (name.rfind("SMBus",0)==0 || name.rfind("Synopsys",0)==0))) candidates.push_back(entry.path());
++        }
++        std::sort(candidates.begin(),candidates.end(),[](const fs::path &a,const fs::path &b) {
++            return std::stoi(a.filename().string().substr(4)) < std::stoi(b.filename().string().substr(4));
++        });
++        for(const auto &entry:candidates) {
++            _adapter_name=read_adapter_name(entry);
++            if(_i2c.start(("/dev/"+entry.filename().string()).c_str(),UGREEN_LED_I2C_ADDR)!=0) {
++                set_i2c_error("failed to open LED MCU"); continue;
++            }
++            if(!dx4600) return 0;
++            // Stock 1.19.1.0126 scans eligible adapters and validates WORD 0xc5b2.
++            // A successful open of the first I801 node alone proves no MCU presence.
++            for(int attempt=0;attempt<3;++attempt) {
++                uint16_t signature=0; usleep(2000);
++                if(_i2c.read_word_data(0x5a,signature)==0 && signature==0xc5b2) return 0;
++                usleep(100000);
+             }
++            _i2c.close();
+         }
+     } catch (const fs::filesystem_error &error) {
+-        _last_error = std::string("failed to enumerate /sys/class/i2c-dev: ") + error.what();
+-        return -1;
++        _last_error=std::string("LED adapter enumeration failed: ")+error.what(); return -1;
+     }
+-
+-    _last_error = "SMBus I801 adapter was not found under /sys/class/i2c-dev";
++    _last_error="No validated LED MCU on eligible adapters (DX4600 requires signature 0xc5b2)";
+     return -1;
+ }
+ 
+diff --git a/cli/ugreen_leds_cli.cpp b/cli/ugreen_leds_cli.cpp
+index 54b6528..9169a2f 100644
+--- a/cli/ugreen_leds_cli.cpp
++++ b/cli/ugreen_leds_cli.cpp
+@@ -1,5 +1,9 @@
+ 
+ #include <unistd.h>
++#include <sys/file.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <cerrno>
+ #include <cstdlib>
+ #include <fstream>
+ #include <iomanip>
+@@ -13,11 +17,12 @@
+ #include "dxp480t_power.h"
+ #include "ugreen_leds.h"
+ 
+-#define MAX_RETRY_COUNT 5
++static bool dx4600_firmware_route = false;
++#define MAX_RETRY_COUNT (dx4600_firmware_route ? 4 : 5)
+ #define USLEEP_READ_STATUS_INTERVAL 8000
+ #define USLEEP_READ_STATUS_RETRY_INTERVAL 3000
+ #define USLEEP_MODIFICATION_INTERVAL 500
+-#define USLEEP_MODIFICATION_RETRY_INTERVAL 3000
++#define USLEEP_MODIFICATION_RETRY_INTERVAL (dx4600_firmware_route ? 30000 : 3000)
+ #define USLEEP_MODIFICATION_QUERY_RESULT_INTERVAL 2000
+ 
+ static std::map<std::string, ugreen_leds_t::led_type_t> led_name_map = {
+@@ -259,9 +264,25 @@ int main(int argc, char *argv[])
+     const std::string command = argv[1];
+     if (command == "--version") {
+         if (argc != 2) show_help_and_exit();
+-        std::cout << "ugreen_leds_cli 1e881da+llled-diag1" << std::endl;
++        std::cout << "ugreen_leds_cli 1e881da+llled-firmware-1.19" << std::endl;
+         return 0;
+     }
++    if (command == "--help" || command == "-help") { show_help(); return 0; }
++    // All clients share one lock, including read-only probes. No module swaps.
++    int lock_fd = open("/run/ugreen-leds-cli.lock", O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0600);
++    struct stat lock_stat {};
++    if (lock_fd < 0 || fstat(lock_fd, &lock_stat) != 0 || !S_ISREG(lock_stat.st_mode) || lock_stat.st_uid != geteuid()) {
++        std::cerr << "Err: cannot safely open LED controller lock" << std::endl; return 1;
++    }
++    bool locked=false;
++    for (int i=0;i<100;++i) {
++        if(flock(lock_fd,LOCK_EX|LOCK_NB)==0) { locked=true; break; }
++        if(errno!=EWOULDBLOCK && errno!=EAGAIN && errno!=EINTR) break;
++        usleep(20000);
++    }
++    if(!locked) { std::cerr << "Err: LED controller busy" << std::endl; close(lock_fd); return 1; }
++    std::ifstream dmi("/sys/class/dmi/id/product_name"); std::string product; std::getline(dmi,product);
++    dx4600_firmware_route = product == "DX4600" || product == "DX4600+" || product == "DX4600 Pro";
+     if (command == "--diagnose") {
+         if (argc != 2) show_help_and_exit();
+         return run_led_diagnostics();
