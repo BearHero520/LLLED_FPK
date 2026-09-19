@@ -2,7 +2,7 @@
 
 适用于飞牛 fnOS 的绿联 NAS 灯光、硬件监控与 BIOS 管理应用。
 
-当前版本：**2.1.0**
+当前版本：**2.2.0**
 
 测试与反馈 QQ 群：**1108837172**
 
@@ -29,7 +29,7 @@
 
 | 状态 | 机型 |
 |------|------|
-| 已验证 | DX4600 Pro、DX4700+、DXP2800、DXP4800、DXP4800 Plus、DXP6800 Pro、DXP8800 Plus |
+| 已验证 | DX4600、DX4600 Pro、DX4700+、DXP2800、DXP4800、DXP4800 Plus、DXP6800 Pro、DXP8800 Plus |
 | 实验性 | DXP4800S、DXP4800 GT、iDX6011、iDX6011 Pro |
 | 待验证 | DXP2800 GT、DXP4800 Pro |
 | 受限支持 | DXP480T、DXP480T Plus，仅支持红白电源灯 |
