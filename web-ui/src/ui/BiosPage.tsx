@@ -175,7 +175,7 @@ export function BiosPage({
   const [curve, setCurve] = useState(defaultCurve);
   const [cpuPwm, setCpuPwm] = useState(120);
   const [sysPwm, setSysPwm] = useState(100);
-  const [startup, setStartup] = useState("last");
+  const [startup, setStartup] = useState("");
   const [wol, setWol] = useState("on");
   const [schedule, setSchedule] = useState({
     enabled: false,
@@ -195,6 +195,9 @@ export function BiosPage({
     Boolean(info.write_confirmation_acknowledged);
   const available = Boolean(info.available);
   const supported = Boolean(info.supported);
+  const startupLabel = info.startup_available
+    ? policyLabels[String(info.startup)] || "当前策略未知"
+    : "不可用";
   const telemetry = (info.telemetry || {}) as Record<string, unknown>;
   const reportedFanCurve = (info.fan_curve || {}) as FanCurve;
   const effectiveFanCurve = fanCurve || reportedFanCurve;
@@ -211,7 +214,6 @@ export function BiosPage({
     if (!bios) return;
     setCpuPwm(boundedInt(info.cpu_pwm as string | number, minPwm, 255, 120));
     setSysPwm(boundedInt(info.sys_pwm as string | number, minPwm, 255, 100));
-    setStartup(String(info.startup || "last"));
     setWol(String(info.wol || "on"));
     const remote = (info.power_schedule || {}) as Record<string, unknown>;
     setSchedule({
@@ -233,6 +235,12 @@ export function BiosPage({
     info.wol,
     minPwm,
   ]);
+  // Polling must not erase an explicit choice while the reported policy is
+  // unchanged. Unknown is not a default policy and requires a user selection.
+  useEffect(() => {
+    const policy = String(info.startup || "");
+    setStartup(Object.hasOwn(policyLabels, policy) ? policy : "");
+  }, [info.startup, info.product_name]);
   useEffect(() => {
     if (!fanCurve) return;
     if (String(fanCurve.profile || "").startsWith("stock-")) setMode("stock");
@@ -385,7 +393,7 @@ export function BiosPage({
             </span>
             <span>
               <small>来电启动</small>
-              <strong>{policyLabels[String(info.startup)] || "不可用"}</strong>
+              <strong>{startupLabel}</strong>
             </span>
           </div>
           </article>
@@ -1081,13 +1089,22 @@ export function BiosPage({
                   <h2>来电启动策略</h2>
                 </div>
                 <span className="soft-badge">
-                  {policyLabels[String(info.startup)] || "不可用"}
+                  {startupLabel}
                 </span>
               </div>
               <p className="surface-help">
                 设置交流电恢复后设备的启动行为。该能力由 UGREEN-NAS-Hardware
                 单独保护。
               </p>
+              {info.startup_available && info.startup === "unknown" ? (
+                <p className="surface-help" role="status">
+                  当前策略未识别，但来电启动可以设置。请选择所需策略并保存，保存后会校验实际结果。
+                </p>
+              ) : !info.startup_available ? (
+                <p className="surface-help" role="status">
+                  {String(info.startup_error || "来电启动接口暂不可用，请刷新后重试。")}
+                </p>
+              ) : null}
               <div
                 className="bios-policy-grid"
                 role="radiogroup"
@@ -1123,7 +1140,8 @@ export function BiosPage({
                   type="button"
                   className="primary-button"
                   disabled={
-                    busy === "startup" || !info.startup_available || !writeReady
+                    busy === "startup" || !info.startup_available || !writeReady ||
+                    !Object.hasOwn(policyLabels, startup)
                   }
                   onClick={() =>
                     void run("startup", () =>

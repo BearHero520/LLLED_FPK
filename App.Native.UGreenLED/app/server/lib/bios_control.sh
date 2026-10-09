@@ -522,6 +522,7 @@ bios_read_thermal_snapshot() {
 
 bios_read_cli_startup() {
     local output startup
+    BIOS_STARTUP_POLICY="unknown"
     if ! output=$(bios_cli power startup get 2>&1); then
         bios_set_error_from_output "$output" "读取来电启动策略失败"
         BIOS_STARTUP_ERROR="$BIOS_LAST_ERROR"
@@ -535,7 +536,9 @@ bios_read_cli_startup() {
     startup=$(printf '%s\n' "$output" | sed '/^[[:space:]]*$/d' | tail -n 1)
     [[ "$startup" == "restore" ]] && startup=last
     case "$startup" in
-        on|off|last) BIOS_STARTUP_POLICY="$startup" ;;
+        # A successful upstream read may report an unrecognized register
+        # encoding. The interface remains available for a guarded set/readback.
+        on|off|last|unknown) BIOS_STARTUP_POLICY="$startup" ;;
         *)
             BIOS_STARTUP_ERROR="来电启动策略返回了未知值：${startup:-<empty>}"
             return 1

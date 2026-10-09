@@ -108,7 +108,9 @@ EOF
 done
 cat > "$UGREENCTL" <<'EOF'
 #!/bin/bash
-[[ "$#" == 3 && "$1" == "--plugin-dir" && "$2" == "$UGREEN_DIAG_PLUGIN_DIR" && "$3" == "info" ]] || {
+[[ "$1" == "--plugin-dir" && "$2" == "$UGREEN_DIAG_PLUGIN_DIR" ]] || exit 2
+shift 2
+[[ "$*" == "info" || "$*" == "power startup get" ]] || {
     echo 'unexpected controller arguments' >> "$DANGER_LOG"
     exit 2
 }
@@ -147,6 +149,7 @@ grep -Fq 'ready=true bus=2 status_address=0x31 control_address=0x26' <<< "$REPOR
 grep -Fq 'no_pwm_or_policy_writes=true' <<< "$REPORT"
 grep -Fq 'no_i2c_data_writes=true' <<< "$REPORT"
 grep -Fq 'direct_i2c_tools_used=false' <<< "$REPORT"
+grep -Fq $'command=power startup get\nexit_code=1\nerror: controller owner is active' <<< "$REPORT"
 [[ ! -e "$DANGER_LOG" ]] || { echo 'collector invoked a state-changing command' >&2; exit 1; }
 
 MESSAGE=$(env "${COMMON_ENV[@]}" TMPDIR="$TMP/out" TRIM_APPDEST="$ROOT/App.Native.UGreenLED/app" \

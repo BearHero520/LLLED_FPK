@@ -4,6 +4,7 @@ export type ApiOptions = {
   method?: 'GET' | 'POST';
   query?: string;
   body?: string;
+  signal?: AbortSignal;
 };
 
 export type ApiError = Error & {
@@ -28,6 +29,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     body: options.body,
     credentials: 'same-origin',
     cache: 'no-store',
+    signal: options.signal,
   });
   const text = await response.text();
   let data: T & { ok?: boolean; error?: string };

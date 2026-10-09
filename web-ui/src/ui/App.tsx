@@ -1,6 +1,7 @@
 import { Dialog } from '@base-ui/react/dialog';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
+import { singleFlight, settledValues } from '../lib/singleFlight';
 import { boundedInt, parseIni, type IniData } from '../lib/ini';
 import { AboutPage, type AboutInfo } from './AboutPage';
 import { ActivityPage } from './ActivityPage';
@@ -73,13 +74,20 @@ export function App() {
   const toastTimer = useRef<number | undefined>(undefined);
   const showToast = useCallback((message: string, type: 'ok' | 'err' = 'ok') => { if (toastTimer.current) window.clearTimeout(toastTimer.current); setToast({ message, type }); toastTimer.current = window.setTimeout(() => setToast(null), 3200); }, []);
 
-  const refresh = useCallback(async (notifyOnError = false) => {
+  const [refreshOnce] = useState(() => singleFlight(async () => {
     setRefreshing(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 30000);
+    const options = { signal: controller.signal };
     try {
-      const [nextStatus, nextMapping, nextHardware, nextBios] = await Promise.all([api<StatusData>('/status'), api<{ mapping?: MappingItem[] }>('/mapping'), api<HardwareData>('/hardware/status'), api<BiosData>('/bios/status')]);
+      const [nextStatus, nextMapping, nextHardware, nextBios] = await settledValues([api<StatusData>('/status', options), api<{ mapping?: MappingItem[] }>('/mapping', options), api<HardwareData>('/hardware/status', options), api<BiosData>('/bios/status', options)] as const);
       setStatus(nextStatus); setMapping(nextMapping.mapping || []); setHardware(nextHardware); setBios(nextBios);
-    } catch (error) { if (notifyOnError) showToast(error instanceof Error ? error.message : '状态刷新失败', 'err'); } finally { setRefreshing(false); }
-  }, [showToast]);
+    } finally { window.clearTimeout(timeout); setRefreshing(false); }
+  }));
+  const refresh = useCallback(async (notifyOnError = false) => {
+    try { await refreshOnce(); }
+    catch (error) { if (notifyOnError) showToast(error instanceof Error ? error.message : '状态刷新失败', 'err'); }
+  }, [refreshOnce, showToast]);
   const loadSettings = useCallback(async () => { const data = await api<{ raw?: string }>('/settings'); setSettings(parseIni(data.raw || '')); }, []);
   useEffect(() => { const syncRoute = () => setRoute(normalizeRoute(location.hash.slice(1))); window.addEventListener('hashchange', syncRoute); return () => window.removeEventListener('hashchange', syncRoute); }, []);
   useEffect(() => { void loadSettings().catch((error) => showToast(error instanceof Error ? error.message : '读取设置失败', 'err')); void refresh(); const interval = window.setInterval(() => { if (!document.hidden) void refresh(); }, 10000); const onVisible = () => { if (!document.hidden) void refresh(); }; document.addEventListener('visibilitychange', onVisible); return () => { window.clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); }; }, [loadSettings, refresh, showToast]);

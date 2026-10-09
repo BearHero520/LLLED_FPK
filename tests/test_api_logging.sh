@@ -54,7 +54,8 @@ assert_contains "$response" '"ok":true'
 
 response=$(request /about/info '' GET about-info-test)
 assert_contains "$response" '"display_name":"UGREEN工具箱"'
-assert_contains "$response" '"version":"2.2.0"'
+manifest_version=$(sed -n 's/^version[[:space:]]*=[[:space:]]*//p' "$ROOT/App.Native.UGreenLED/manifest" | tr -d '\r')
+assert_contains "$response" "\"version\":\"$manifest_version\""
 assert_contains "$response" '"qq_group":"1108837172"'
 
 response=$(request /about/readme 'force=1' GET about-readme-test)

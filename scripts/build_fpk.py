@@ -162,6 +162,8 @@ def validate_project() -> None:
         PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dxp480t-power.patch",
         PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "diagnostics.patch",
         PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dx4600-firmware-1.19.patch",
+        PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dxp4800s-firmware-1.19.patch",
+        PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dx4600-i801-priority.patch",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
     if missing:

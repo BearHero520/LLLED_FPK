@@ -561,6 +561,11 @@ collect_controller() {
     output=$(run_with_timeout "$controller" "${controller_args[@]}" info 2>&1)
     rc=$?
     printf 'command=info\nexit_code=%d\n%s\n' "$rc" "${output:-<no output>}"
+    # info may hide a startup read failure behind "startup: unknown". Keep
+    # the independent read's exit code and error without changing any policy.
+    output=$(run_with_timeout "$controller" "${controller_args[@]}" power startup get 2>&1)
+    rc=$?
+    printf 'command=power startup get\nexit_code=%d\n%s\n' "$rc" "${output:-<no output>}"
 }
 
 collect_application() {

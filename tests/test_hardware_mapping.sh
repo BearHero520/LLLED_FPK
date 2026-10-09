@@ -72,6 +72,12 @@ assert_eq "$(hardware_profile_key)" "dxp4800s"
 assert_eq "$(hardware_profile_display_name)" "UGREEN DXP4800S"
 assert_eq "$(hardware_support_level)" "experimental"
 assert_eq "$(hardware_disk_count)" "4"
+assert_eq "$(hardware_write_protocol)" "legacy"
+assert_eq "$(hardware_cli_led_name disk4)" "disk4"
+stock_curve=$(bios_fan_curve_stock_json)
+grep -Fq '"profile":"stock-4800s"' <<< "$stock_curve" || fail "DXP4800S must use its stock profile"
+grep -Fq '"cpu":"50,55,75,80,90"' <<< "$stock_curve" || fail "DXP4800S CPU curve must match firmware"
+grep -Fq '"system_pwm":"64,128,204,255"' <<< "$stock_curve" || fail "DXP4800S PWM curve must match firmware"
 settings_set "$SETTINGS_FILE" hardware profile dxp480t_plus
 assert_eq "$(hardware_support_level)" "limited"
 hardware_driver_supported && fail "DXP480T must not use the legacy LED driver"

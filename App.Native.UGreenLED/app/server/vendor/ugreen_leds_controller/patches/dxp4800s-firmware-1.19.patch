@@ -1,0 +1,35 @@
+--- a/cli/ugreen_leds.cpp
++++ b/cli/ugreen_leds.cpp
+@@ -57,10 +57,13 @@
+     try {
+         std::ifstream dmi("/sys/class/dmi/id/product_name"); std::string product; std::getline(dmi, product);
+         const bool dx4600 = product == "DX4600" || product == "DX4600+" || product == "DX4600 Pro";
++        // DXP4800S 1.19.1.0126 loads the same leds-mcu-28a48 module.
++        // Opening an adapter is not proof that its MCU is present.
++        const bool validate_mcu = dx4600 || product == "DXP4800S";
+         std::vector<fs::path> candidates;
+         for (const auto &entry:fs::directory_iterator(I2C_DEV_PATH)) {
+             auto name=read_adapter_name(entry.path());
+-            if(name.rfind("SMBus I801 adapter",0)==0 || (dx4600 &&
++            if(name.rfind("SMBus I801 adapter",0)==0 || (validate_mcu &&
+                (name.rfind("SMBus",0)==0 || name.rfind("Synopsys",0)==0))) candidates.push_back(entry.path());
+         }
+         std::sort(candidates.begin(),candidates.end(),[](const fs::path &a,const fs::path &b) {
+@@ -71,7 +74,7 @@
+             if(_i2c.start(("/dev/"+entry.filename().string()).c_str(),UGREEN_LED_I2C_ADDR)!=0) {
+                 set_i2c_error("failed to open LED MCU"); continue;
+             }
+-            if(!dx4600) return 0;
++            if(!validate_mcu) return 0;
+             // Stock 1.19.1.0126 scans eligible adapters and validates WORD 0xc5b2.
+             // A successful open of the first I801 node alone proves no MCU presence.
+             for(int attempt=0;attempt<3;++attempt) {
+@@ -84,7 +87,7 @@
+     } catch (const fs::filesystem_error &error) {
+         _last_error=std::string("LED adapter enumeration failed: ")+error.what(); return -1;
+     }
+-    _last_error="No validated LED MCU on eligible adapters (DX4600 requires signature 0xc5b2)";
++    _last_error="No validated LED MCU on eligible adapters (DX4600/DXP4800S require signature 0xc5b2)";
+     return -1;
+ }
+ 

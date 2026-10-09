@@ -31,9 +31,12 @@ source "$LIB/bios_control.sh"
 bios_startup_restore
 [[ ! -e "$TEST_CALLS" ]] || fail 'unconfigured restore wrote hardware'
 for policy in on off last; do
+    echo unknown > "$TEST_STATE"
+    bios_read_cli_startup || fail 'unknown policy made the interface unavailable'
+    [[ "$BIOS_STARTUP_POLICY" == unknown ]] || fail 'unknown policy was replaced with a default'
     bios_set_startup_saved "$policy"
     [[ "$(settings_get "$SETTINGS_FILE" bios startup_selection)" == "DX4600|$policy" ]] || fail 'selection not saved'
-    echo off > "$TEST_STATE"
+    echo unknown > "$TEST_STATE"
     # Restart from a clean shell so in-memory variables cannot mask lost state.
     bash -c 'source "$1/settings.sh"; source "$1/hardware_profile.sh"; source "$1/bios_control.sh"; bios_startup_restore' _ "$LIB"
     expected="$policy"; [[ "$policy" != last ]] || expected=restore

@@ -1,0 +1,28 @@
+--- a/cli/ugreen_leds.cpp
++++ b/cli/ugreen_leds.cpp
+@@ -68,6 +68,13 @@
+                (name.rfind("SMBus",0)==0 || name.rfind("Synopsys",0)==0))) candidates.push_back(entry.path());
+         }
+-        std::sort(candidates.begin(),candidates.end(),[](const fs::path &a,const fs::path &b) {
++        std::sort(candidates.begin(),candidates.end(),[dx4600](const fs::path &a,const fs::path &b) {
++            // DX4600 can expose six unrelated DesignWare buses before I801.
++            // Try I801 first, but still validate the MCU and retain fallback.
++            if (dx4600) {
++                const bool a_i801 = read_adapter_name(a).rfind("SMBus I801 adapter", 0) == 0;
++                const bool b_i801 = read_adapter_name(b).rfind("SMBus I801 adapter", 0) == 0;
++                if (a_i801 != b_i801) return a_i801;
++            }
+             return std::stoi(a.filename().string().substr(4)) < std::stoi(b.filename().string().substr(4));
+         });
+         for(const auto &entry:candidates) {
+--- a/cli/ugreen_leds_cli.cpp
++++ b/cli/ugreen_leds_cli.cpp
+@@ -267,7 +267,7 @@
+     const std::string command = argv[1];
+     if (command == "--version") {
+         if (argc != 2) show_help_and_exit();
+-        std::cout << "ugreen_leds_cli 1e881da+llled-firmware-1.19" << std::endl;
++        std::cout << "ugreen_leds_cli 1e881da+llled-firmware-1.19-i801-priority" << std::endl;
+         return 0;
+     }
+     if (command == "--help" || command == "-help") { show_help(); return 0; }

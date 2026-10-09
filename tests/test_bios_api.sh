@@ -48,7 +48,23 @@ case " $* " in
       echo 'fan sys: pwm=40 mode=manual tach=750 rpm=900'
     fi
     ;;
-  *" power startup get "*) echo 'restore' ;;
+  *" power startup get "*)
+    if [ "${TEST_STARTUP_FAIL:-0}" = 1 ]; then
+      echo 'error: controller owner is active' >&2
+      exit 1
+    fi
+    if [ -n "${TEST_STARTUP_STATE:-}" ]; then cat "$TEST_STARTUP_STATE"; else echo restore; fi
+    ;;
+  *" power startup set "*)
+    if [ "${TEST_STARTUP_FAIL:-0}" = 1 ]; then
+      echo 'error: simulated readback failure' >&2
+      exit 1
+    fi
+    if [ -n "${TEST_STARTUP_STATE:-}" ]; then
+      for policy in "$@"; do :; done
+      echo "$policy" > "$TEST_STARTUP_STATE"
+    fi
+    ;;
   *" network wol get "*) echo 'on' ;;
   *" power rtc-wake get "*) echo '0' ;;
   *" power rtc-wake set "*) : ;;
@@ -115,6 +131,39 @@ grep -Fq ' <--force> <--apply> <power> <startup> <set> <restore>' "$CALLS" || fa
 json=$(request /bios/wol 'policy=off&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":true'
 grep -Fq ' <--force> <--apply> <network> <wol> <set> <off>' "$CALLS" || fail "DX4600 WOL write did not use --force --apply"
+
+# Unknown is a successful read, not a missing capability. Recover through the
+# same API as the page and persist only a successful guarded hardware write.
+export TEST_STARTUP_STATE="$TMP/startup-state"
+echo unknown > "$TEST_STARTUP_STATE"
+json=$(request /bios/status)
+assert_json "$json"
+assert_contains "$json" '"startup":"unknown"'
+assert_contains "$json" '"startup_available":true'
+assert_contains "$json" '"startup_error":""'
+json=$(request /bios/startup 'policy=unknown&confirm=firmware-reversed' POST)
+assert_contains "$json" '"ok":false'
+json=$(request /bios/startup 'policy=on&confirm=firmware-reversed' POST)
+assert_contains "$json" '"ok":true'
+assert_contains "$json" '"startup":"on"'
+grep -Fxq 'startup_selection=DX4600|on' "$TRIM_PKGVAR/settings.conf" || fail "recovered policy not persisted"
+
+export TEST_STARTUP_FAIL=1
+json=$(request /bios/status)
+assert_contains "$json" '"startup_available":false'
+assert_contains "$json" '"startup":"unknown"'
+assert_contains "$json" 'controller owner is active'
+json=$(request /bios/startup 'policy=off&confirm=firmware-reversed' POST)
+assert_contains "$json" '"ok":false'
+grep -Fxq 'startup_selection=DX4600|on' "$TRIM_PKGVAR/settings.conf" || fail "failed write replaced saved policy"
+unset TEST_STARTUP_FAIL
+echo unexpected > "$TEST_STARTUP_STATE"
+json=$(request /bios/status)
+assert_contains "$json" '"startup_available":false'
+: > "$TEST_STARTUP_STATE"
+json=$(request /bios/status)
+assert_contains "$json" '"startup_available":false'
+unset TEST_STARTUP_STATE
 
 export UGREEN_PRODUCT_NAME="DXP4800"
 json=$(request /bios/status)

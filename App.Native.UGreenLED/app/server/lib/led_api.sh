@@ -68,10 +68,17 @@ led_cli_name() {
 }
 
 led_cli_run() {
-    local logical="$1" raw protocol output rc action
+    local logical="$1" raw
     shift
-    ensure_cli || return 1
     raw=$(led_cli_name "$logical")
+    _led_cli_run_raw "$logical" "$raw" "$@"
+}
+
+# Shared CLI execution for single LEDs and a batch of already mapped names.
+_led_cli_run_raw() {
+    local logical="$1" raw="$2" protocol output rc action
+    shift 2
+    ensure_cli || return 1
     protocol="legacy"
     declare -F hardware_write_protocol >/dev/null && protocol=$(hardware_write_protocol)
     action="$*"
@@ -332,7 +339,8 @@ led_list_disk_slots() {
 }
 
 led_all_status() {
-    local led raw state
+    local led raw state line name i
+    local -a logical_leds=() raw_leds=()
     led_backend_select >/dev/null || return 1
     echo "backend: cli"
     if led_power26_profile; then
@@ -346,7 +354,19 @@ led_all_status() {
         return 0
     fi
     for led in power $(led_list_network_slots 2>/dev/null) $(led_list_disk_slots 2>/dev/null); do
-        raw=$(led_backend_status_raw "$led" 2>/dev/null || true)
-        [[ -n "$raw" ]] && printf '%s: %s\n' "$led" "$(echo "$raw" | head -n 1)"
+        logical_leds+=("$led")
+        raw_leds+=("$(led_cli_name "$led")")
     done
+    # One discovery and lock acquisition for the complete snapshot. Explicit
+    # names avoid probing nonexistent LEDs and preserve iDX6011 Pro mapping.
+    raw=$(_led_cli_run_raw snapshot "${raw_leds[@]}" -status) || return $?
+    while IFS= read -r line; do
+        name="${line%%:*}"
+        for i in "${!raw_leds[@]}"; do
+            if [[ "$name" == "${raw_leds[$i]}" && "$line" == *': '* ]]; then
+                printf '%s: %s\n' "${logical_leds[$i]}" "${line#*: }"
+                break
+            fi
+        done
+    done <<< "$raw"
 }
