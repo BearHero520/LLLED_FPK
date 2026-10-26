@@ -1,10 +1,7 @@
-@import '@fontsource-variable/geist';
-@import '@fontsource/playfair-display/600.css';
-
 :root {
-  --newui-focus-ring: rgba(22, 119, 255, 0.34);
-  --newui-font-sans: 'Geist Variable', 'Segoe UI', 'Microsoft YaHei', sans-serif;
-  --newui-font-display: 'Playfair Display', 'Microsoft YaHei', serif;
+  --newui-focus-ring: rgba(0, 122, 255, 0.38);
+  --newui-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --newui-font-display: var(--newui-font-sans);
 }
 
 body { font-family: var(--newui-font-sans); }
@@ -26,7 +23,7 @@ body { font-family: var(--newui-font-sans); }
 .curve-stage-input span { color: #7b8a9c; font-size: 9px; }
 .curve-stage-unused { color: #9aa7b8; font-size: 15px; font-weight: 700; }
 
-.about-layout { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr); gap: 20px; }
+.about-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 410px), 1fr)); align-items: stretch; gap: 20px; }
 .about-hero-surface, .about-update-surface, .readme-surface { min-width: 0; padding: 24px 26px; }
 .about-hero-surface {
   display: grid;
@@ -45,6 +42,16 @@ body { font-family: var(--newui-font-sans); }
 .about-contact strong { color: #287b38; font-size: 16px; letter-spacing: 0.04em; }
 .about-contact small { color: #718069; font-size: 10px; text-align: right; }
 .about-update-surface { grid-column: auto; }
+.about-update-surface .update-content { flex-direction: column; align-items: stretch; gap: 20px; }
+.about-update-surface .update-copy { width: 100%; overflow-wrap: anywhere; }
+.about-update-surface .update-version { flex-wrap: wrap; }
+.about-update-surface .update-version > * { flex-shrink: 0; }
+.about-update-surface .update-actions { justify-content: flex-start; }
+.about-update-surface .update-actions > * { flex: 1 1 110px; white-space: nowrap; }
+.about-layout .section-heading { flex-wrap: wrap; gap: 12px; }
+.about-brand-copy { min-width: 0; overflow-wrap: anywhere; }
+.about-contact { grid-template-columns: auto minmax(0, 1fr); }
+.about-contact small { grid-column: 1 / -1; text-align: left; }
 .readme-surface { grid-column: 1 / -1; }
 .readme-toolbar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; margin: 14px 0; }
 .readme-toolbar a { text-decoration: none; }

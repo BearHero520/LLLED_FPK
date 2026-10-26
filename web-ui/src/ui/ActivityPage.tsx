@@ -31,12 +31,12 @@ export function ActivityPage({ hidden, settings, onSettingsChange, onSave, onToa
   return <section className="react-view" hidden={hidden} aria-label="活动提示">
     <div className="activity-layout">
       <article className="glass-surface activity-card">
-        <div className="activity-card-head"><span className="surface-icon blue"><i className="bi bi-device-hdd" aria-hidden="true" /></span><div><span className="section-kicker">DISK ACTIVITY</span><h2>磁盘读写闪动</h2></div><label className="native-check"><input type="checkbox" checked={diskBlink} onChange={(event) => update({ disk_blink: String(event.target.checked) })} /><span>启用</span></label></div>
+        <div className="activity-card-head"><span className="surface-icon blue"><i className="bi bi-device-hdd" aria-hidden="true" /></span><div><span className="section-kicker">DISK ACTIVITY</span><h2>磁盘读写闪动</h2></div><label className="native-check"><input type="checkbox" role="switch" checked={diskBlink} onChange={(event) => update({ disk_blink: String(event.target.checked) })} /><span>启用</span></label></div>
         <p className="surface-help">读写速度超过阈值时，对应盘位灯会按速度分档闪动。</p>
         <label className="threshold-field"><span>触发阈值</span><span className="number-wrap"><input type="number" min="1" max="1048576" step="1" disabled={!diskBlink} value={diskThreshold} onChange={(event) => update({ disk_threshold_kbps: String(boundedInt(event.target.value, 1, 1048576, 128)) })} /><em>KB/s</em></span></label>
       </article>
       <article className="glass-surface activity-card">
-        <div className="activity-card-head"><span className="surface-icon violet"><i className="bi bi-wifi" aria-hidden="true" /></span><div><span className="section-kicker">NETWORK ACTIVITY</span><h2>网络速度闪动</h2></div><label className="native-check"><input type="checkbox" checked={networkBlink} onChange={(event) => update({ network_blink: String(event.target.checked) })} /><span>启用</span></label></div>
+        <div className="activity-card-head"><span className="surface-icon violet"><i className="bi bi-wifi" aria-hidden="true" /></span><div><span className="section-kicker">NETWORK ACTIVITY</span><h2>网络速度闪动</h2></div><label className="native-check"><input type="checkbox" role="switch" checked={networkBlink} onChange={(event) => update({ network_blink: String(event.target.checked) })} /><span>启用</span></label></div>
         <p className="surface-help">上传和下载总速度超过阈值时，网络灯会提示当前流量。</p>
         <label className="threshold-field"><span>触发阈值</span><span className="number-wrap"><input type="number" min="1" max="1048576" step="1" disabled={!networkBlink} value={networkThreshold} onChange={(event) => update({ network_threshold_kbps: String(boundedInt(event.target.value, 1, 1048576, 32)) })} /><em>KB/s</em></span></label>
       </article>

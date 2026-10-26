@@ -13,6 +13,8 @@ permissions:
 jobs:
   shell-tests:
     runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ secrets.HARDWARE_READ_TOKEN }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v5
@@ -33,6 +35,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m unittest discover -s tests -p test_almighty_import.py
+          python3 -m unittest discover -s tests -p test_preview_web.py
           for test_file in tests/test_*.sh; do
             echo "==> $test_file"
             bash "$test_file"
@@ -42,6 +46,5 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 scripts/build_ugreen_leds_cli.py
           python3 scripts/build_ugreenctl.py
           python3 scripts/build_fpk.py --output-dir "$RUNNER_TEMP/llled-fpk-smoke"

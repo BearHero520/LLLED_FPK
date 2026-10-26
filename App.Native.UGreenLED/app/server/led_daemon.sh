@@ -330,12 +330,6 @@ daemon_loop() {
             continue
         fi
 
-        # 实验室检测期间由 CGI 临时接管硬盘灯，避免守护循环覆盖识别灯效。
-        if lab_mapping_session_active; then
-            sleep "$interval"
-            continue
-        fi
-
         mode=$(settings_get "$SETTINGS_FILE" mode global "smart")
         if [[ "$mode" != "$LAST_MODE" ]]; then
             ugreen_log_info "daemon.mode_changed" "LED 运行模式发生变化" \

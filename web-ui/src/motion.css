@@ -1,0 +1,92 @@
+:root {
+  --motion-ease: cubic-bezier(.22, 1, .36, 1);
+  --motion-fast: 180ms;
+  --motion-page: 340ms;
+}
+
+/* Visibility changes restart entry animations without remounting form state. */
+.react-view:not([hidden]) { animation: page-arrive var(--motion-page) var(--motion-ease) both; }
+.page-header { animation: heading-arrive 260ms var(--motion-ease) both; }
+@keyframes page-arrive {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes heading-arrive {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+button, a.primary-button, a.secondary-button,
+.native-check, .bios-policy-choice, .bios-fan-mode-choice {
+  transition: background-color 200ms ease, border-color 200ms ease,
+    color 200ms ease, box-shadow 200ms ease, opacity 180ms ease,
+    transform var(--motion-fast) var(--motion-ease);
+}
+button:enabled:active, a.primary-button:active, a.secondary-button:active {
+  transform: scale(.97);
+}
+.nav-item:enabled:active, .mode-button:enabled:active { transform: scale(.95); }
+.settings-tab, .mode-button, .bios-policy-choice, .bios-fan-mode-choice {
+  transition-duration: 240ms;
+}
+.native-check { min-height: 44px; }
+.native-check input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 26px;
+  border: 1px solid rgba(60, 60, 67, .12);
+  border-radius: 999px;
+  background: #d4d5dc;
+  cursor: pointer;
+  transition: background-color 220ms ease, border-color 220ms ease, opacity 180ms ease;
+}
+.native-check input[type='checkbox']::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .2);
+  transition: transform 260ms var(--motion-ease);
+}
+.native-check input[type='checkbox']:checked { background: var(--blue); border-color: var(--blue); }
+.native-check input[type='checkbox']:checked::before { transform: translateX(18px); }
+.native-check input[type='checkbox']:disabled { opacity: .45; cursor: not-allowed; }
+input[type='checkbox']:not(.native-check input), input[type='radio'] {
+  transition: box-shadow 180ms ease, outline-color 180ms ease;
+}
+input[type='checkbox']:not(.native-check input):checked, input[type='radio']:checked {
+  animation: selection-confirm 220ms var(--motion-ease);
+}
+@keyframes selection-confirm {
+  0% { box-shadow: 0 0 0 0 rgba(0, 122, 255, .25); }
+  100% { box-shadow: 0 0 0 6px rgba(0, 122, 255, 0); }
+}
+.newui-dialog-backdrop { transition: opacity 200ms ease; }
+.newui-dialog-backdrop[data-starting-style], .newui-dialog-backdrop[data-ending-style] { opacity: 0; }
+.newui-dialog-popup { transition: opacity 220ms ease, transform 260ms var(--motion-ease); }
+.newui-dialog-popup[data-starting-style], .newui-dialog-popup[data-ending-style] {
+  opacity: 0; transform: translate(-50%, -46%) scale(.96);
+}
+.action-message { transition: opacity 200ms ease, transform 240ms var(--motion-ease); }
+.icon-button.busy > i, button:disabled > .bi-arrow-clockwise { animation: spin 900ms linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  button:enabled:active, .nav-item:enabled:active, .mode-button:enabled:active,
+  a.primary-button:active, a.secondary-button:active { transform: none; }
+}
+@media (forced-colors: active) {
+  .native-check input[type='checkbox'] { appearance: auto; width: 26px; }
+  .native-check input[type='checkbox']::before { display: none; }
+}

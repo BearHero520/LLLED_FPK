@@ -1,0 +1,16 @@
+[Unit]
+Description=Reapply the explicitly saved UGREEN AC-recovery policy
+After=local-fs.target
+RequiresMountsFor=/var/lib/ugreenctl/startup
+
+[Service]
+Type=oneshot
+User=root
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /usr/local/share/doc/ugreenctl/examples/ugreenctl-startup.py apply --binary /usr/local/bin/ugreenctl --plugin-dir /usr/local/lib/ugreenctl/models --state-dir /var/lib/ugreenctl/startup --force --apply
+ExecStop=/usr/bin/python3 /usr/local/share/doc/ugreenctl/examples/ugreenctl-startup.py apply --binary /usr/local/bin/ugreenctl --plugin-dir /usr/local/lib/ugreenctl/models --state-dir /var/lib/ugreenctl/startup --force --apply
+TimeoutStartSec=90s
+TimeoutStopSec=90s
+
+[Install]
+WantedBy=multi-user.target

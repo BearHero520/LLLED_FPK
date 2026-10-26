@@ -56,7 +56,7 @@ fan_telemetry_append_bios_status() {
     cpu_rpm="${BIOS_CPU_RPM:-0}"
     sys2_rpm="${BIOS_SYS2_RPM:-0}"
     [[ "${BIOS_CPU_FAN_PRESENT:-true}" == "true" ]] || cpu_rpm=-1
-    case "${BIOS_MODEL:-}" in dxp480t_plus|dxp6800pro) ;; *) sys2_rpm=-1 ;; esac
+    case "${BIOS_MODEL:-}" in dxp480t_plus|dxp6800pro|dxp6800plus) ;; *) sys2_rpm=-1 ;; esac
     fan_telemetry_append "$now" "$BIOS_MODEL" "$BIOS_CPU_CELSIUS" "$BIOS_HDD_CELSIUS" "$BIOS_SSD_CELSIUS" \
         "$cpu_rpm" "$BIOS_SYS_RPM" "$sys2_rpm"
 }
@@ -72,7 +72,7 @@ fan_telemetry_capture() {
 fan_telemetry_current_json() {
     local at="$(fan_telemetry_number "${1:-}" 0)" cpu_rpm="${BIOS_CPU_RPM:-0}" sys2_rpm="${BIOS_SYS2_RPM:-0}"
     [[ "${BIOS_CPU_FAN_PRESENT:-true}" == "true" ]] || cpu_rpm=-1
-    case "${BIOS_MODEL:-}" in dxp480t_plus|dxp6800pro) ;; *) sys2_rpm=-1 ;; esac
+    case "${BIOS_MODEL:-}" in dxp480t_plus|dxp6800pro|dxp6800plus) ;; *) sys2_rpm=-1 ;; esac
     printf '{"at":%s,"cpu":%s,"cpuPeak":%s,"hdd":%s,"ssd":%s,"cpuRpm":%s,"sysRpm":%s,"sys2Rpm":%s}' \
         "$at" "$(fan_telemetry_number "${BIOS_CPU_CELSIUS:-}")" "$(fan_telemetry_number "${BIOS_CPU_PEAK_CELSIUS:-}")" "$(fan_telemetry_number "${BIOS_HDD_CELSIUS:-}")" \
         "$(fan_telemetry_number "${BIOS_SSD_CELSIUS:-}")" "$(fan_telemetry_number "$cpu_rpm")" \

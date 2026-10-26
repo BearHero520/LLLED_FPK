@@ -113,33 +113,30 @@ function StandardLighting({ settings, onChange, onSave, onToast }: {
 }
 
 function Power26Lighting({ settings, onApply }: { settings: IniData; onApply: (color: string, effect: string, threshold: number, off: boolean) => Promise<void> }) {
-  const [color, setColor] = useState(settings.power26?.color === 'red' ? 'red' : 'white');
-  const [effect, setEffect] = useState(['steady', 'fast', 'slow', 'breath', 'network'].includes(settings.power26?.effect || '') ? settings.power26?.effect || 'steady' : 'steady');
+  const color = 'preserve';
+  const [effect, setEffect] = useState(['steady', 'fast', 'slow', 'network'].includes(settings.power26?.effect || '') ? settings.power26?.effect || 'steady' : 'steady');
   const [threshold, setThreshold] = useState(boundedInt(settings.power26?.network_threshold_kbps, 1, 1048576, 32));
   const [busy, setBusy] = useState(false);
   const apply = async (off: boolean) => {
     setBusy(true);
     try { await onApply(color, effect, threshold, off); } finally { setBusy(false); }
   };
-  const colorLabel = color === 'red' ? '红色' : '白色';
+  const colorLabel = '保持设备当前颜色';
   const effectLabel: Record<string, string> = { steady: '常亮', fast: '快闪', slow: '慢闪', breath: '呼吸', network: '网络活动' };
   return <div className="power26-layout">
     <article className="glass-surface power26-control-surface">
       <div className="section-heading"><div><span className="section-kicker">DXP480T POWER LED</span><h2>电源灯控制</h2></div><span className="soft-badge">专用 N76E003 控制器</span></div>
-      <p className="surface-help">选择电源灯颜色和灯效，应用后立即生效，并由后台服务保持当前设置。</p>
+      <p className="surface-help">新版后端通过原厂 N76 驱动控制开关与闪烁。兼容入口不支持更改颜色或呼吸效果，颜色保持设备当前值。</p>
       <div className="power26-controller">
         <div className="power26-preview"><span className="power26-lamp" data-color={color} data-effect={effect} /><div><small>效果预览</small><strong>{colorLabel} · {effectLabel[effect]}</strong></div></div>
-        <fieldset className="power26-option-group"><legend>颜色</legend><div className="power26-color-options">
-          {([['white', 'white', '白色', '日常状态'], ['red', 'red', '红色', '警示状态']] as const).map(([value, swatch, label, detail]) => <label key={value} className="power26-choice color-choice"><input type="radio" name="reactPower26Color" value={value} checked={color === value} onChange={() => setColor(value)} /><span className={`power26-choice-swatch ${swatch}`} aria-hidden="true" /><span><strong>{label}</strong><small>{detail}</small></span></label>)}
-        </div></fieldset>
         <fieldset className="power26-option-group"><legend>灯效</legend><div className="power26-effect-options">
-          {([['steady', 'bi-brightness-high', '常亮', '持续点亮'], ['fast', 'bi-lightning-charge', '快闪', '快速闪烁'], ['slow', 'bi-clock', '慢闪', '缓慢闪烁'], ['breath', 'bi-wind', '呼吸', '明暗呼吸'], ['network', 'bi-activity', '网络活动', '按网速闪动']] as const).map(([value, icon, label, detail]) => <label key={value} className="power26-choice effect-choice"><input type="radio" name="reactPower26Effect" value={value} checked={effect === value} onChange={() => setEffect(value)} /><i className={`bi ${icon}`} aria-hidden="true" /><span><strong>{label}</strong><small>{detail}</small></span></label>)}
+          {([['steady', 'bi-brightness-high', '常亮', '持续点亮'], ['fast', 'bi-lightning-charge', '快闪', '快速闪烁'], ['slow', 'bi-clock', '慢闪', '缓慢闪烁'], ['network', 'bi-activity', '网络活动', '按网速闪动']] as const).map(([value, icon, label, detail]) => <label key={value} className="power26-choice effect-choice"><input type="radio" name="reactPower26Effect" value={value} checked={effect === value} onChange={() => setEffect(value)} /><i className={`bi ${icon}`} aria-hidden="true" /><span><strong>{label}</strong><small>{detail}</small></span></label>)}
         </div></fieldset>
         <div className="power26-network-options" hidden={effect !== 'network'}><div><strong>网络闪动阈值</strong><small>总上传与下载速度超过此值后，电源灯开始闪动。</small></div><label><input type="number" min="1" max="1048576" step="1" value={threshold} onChange={(event) => setThreshold(boundedInt(event.target.value, 1, 1048576, 32))} /><span>KB/s</span></label></div>
       </div>
       <div className="power26-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void apply(true)}><i className="bi bi-power" aria-hidden="true" />关闭灯光</button><button type="button" className="primary-button" disabled={busy} onClick={() => void apply(false)}><i className="bi bi-check2-circle" aria-hidden="true" />{busy ? '正在应用…' : '应用灯光'}</button></div>
     </article>
-    <aside className="glass-surface power26-info-surface"><span className="surface-icon blue"><i className="bi bi-info-circle" aria-hidden="true" /></span><div><span className="section-kicker">480T ONLY</span><h2>当前机型专用页面</h2></div><p className="surface-help">此页面只会在 DXP480T / Plus 使用专用后端时显示，其他机型仍使用完整 RGB 灯控页面。</p><div className="power26-facts"><span><small>I²C 总线</small><strong>自动探测</strong></span><span><small>控制地址</small><strong>0x31 / 0x26</strong></span><span><small>可用颜色</small><strong>红色 / 白色</strong></span><span><small>亮度调节</small><strong>不支持</strong></span></div></aside>
+    <aside className="glass-surface power26-info-surface"><span className="surface-icon blue"><i className="bi bi-info-circle" aria-hidden="true" /></span><div><span className="section-kicker">480T ONLY</span><h2>当前机型专用页面</h2></div><p className="surface-help">此页面只会在 DXP480T / Plus 使用专用后端时显示，其他机型仍使用完整 RGB 灯控页面。</p><div className="power26-facts"><span><small>控制后端</small><strong>Almighty N76</strong></span><span><small>运行要求</small><strong>原厂 N76 驱动</strong></span><span><small>颜色</small><strong>保持当前颜色</strong></span><span><small>亮度调节</small><strong>不支持</strong></span></div></aside>
   </div>;
 }
 

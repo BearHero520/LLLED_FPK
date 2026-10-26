@@ -1,0 +1,23 @@
+{
+  "branch": "Almighty",
+  "revision": "923fdaa26a72041f34cf211ae319377bfd52be53",
+  "release_tag": "almighty-preview-20261026-923fdaa",
+  "archive_sha256": "b3f64db55e35099be3231472f472ec94e58c1adb2d4745b890470a1330e1b021",
+  "architecture": "x86_64",
+  "status": "experimental-incomplete",
+  "files": {
+    "ugreenctl": "2bb3a6673270dac2d5031982e0e36f8339a58ef17d5dd1cd19d2fa0d6712b6d3",
+    "ugreenctl-fand": "ee17d17b1c80a29b442d369ec72e08ec43e2edcd64f882359f9362a54ed01102",
+    "ugreen_leds_cli": "52549b94d04312f52afff3b57dc194c16a69013477a1692719e2f5600221c755",
+    "ugreenctl-ledd": "dbeb8d83ab670a10369bd1753b00457fa3cf22ab04c34626856916842d7d452f",
+    "models/dx4600.so": "34ff5fc705cf3d9156918bb4a775ae99b764b9404de90534ff958257e02535d3",
+    "models/dxp2800.so": "3bddd1fb642e9d3a73db6b563b750ff8e954f9a40f0ec8eb1ff751a034296836",
+    "models/dxp4800.so": "4d261145b97ab91ab745526f99fe8015e5a3736ca075de62990a37c242a8873c",
+    "models/dxp4800plus.so": "f72801adcb10fa1af4ec68916b11016b0b3f2e8ffec9368f6dc8d2a46163b306",
+    "models/dxp4800s.so": "8e29e13d796a77369db8a7af172ca86a91cc83264e1384605ad80a80ab2b3a6f",
+    "models/dxp480tplus.so": "3c9807b7669428ad55d07771ab26f029ae2595ef42b36f0308d096581125c45b",
+    "models/dxp6800pro.so": "87c6bfb7c426905e8a3e71264e5504ae429ff602a0a02a631f096c38d33ca933",
+    "models/dxp6800plus.so": "d86635aff5b1a38ca79c63f64de0a2607609bdfc181945cf46c451a174e0cf62",
+    "models/dxp8800plus.so": "cd230c6da5a103881b30cc2bf4669176a78b39f858a868c25cfdbf641b0bf6e5"
+  }
+}

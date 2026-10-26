@@ -482,7 +482,7 @@ collect_i2c() {
     printf 'path=%s\n' "${LED_CLI:-<unavailable>}"
     if [[ -n "$LED_CLI" && -x "$LED_CLI" ]]; then
         printf 'sha256=%s\n' "$(sha256_file "$LED_CLI")"
-        output=$(run_with_timeout "$LED_CLI" --version 2>&1)
+        output=$(run_with_timeout "$LED_CLI" --help 2>&1)
         rc=$?
         printf 'version_exit_code=%d\nversion_output=%s\n' "$rc" "$(sanitize_value "${output:-<empty>}")"
     fi
@@ -491,16 +491,9 @@ collect_i2c() {
     elif [[ -z "$LED_CLI" || ! -x "$LED_CLI" ]]; then
         printf 'probe=<bundled CLI unavailable>\n'
     else
-        if [[ "${PRODUCT_NAME^^}" == *DXP480T* ]]; then
-            output=$(run_with_timeout "$LED_CLI" --dxp480t-power-probe 2>&1)
-            rc=$?
-            printf 'command=--dxp480t-power-probe\n'
-        else
-            output=$(UGREEN_LEDS_WRITE_PROTOCOL="$LED_WRITE_PROTOCOL" \
-                run_with_timeout "$LED_CLI" --diagnose 2>&1)
-            rc=$?
-            printf 'command=--diagnose\n'
-        fi
+        output=$(run_with_timeout "$LED_CLI" all -status 2>&1)
+        rc=$?
+        printf 'command=all -status\n'
         printf 'exit_code=%d\n%s\n' "$rc" "${output:-<no output>}"
     fi
 

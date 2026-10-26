@@ -7,6 +7,7 @@ import argparse
 import gzip
 import hashlib
 import io
+import json
 import os
 import re
 import shutil
@@ -90,6 +91,7 @@ def is_executable(relative: Path, *, command_tree: bool) -> bool:
         "server/bin/ugreen_leds_cli",
         "server/bin/ugreenctl",
         "server/bin/ugreenctl-fand",
+        "server/bin/ugreenctl-ledd",
     }
 
 
@@ -148,22 +150,23 @@ def validate_project() -> None:
         PROJECT / "app" / "server" / "bin" / "ugreen_leds_cli.sha256",
         PROJECT / "app" / "server" / "bin" / "ugreenctl",
         PROJECT / "app" / "server" / "bin" / "ugreenctl-fand",
+        PROJECT / "app" / "server" / "bin" / "ugreenctl-ledd",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "release-manifest.json",
         PROJECT / "app" / "server" / "fan_telemetry_daemon.sh",
         PROJECT / "app" / "server" / "nas_hardware_collect.sh",
         PROJECT / "app" / "server" / "lib" / "logging.sh",
         PROJECT / "app" / "server" / "lib" / "fan_telemetry.sh",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dx4600.so",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp2800.so",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp8800plus.so",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "build-info.json",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp4800.so",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp4800plus.so",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp4800s.so",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp480tplus.so",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp6800pro.so",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp6800plus.so",
         PROJECT / "app" / "server" / "vendor" / "UGREEN-NAS-Hardware" / "LICENSE",
-        PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dxp480t-power.patch",
-        PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "diagnostics.patch",
-        PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dx4600-firmware-1.19.patch",
-        PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dxp4800s-firmware-1.19.patch",
-        PROJECT / "app" / "server" / "vendor" / "ugreen_leds_controller" / "patches" / "dx4600-i801-priority.patch",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
     if missing:
@@ -175,6 +178,26 @@ def validate_project() -> None:
     unexpected_models = sorted(path.name for path in model_dir.glob("*.so") if path.name not in allowed_models)
     if unexpected_models:
         raise SystemExit("存在非当前分支的机型插件，请重新构建硬件组件：" + ", ".join(unexpected_models))
+    metadata = json.loads((model_dir.parent / "build-info.json").read_text(encoding="utf-8"))
+    expected_artifacts = {"ugreenctl", "ugreenctl-fand", "ugreen_leds_cli", "ugreenctl-ledd"} | {f"models/{name}" for name in allowed_models}
+    if metadata.get("branch", "").lower() != "almighty" or set(metadata.get("files", {})) != expected_artifacts:
+        raise SystemExit("Almighty 硬件构建记录不完整，请重新导入构建")
+    lock = json.loads((ROOT / "scripts/hardware-release.json").read_text(encoding="utf-8"))
+    if metadata.get("release_tag") != lock["tag"] or metadata.get("archive_sha256") != lock["archive_sha256"]:
+        raise SystemExit("Hardware payload is not the pinned Almighty Release")
+    release_manifest = model_dir.parent / "release-manifest.json"
+    if hashlib.sha256(release_manifest.read_bytes()).hexdigest() != lock["manifest_sha256"]:
+        raise SystemExit("Almighty release manifest SHA256 mismatch")
+    published = json.loads(release_manifest.read_text(encoding="utf-8"))
+    published_hashes = {item["path"]: item["sha256"] for item in published["files"]}
+    for name, value in metadata["files"].items():
+        upstream = "usr/local/lib/ugreenctl/" + name if name.startswith("models/") else "usr/local/bin/" + name
+        if published_hashes.get(upstream) != value:
+            raise SystemExit(f"Payload receipt differs from pinned release: {name}")
+    for name, digest in metadata["files"].items():
+        artifact = model_dir.parent / name if name.startswith("models/") else PROJECT / "app" / "server" / "bin" / name
+        if hashlib.sha256(artifact.read_bytes()).hexdigest() != digest:
+            raise SystemExit(f"Almighty 硬件构建 SHA256 不匹配：{name}")
     cli = PROJECT / "app" / "server" / "bin" / "ugreen_leds_cli"
     cli_hash_file = cli.with_name(f"{cli.name}.sha256")
     expected = cli_hash_file.read_text(encoding="ascii").split(maxsplit=1)[0].lower()
@@ -212,16 +235,21 @@ def verify_package(package: Path, *, expected_checksum: str, expected_version: s
                 "server/bin/ugreen_leds_cli.sha256",
                 "server/bin/ugreenctl",
                 "server/bin/ugreenctl-fand",
+        "server/bin/ugreenctl-ledd",
                 "server/fan_telemetry_daemon.sh",
                 "server/nas_hardware_collect.sh",
                 "server/lib/logging.sh",
                 "server/lib/fan_telemetry.sh",
                 "server/lib/ugreenctl/models/dx4600.so",
+                "server/lib/ugreenctl/models/dxp2800.so",
+                "server/lib/ugreenctl/models/dxp8800plus.so",
+                "server/lib/ugreenctl/build-info.json",
                 "server/lib/ugreenctl/models/dxp4800.so",
                 "server/lib/ugreenctl/models/dxp4800plus.so",
                 "server/lib/ugreenctl/models/dxp4800s.so",
                 "server/lib/ugreenctl/models/dxp480tplus.so",
                 "server/lib/ugreenctl/models/dxp6800pro.so",
+                "server/lib/ugreenctl/models/dxp6800plus.so",
                 "server/vendor/UGREEN-NAS-Hardware/LICENSE",
             }.issubset(app_names):
                 raise SystemExit("FPK app.tgz 结构校验失败")

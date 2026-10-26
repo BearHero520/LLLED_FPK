@@ -1,0 +1,1206 @@
+{
+  "architecture": "x86_64",
+  "branch": "Almighty",
+  "catalog": {
+    "excluded_by_user": [
+      "DH2100",
+      "DH2100+"
+    ],
+    "official_count": 27,
+    "per_model": [
+      {
+        "architecture": "aarch64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "not-applicable",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DH2300",
+        "remaining": [
+          "Physical GPIO/DT and holder validation on the target board"
+        ],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-vendor-driver-required",
+        "nvme_physical_slots": "unknown-block-name-only",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DH2600",
+        "remaining": [
+          "Independent physical M.2 connector to PCI topology evidence",
+          "Kernel-driver-independent N76 output/brightness readback evidence and implementation"
+        ],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "aarch64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "not-applicable",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DH4300 Plus",
+        "remaining": [
+          "Physical GPIO/DT and holder validation on the target board"
+        ],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "unknown-block-name-only",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DX4600",
+        "remaining": [
+          "Independent physical M.2 connector to PCI topology evidence"
+        ],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "unknown-block-name-only",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DX4600 Pro",
+        "remaining": [
+          "Independent physical M.2 connector to PCI topology evidence"
+        ],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "unknown-block-name-only",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DX4600+",
+        "remaining": [
+          "Independent physical M.2 connector to PCI topology evidence"
+        ],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "unknown-block-name-only",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DX4700",
+        "remaining": [
+          "Independent physical M.2 connector to PCI topology evidence"
+        ],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DX4700+",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "unknown-block-name-only",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP2800",
+        "remaining": [
+          "Independent physical M.2 connector to PCI topology evidence"
+        ],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP2800 GT",
+        "remaining": [
+          "Physical ARGB readback and board validation; inactive Host2EC LDN remains unsupported",
+          "Exact BIOS/board to SATA physical-slot pairing; stock LL_/else selector is not a BIOS allowlist"
+        ],
+        "sata_physical_slots": "unknown-bios-routing",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "unknown-block-name-only",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP4800",
+        "remaining": [
+          "Independent physical M.2 connector to PCI topology evidence"
+        ],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP4800 GT",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP4800 Plus",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP4800 Pro",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "unknown-block-name-only",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP4800S",
+        "remaining": [
+          "Independent physical M.2 connector to PCI topology evidence"
+        ],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-vendor-driver-required",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP480T Plus",
+        "remaining": [
+          "Kernel-driver-independent N76 output/brightness readback evidence and implementation"
+        ],
+        "sata_physical_slots": "not-applicable",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP6800",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP6800 Plus",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP6800 Pro",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP6800 Ultra",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP8800",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP8800 Plus",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP8800 Pro",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DXP8800 Ultra",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "architecture": "x86_64",
+        "firmware_input": "official-md5-and-sha256-verified",
+        "led": "implemented-experimental",
+        "nvme_physical_slots": "implemented-conditional",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "iDX6011 Pro",
+        "remaining": [],
+        "sata_physical_slots": "implemented-conditional",
+        "scope": "target"
+      },
+      {
+        "led": "unknown",
+        "nvme_physical_slots": "unknown",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DH2100",
+        "sata_physical_slots": "unknown",
+        "scope": "excluded-by-user"
+      },
+      {
+        "led": "unknown",
+        "nvme_physical_slots": "unknown",
+        "physical_validation": "not-performed-by-this-project",
+        "product_name": "DH2100+",
+        "sata_physical_slots": "unknown",
+        "scope": "excluded-by-user"
+      }
+    ],
+    "profile_count": 26,
+    "release_status": "Expanded implementation is experimental and incomplete. Eight M.2 physical-slot layouts remain unknown; N76 requires an already bound vendor kernel driver. GT has an explicit global FLOW holder lifecycle but requires active Host2EC. Fixture tests do not imply physical or distribution validation. DXP2800 GT SATA automatic routing is unknown without exact BIOS pairing; administrator calibration remains available.",
+    "scope_complete": false,
+    "target_count": 25,
+    "targets": [
+      "DH2300",
+      "DH2600",
+      "DH4300 Plus",
+      "DX4600",
+      "DX4600 Pro",
+      "DX4600+",
+      "DX4700",
+      "DX4700+",
+      "DXP2800",
+      "DXP2800 GT",
+      "DXP4800",
+      "DXP4800 GT",
+      "DXP4800 Plus",
+      "DXP4800 Pro",
+      "DXP4800S",
+      "DXP480T Plus",
+      "DXP6800",
+      "DXP6800 Plus",
+      "DXP6800 Pro",
+      "DXP6800 Ultra",
+      "DXP8800",
+      "DXP8800 Plus",
+      "DXP8800 Pro",
+      "DXP8800 Ultra",
+      "iDX6011 Pro"
+    ]
+  },
+  "compatibility_cli_installation": "Opt-in; never overwrite an existing ugreen_leds_cli without administrator choice",
+  "files": [
+    {
+      "mode": "0755",
+      "path": "usr/local/bin/ugreen_leds_cli",
+      "sha256": "52549b94d04312f52afff3b57dc194c16a69013477a1692719e2f5600221c755",
+      "size": 594760
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/bin/ugreenctl",
+      "sha256": "2bb3a6673270dac2d5031982e0e36f8339a58ef17d5dd1cd19d2fa0d6712b6d3",
+      "size": 710992
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/bin/ugreenctl-fand",
+      "sha256": "ee17d17b1c80a29b442d369ec72e08ec43e2edcd64f882359f9362a54ed01102",
+      "size": 90416
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/bin/ugreenctl-ledd",
+      "sha256": "dbeb8d83ab670a10369bd1753b00457fa3cf22ab04c34626856916842d7d452f",
+      "size": 353088
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/lib/ugreenctl/models/dx4600.so",
+      "sha256": "34ff5fc705cf3d9156918bb4a775ae99b764b9404de90534ff958257e02535d3",
+      "size": 102216
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/lib/ugreenctl/models/dxp2800.so",
+      "sha256": "3bddd1fb642e9d3a73db6b563b750ff8e954f9a40f0ec8eb1ff751a034296836",
+      "size": 6664
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/lib/ugreenctl/models/dxp4800.so",
+      "sha256": "4d261145b97ab91ab745526f99fe8015e5a3736ca075de62990a37c242a8873c",
+      "size": 102104
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/lib/ugreenctl/models/dxp4800plus.so",
+      "sha256": "f72801adcb10fa1af4ec68916b11016b0b3f2e8ffec9368f6dc8d2a46163b306",
+      "size": 101384
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/lib/ugreenctl/models/dxp4800s.so",
+      "sha256": "8e29e13d796a77369db8a7af172ca86a91cc83264e1384605ad80a80ab2b3a6f",
+      "size": 102120
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/lib/ugreenctl/models/dxp480tplus.so",
+      "sha256": "3c9807b7669428ad55d07771ab26f029ae2595ef42b36f0308d096581125c45b",
+      "size": 101904
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/lib/ugreenctl/models/dxp6800plus.so",
+      "sha256": "d86635aff5b1a38ca79c63f64de0a2607609bdfc181945cf46c451a174e0cf62",
+      "size": 75648
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/lib/ugreenctl/models/dxp6800pro.so",
+      "sha256": "87c6bfb7c426905e8a3e71264e5504ae429ff602a0a02a631f096c38d33ca933",
+      "size": 103264
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/lib/ugreenctl/models/dxp8800plus.so",
+      "sha256": "cd230c6da5a103881b30cc2bf4669176a78b39f858a868c25cfdbf641b0bf6e5",
+      "size": 6672
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/LICENSE",
+      "sha256": "3e18d1b39f4f82c2f0480bebb05f66908408d5ca785d0ef3be67cde9d18b0604",
+      "size": 1100
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/README.md",
+      "sha256": "73468ffc097f1851ffde15c8679e0ecc67244fb14e7d822bc6febf2919586847",
+      "size": 15347
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/README.zh-CN.md",
+      "sha256": "933f6882ccfae02a4bddfe75e0453fbc37c2fe10badb9df0e3de3b8999ff850a",
+      "size": 16429
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/THIRD_PARTY_NOTICES.md",
+      "sha256": "857402c293d460b9a0f4cbbed9f28803a915d8b5e7aa9b5f32fc1fcc0cf9f801",
+      "size": 880
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/disk/NOTICE.md",
+      "sha256": "5ceab4168b7f672a272a1a903fa908a32e4b5f1553866713f9ae7765dc9fc825",
+      "size": 9879
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/AC_RECOVERY_PERSISTENCE.zh-CN.md",
+      "sha256": "17f3864ba0d99244a3fb67c5ee3bcbc052f1708a7d7a130b3943703579a16562",
+      "size": 6249
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/ALL_MODELS_DISK_EVIDENCE.zh-CN.md",
+      "sha256": "897c8639e51831acaac2e7d6b6cd03680eaa4ad47d2e2d8edf8219d86360cb96",
+      "size": 27175
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/ALL_MODELS_FIRMWARE_INTAKE.zh-CN.md",
+      "sha256": "d58cbe64badb7ac5b546726a693956758d9efd32bdf2dc9b990d354d127a4135",
+      "size": 13088
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/ALL_MODELS_LED_EVIDENCE.zh-CN.md",
+      "sha256": "11f5bbf4b82493c3560a66bcadf464e79ef6d58e5cfe589d7cd66dad56129952",
+      "size": 25880
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/ALMIGHTY_PACKAGING.zh-CN.md",
+      "sha256": "efa1102a317fd9ba4b1c7aee3dd20d1c69b5dfeb86a49b5b3102d991561e47f5",
+      "size": 5747
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/ALMIGHTY_STATUS.zh-CN.md",
+      "sha256": "380af2c5f682f26898f95ca74978b610ea8bb6a1439014e52f9d775b46ca705e",
+      "size": 3909
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/ARCHITECTURE.md",
+      "sha256": "821152795e712fbe37bf7456d668d0f73a4299882f3ffca4d3ccb3785513abfd",
+      "size": 2904
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/BUILD_REPRODUCIBILITY.zh-CN.md",
+      "sha256": "7f6a0dbcf1e1181b196a641b191419ef9c465b4f930137e5413940fdd5ead0bc",
+      "size": 8085
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/COMPATIBILITY.md",
+      "sha256": "4e77b2208979fc9970a57acd2e1f83296ac46f56f5fd789c634a798e06140039",
+      "size": 3238
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/COMPATIBILITY.zh-CN.md",
+      "sha256": "466dd757586f7250372510f597508c20d9a85646a40521bc2c55fe10145d137a",
+      "size": 2884
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/DH2100_FIRMWARE_SEARCH.zh-CN.md",
+      "sha256": "7a4d132512be98a9f186862973fa2da81266ab34c2f3288a88e92a6816acb1e1",
+      "size": 5542
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/DISK_MAPPING_FIRMWARE.zh-CN.md",
+      "sha256": "7374906c3cfe085f2fa7ce9c567b5bce1343631379cde1f4ac3b99dea4f82d97",
+      "size": 13638
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/DX4600_REVERSE_ENGINEERING.zh-CN.md",
+      "sha256": "875987ab87cb860137587be002b217a07fff1b6d72fe129f2d8f3c1ed4f88f1a",
+      "size": 12434
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/DXP2800_GT_LED_REVERSE.zh-CN.md",
+      "sha256": "9f595565d9eb09c59e722c092247c8b2cc91851dab695e6a365021ba6348ab5f",
+      "size": 14008
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/DXP4800S_REVERSE_ENGINEERING.md",
+      "sha256": "994613f1981304025b50c8c968fc158034f4825a2c59dcefe5dc0be5542db68a",
+      "size": 5055
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/DXP4800S_REVERSE_ENGINEERING.zh-CN.md",
+      "sha256": "faae0a77de65a7ca1c28d024d6440e5decaaa7519d6b18f5ec0102912832bd76",
+      "size": 4353
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/DXP4800_REVERSE_ENGINEERING.md",
+      "sha256": "3b3dd132442b8750bdb0f69748ca0710083558b06817bddee1e64fed947b05f8",
+      "size": 5170
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/DXP480T_PLUS_FAN_REVERSE_ENGINEERING.md",
+      "sha256": "e1153fee7da582d40950f1853b252746fe1f751b54e13db1c064fcc604ae6e9d",
+      "size": 2889
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/DXP6800_1.20_FIRMWARE_CHECK.zh-CN.md",
+      "sha256": "bdcf87383e8134dccc7524176863dfac7ddf65e5bc19e3cdef191a8e061dab6e",
+      "size": 8114
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/DXP6800_PRO_REVERSE_ENGINEERING.md",
+      "sha256": "509383ce42ebeaa70213909042ab81deeed505868ac3334eb2575b10f3e6283d",
+      "size": 3780
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/FAN_CURVE.md",
+      "sha256": "d3b46f933eb3c5908e44cf73ebc1011f5651eefc74fe239d56948a69e2ffcb35",
+      "size": 7505
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/FIRMWARE_RUNTIME_TRACE_20261026.zh-CN.md",
+      "sha256": "423138fa5daa7e055a8accc937630873acd20719853bb7e1a745fbc508d52e24",
+      "size": 17578
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/HARDWARE_SUPPORT.md",
+      "sha256": "a6aec4e8aed7760e4bc3dc1911bb7892a7c9e214f3ab001428a84223554ab31d",
+      "size": 11646
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/LED_CONTROL.zh-CN.md",
+      "sha256": "996fe019277d6af00b9d7003a7ab755c3a63336bffe5e9697b5b8a2691efb26b",
+      "size": 21468
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/LED_EVIDENCE_COLLECTION.zh-CN.md",
+      "sha256": "461473973d4172d78532fa750958c9fba637c765e44d82c7ee77c2d04ba72b34",
+      "size": 4538
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/LINUX_DEPLOYMENT.zh-CN.md",
+      "sha256": "dfa15c918856d21e4948321e98f0d8276bbdb68d32f0ede572b1b5ace085d6c4",
+      "size": 11506
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/SCHEDULED_POWER_FIRMWARE_EVIDENCE.md",
+      "sha256": "974a49f2244cb4877082ec88d52835b2ae6f3e706c86495e1e2f207526e959c5",
+      "size": 2082
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/WOL_FIRMWARE_EVIDENCE.md",
+      "sha256": "90669d0a47c89c806f257bbf706e43cdd29fc8b6a496bb5be7da9610ff78b132",
+      "size": 4694
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/WOL_FIRMWARE_EVIDENCE.zh-CN.md",
+      "sha256": "e116d3544e1a429cfac1872c9e3ae5bff6a57d0e6ffddfd438277720019d198e",
+      "size": 3666
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/share/doc/ugreenctl/examples/collect-disk-evidence.sh",
+      "sha256": "c70d789a5ba534d7827e4a4799ac810e10c53f5da2e0a195b46062aeda21ef00",
+      "size": 2277
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/share/doc/ugreenctl/examples/collect-led-evidence.sh",
+      "sha256": "47e5dea28101c27110171c80b2e82b1fad249cbd23da40fee928d79893c9954c",
+      "size": 6505
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/examples/ugreenctl-ledd-gt.service",
+      "sha256": "2edd47c6581e70edad2fbb807cd17ed306074b59135f290c7c39cfa7f100dfe5",
+      "size": 388
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/examples/ugreenctl-ledd.service",
+      "sha256": "b4158aeaeea04c9bef36202f0cbeea5462527b8dd04f6e6a053b4c61d495ed24",
+      "size": 330
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/examples/ugreenctl-startup.py",
+      "sha256": "0ea14449ad98c6ba2c7a50c727a24c75fdf0db2f219cde1026dd8fd2253ce7b4",
+      "size": 18958
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/examples/ugreenctl-startup.service",
+      "sha256": "64352f5ff4eb1182b29c99040e620a5e8c3cf239332a88620c94ebdbee1dc8c7",
+      "size": 727
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/integration/llled/ac-recovery/README.zh-CN.md",
+      "sha256": "7ec1fc5a35d3e58720da8ce110b1397651e9b9fddd83b508879daa0dd25e7752",
+      "size": 1993
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/integration/llled/ac-recovery/llled-startup-persistence.patch",
+      "sha256": "90b57e46d6376b8334c1811c5bf69315b20609e04e4cc17b3c29c173337cf0a6",
+      "size": 15836
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/integration/llled/ac-recovery/source-hashes.json",
+      "sha256": "41c89000df20f535981d25a10bd01d8da3de9d55d9eeeb2b7eb22ae07e22b3e2",
+      "size": 1163
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/led/LICENSE.upstream-led",
+      "sha256": "66efbcc4d3439adf30d570783ca1b35ad86ca8d6cee5a70eee400d2f33f56f82",
+      "size": 1074
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/models/compatibility.json",
+      "sha256": "5e5c4cc69456f7f5e4de8a760fd3023f9bbd86a5b0a940718967d3d0751e74e1",
+      "size": 43559
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/models/official-products.json",
+      "sha256": "409dbd65d155321f40aa3100bcbb490614ddb148443411b2b3a56b72642581b6",
+      "size": 25707
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/verification-root.json",
+      "sha256": "17f4f1f749dfc62f3cdc17e272e955fee13bd9ea89673e7fc67986cd160f4cd8",
+      "size": 42963
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/verification/ctest-aarch64.log",
+      "sha256": "f6ab9000dfd684002a5315cb5e4eed12bd96d4013a5d9a8bdeaa9d5d9ab19faa",
+      "size": 2798
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/verification/ctest-x86_64.log",
+      "sha256": "bbe020c52ccf81aa1777905189c005c19250a5edf23614824a190c52b5ed0635",
+      "size": 2797
+    }
+  ],
+  "full_suite": "26/26 passed",
+  "full_suite_artifacts": {
+    "aarch64": {
+      "path": "firmware-inbox/work/almighty-power-persistence-20261026/ctest-aarch64.log",
+      "sha256": "f6ab9000dfd684002a5315cb5e4eed12bd96d4013a5d9a8bdeaa9d5d9ab19faa"
+    },
+    "x86_64": {
+      "path": "firmware-inbox/work/almighty-power-persistence-20261026/ctest-x86_64.log",
+      "sha256": "bbe020c52ccf81aa1777905189c005c19250a5edf23614824a190c52b5ed0635"
+    }
+  },
+  "install_prefix": "/usr/local",
+  "package": "ugreenctl-almighty-0.2.0-linux-x86_64-preview",
+  "physical_validation": "not performed",
+  "plugin_directory": "/usr/local/lib/ugreenctl/models",
+  "preview": true,
+  "runtime_abi": {
+    "files": {
+      "usr/local/bin/ugreen_leds_cli": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": "2.17",
+        "interpreter": "/lib64/ld-linux-x86-64.so.2",
+        "needed_libraries": [
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "required_symbol_versions": {
+          "libc.so.6": [
+            "GLIBC_2.10",
+            "GLIBC_2.14",
+            "GLIBC_2.17",
+            "GLIBC_2.2.5",
+            "GLIBC_2.3",
+            "GLIBC_2.7"
+          ],
+          "libpthread.so.0": [
+            "GLIBC_2.2.5"
+          ]
+        },
+        "rpath": null,
+        "runpath": null
+      },
+      "usr/local/bin/ugreenctl": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": "2.27",
+        "interpreter": "/lib64/ld-linux-x86-64.so.2",
+        "needed_libraries": [
+          "libc.so.6",
+          "libdl.so.2",
+          "libpthread.so.0"
+        ],
+        "required_symbol_versions": {
+          "libc.so.6": [
+            "GLIBC_2.10",
+            "GLIBC_2.14",
+            "GLIBC_2.17",
+            "GLIBC_2.2.5",
+            "GLIBC_2.27",
+            "GLIBC_2.3",
+            "GLIBC_2.7"
+          ],
+          "libdl.so.2": [
+            "GLIBC_2.2.5"
+          ],
+          "libpthread.so.0": [
+            "GLIBC_2.2.5"
+          ]
+        },
+        "rpath": null,
+        "runpath": null
+      },
+      "usr/local/bin/ugreenctl-fand": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": "2.27",
+        "interpreter": "/lib64/ld-linux-x86-64.so.2",
+        "needed_libraries": [
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "required_symbol_versions": {
+          "libc.so.6": [
+            "GLIBC_2.2.5",
+            "GLIBC_2.27",
+            "GLIBC_2.3"
+          ],
+          "libpthread.so.0": [
+            "GLIBC_2.2.5"
+          ]
+        },
+        "rpath": null,
+        "runpath": null
+      },
+      "usr/local/bin/ugreenctl-ledd": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": "2.17",
+        "interpreter": "/lib64/ld-linux-x86-64.so.2",
+        "needed_libraries": [
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "required_symbol_versions": {
+          "libc.so.6": [
+            "GLIBC_2.10",
+            "GLIBC_2.14",
+            "GLIBC_2.17",
+            "GLIBC_2.2.5",
+            "GLIBC_2.3",
+            "GLIBC_2.7"
+          ],
+          "libpthread.so.0": [
+            "GLIBC_2.2.5"
+          ]
+        },
+        "rpath": null,
+        "runpath": null
+      },
+      "usr/local/lib/ugreenctl/models/dx4600.so": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": "2.14",
+        "interpreter": null,
+        "needed_libraries": [
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "required_symbol_versions": {
+          "libc.so.6": [
+            "GLIBC_2.14",
+            "GLIBC_2.2.5",
+            "GLIBC_2.3"
+          ],
+          "libpthread.so.0": [
+            "GLIBC_2.2.5"
+          ]
+        },
+        "rpath": null,
+        "runpath": null
+      },
+      "usr/local/lib/ugreenctl/models/dxp2800.so": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": null,
+        "interpreter": null,
+        "needed_libraries": [],
+        "required_symbol_versions": {},
+        "rpath": null,
+        "runpath": null
+      },
+      "usr/local/lib/ugreenctl/models/dxp4800.so": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": "2.14",
+        "interpreter": null,
+        "needed_libraries": [
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "required_symbol_versions": {
+          "libc.so.6": [
+            "GLIBC_2.14",
+            "GLIBC_2.2.5",
+            "GLIBC_2.3"
+          ],
+          "libpthread.so.0": [
+            "GLIBC_2.2.5"
+          ]
+        },
+        "rpath": null,
+        "runpath": null
+      },
+      "usr/local/lib/ugreenctl/models/dxp4800plus.so": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": "2.14",
+        "interpreter": null,
+        "needed_libraries": [
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "required_symbol_versions": {
+          "libc.so.6": [
+            "GLIBC_2.14",
+            "GLIBC_2.2.5",
+            "GLIBC_2.3"
+          ],
+          "libpthread.so.0": [
+            "GLIBC_2.2.5"
+          ]
+        },
+        "rpath": null,
+        "runpath": null
+      },
+      "usr/local/lib/ugreenctl/models/dxp4800s.so": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": "2.14",
+        "interpreter": null,
+        "needed_libraries": [
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "required_symbol_versions": {
+          "libc.so.6": [
+            "GLIBC_2.14",
+            "GLIBC_2.2.5",
+            "GLIBC_2.3"
+          ],
+          "libpthread.so.0": [
+            "GLIBC_2.2.5"
+          ]
+        },
+        "rpath": null,
+        "runpath": null
+      },
+      "usr/local/lib/ugreenctl/models/dxp480tplus.so": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": "2.14",
+        "interpreter": null,
+        "needed_libraries": [
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "required_symbol_versions": {
+          "libc.so.6": [
+            "GLIBC_2.14",
+            "GLIBC_2.2.5",
+            "GLIBC_2.3"
+          ],
+          "libpthread.so.0": [
+            "GLIBC_2.2.5"
+          ]
+        },
+        "rpath": null,
+        "runpath": null
+      },
+      "usr/local/lib/ugreenctl/models/dxp6800plus.so": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": "2.3",
+        "interpreter": null,
+        "needed_libraries": [
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "required_symbol_versions": {
+          "libc.so.6": [
+            "GLIBC_2.2.5",
+            "GLIBC_2.3"
+          ],
+          "libpthread.so.0": [
+            "GLIBC_2.2.5"
+          ]
+        },
+        "rpath": null,
+        "runpath": null
+      },
+      "usr/local/lib/ugreenctl/models/dxp6800pro.so": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": "2.14",
+        "interpreter": null,
+        "needed_libraries": [
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "required_symbol_versions": {
+          "libc.so.6": [
+            "GLIBC_2.14",
+            "GLIBC_2.2.5",
+            "GLIBC_2.3"
+          ],
+          "libpthread.so.0": [
+            "GLIBC_2.2.5"
+          ]
+        },
+        "rpath": null,
+        "runpath": null
+      },
+      "usr/local/lib/ugreenctl/models/dxp8800plus.so": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": null,
+        "interpreter": null,
+        "needed_libraries": [],
+        "required_symbol_versions": {},
+        "rpath": null,
+        "runpath": null
+      }
+    },
+    "glibc_extra_requirements": [],
+    "glibc_symbol_floor": "2.27",
+    "interpreters": [
+      "/lib64/ld-linux-x86-64.so.2"
+    ],
+    "needed_libraries": [
+      "libc.so.6",
+      "libdl.so.2",
+      "libpthread.so.0"
+    ],
+    "notice": "ELF interpreter, DT_NEEDED and version requirements only. A numeric glibc floor is necessary, not sufficient, for compatibility; it does not establish kernel, driver or distribution validation. Libraries and loaders are not bundled."
+  },
+  "schema_version": 1,
+  "scope_complete": false,
+  "services": "Examples only; no installation or startup is performed",
+  "source_sha256": {
+    ".gitattributes": "6e0abc0d2552a5e4b5069a0a1f0f97d3bbf84def1e61d67ea53785399f58a014",
+    ".gitignore": "296e7dddc7b41ab965c76d482b1f13085e2f2904df4b541ed23d985daf4e1345",
+    "CMakeLists.txt": "868014006b8fd11bd83f0f55eb76a658263f69186e19d52b31bf147dbe740581",
+    "LICENSE": "3e18d1b39f4f82c2f0480bebb05f66908408d5ca785d0ef3be67cde9d18b0604",
+    "README.md": "73468ffc097f1851ffde15c8679e0ecc67244fb14e7d822bc6febf2919586847",
+    "README.zh-CN.md": "933f6882ccfae02a4bddfe75e0453fbc37c2fe10badb9df0e3de3b8999ff850a",
+    "THIRD_PARTY_NOTICES.md": "857402c293d460b9a0f4cbbed9f28803a915d8b5e7aa9b5f32fc1fcc0cf9f801",
+    "core/fan_daemon.c": "6c40c5d0a2e7a94432f57c1f1df42803081be437e240efa1c861cd8011c826d3",
+    "core/hardware_cli.c": "f4d19a04246368418e13366f48a8bbe68b30909974de8f1038e03d5eac12f569",
+    "core/hardware_cli.h": "f1804785c7bb9f7ad7bd2e8606f0e3bc3d069aabd559091b229bb81342b4aa97",
+    "core/identity.c": "443c12f5b4d45b4ba257a3522a0b4714dd558b24c50420ab696f7b57cec410d5",
+    "core/identity.h": "fd0d59a63ee133e8da1ed86568b75b13b9fb9997daa2a69343d36091dc2de8cb",
+    "core/led_compat_main.c": "825237a8aa848cc2bbb8f11f89994accf9f44692b06b94e7262aa83ede38d065",
+    "core/led_daemon_main.c": "dcb48b62b4fb77e5f3bab6fd9ecdcb341a8121b2975fb428e7752adf041f4230",
+    "core/loader.c": "f17141b1bfd9ef3da69173e5fae7bf8723bf077016dfe9c05908c10e5a2a4270",
+    "core/loader.h": "f73eb103132a4b8fff2d5c175ec9ad64f391a0ce8fc8a65c5b9ddcf35abfd5dc",
+    "core/main.c": "4c732d5f40ca49df1d9cdb3e6fce0326557c3526f248038dd613162cbc2ef926",
+    "disk/NOTICE.md": "5ceab4168b7f672a272a1a903fa908a32e4b5f1553866713f9ae7765dc9fc825",
+    "disk/disk.c": "5d29b9786b5d3555574d49d7ba177a8d28e3fe215f056ad2e92201ff7da3f314",
+    "disk/disk.h": "49d357f0c60a0b9113f7618aeacf9dcd19c6ef811c82fc11ab4c2d7d145128f5",
+    "disk/firmware_profiles.c": "6a1c2bb1842f31c15c83e1f6ac33ca0b5d2f15dcb166932bb8a143c751668399",
+    "disk/firmware_profiles.h": "0be8210c779e8e5d650d1b536b5577435fe09bd7ab46b5810f505321961c35f1",
+    "docs/AC_RECOVERY_PERSISTENCE.zh-CN.md": "17f3864ba0d99244a3fb67c5ee3bcbc052f1708a7d7a130b3943703579a16562",
+    "docs/ALL_MODELS_DISK_EVIDENCE.zh-CN.md": "897c8639e51831acaac2e7d6b6cd03680eaa4ad47d2e2d8edf8219d86360cb96",
+    "docs/ALL_MODELS_FIRMWARE_INTAKE.zh-CN.md": "d58cbe64badb7ac5b546726a693956758d9efd32bdf2dc9b990d354d127a4135",
+    "docs/ALL_MODELS_LED_EVIDENCE.zh-CN.md": "11f5bbf4b82493c3560a66bcadf464e79ef6d58e5cfe589d7cd66dad56129952",
+    "docs/ALMIGHTY_PACKAGING.zh-CN.md": "efa1102a317fd9ba4b1c7aee3dd20d1c69b5dfeb86a49b5b3102d991561e47f5",
+    "docs/ALMIGHTY_STATUS.zh-CN.md": "380af2c5f682f26898f95ca74978b610ea8bb6a1439014e52f9d775b46ca705e",
+    "docs/ARCHITECTURE.md": "821152795e712fbe37bf7456d668d0f73a4299882f3ffca4d3ccb3785513abfd",
+    "docs/BUILD_REPRODUCIBILITY.zh-CN.md": "7f6a0dbcf1e1181b196a641b191419ef9c465b4f930137e5413940fdd5ead0bc",
+    "docs/COMPATIBILITY.md": "4e77b2208979fc9970a57acd2e1f83296ac46f56f5fd789c634a798e06140039",
+    "docs/COMPATIBILITY.zh-CN.md": "466dd757586f7250372510f597508c20d9a85646a40521bc2c55fe10145d137a",
+    "docs/DH2100_FIRMWARE_SEARCH.zh-CN.md": "7a4d132512be98a9f186862973fa2da81266ab34c2f3288a88e92a6816acb1e1",
+    "docs/DISK_MAPPING_FIRMWARE.zh-CN.md": "7374906c3cfe085f2fa7ce9c567b5bce1343631379cde1f4ac3b99dea4f82d97",
+    "docs/DX4600_INTAKE.md": "857cd07b94797fc775db83536d615718baef2d155ee15c2888e0ee0e88b9338c",
+    "docs/DX4600_REVERSE_ENGINEERING.zh-CN.md": "875987ab87cb860137587be002b217a07fff1b6d72fe129f2d8f3c1ed4f88f1a",
+    "docs/DXP2800_GT_LED_REVERSE.zh-CN.md": "9f595565d9eb09c59e722c092247c8b2cc91851dab695e6a365021ba6348ab5f",
+    "docs/DXP4800S_1.19.md": "479034495ed9a4b06a6b6623b5db7439034b0fa9521b528fcf48e042e1900854",
+    "docs/DXP4800S_INTAKE.md": "4db9d6dd07946e3f0104488c74396db598c034332950adb15526100de1cc710a",
+    "docs/DXP4800S_REVERSE_ENGINEERING.md": "994613f1981304025b50c8c968fc158034f4825a2c59dcefe5dc0be5542db68a",
+    "docs/DXP4800S_REVERSE_ENGINEERING.zh-CN.md": "faae0a77de65a7ca1c28d024d6440e5decaaa7519d6b18f5ec0102912832bd76",
+    "docs/DXP4800_REVERSE_ENGINEERING.md": "3b3dd132442b8750bdb0f69748ca0710083558b06817bddee1e64fed947b05f8",
+    "docs/DXP480T_PLUS_FAN_REVERSE_ENGINEERING.md": "e1153fee7da582d40950f1853b252746fe1f751b54e13db1c064fcc604ae6e9d",
+    "docs/DXP6800_1.20_FIRMWARE_CHECK.zh-CN.md": "bdcf87383e8134dccc7524176863dfac7ddf65e5bc19e3cdef191a8e061dab6e",
+    "docs/DXP6800_PRO_REVERSE_ENGINEERING.md": "509383ce42ebeaa70213909042ab81deeed505868ac3334eb2575b10f3e6283d",
+    "docs/FAN_CURVE.md": "d3b46f933eb3c5908e44cf73ebc1011f5651eefc74fe239d56948a69e2ffcb35",
+    "docs/FIRMWARE_REVERSE_PLAYBOOK.zh-CN.md": "621000c5b06763ef95a3d7cec241b2c074c7b47addb76dd77756ae87d64c511e",
+    "docs/FIRMWARE_RUNTIME_TRACE_20261026.zh-CN.md": "423138fa5daa7e055a8accc937630873acd20719853bb7e1a745fbc508d52e24",
+    "docs/HARDWARE_SUPPORT.md": "a6aec4e8aed7760e4bc3dc1911bb7892a7c9e214f3ab001428a84223554ab31d",
+    "docs/LED_CONTROL.zh-CN.md": "996fe019277d6af00b9d7003a7ab755c3a63336bffe5e9697b5b8a2691efb26b",
+    "docs/LED_EVIDENCE_COLLECTION.zh-CN.md": "461473973d4172d78532fa750958c9fba637c765e44d82c7ee77c2d04ba72b34",
+    "docs/LINUX_DEPLOYMENT.zh-CN.md": "dfa15c918856d21e4948321e98f0d8276bbdb68d32f0ede572b1b5ace085d6c4",
+    "docs/NEW_MODEL_TEMPLATE.md": "64c370a2c538fde526396f3b8e4822c2c6f6eaa172b2c85487b6e03da89b3285",
+    "docs/SCHEDULED_POWER_FIRMWARE_EVIDENCE.md": "974a49f2244cb4877082ec88d52835b2ae6f3e706c86495e1e2f207526e959c5",
+    "docs/WOL_FIRMWARE_EVIDENCE.md": "90669d0a47c89c806f257bbf706e43cdd29fc8b6a496bb5be7da9610ff78b132",
+    "docs/WOL_FIRMWARE_EVIDENCE.zh-CN.md": "e116d3544e1a429cfac1872c9e3ae5bff6a57d0e6ffddfd438277720019d198e",
+    "ec/ec.c": "811d4d762f5511882bd3421824a32c2d960b9404a8de10307156a20c9f0c59be",
+    "ec/ec.h": "f3b3b4505ef59a5b336df7dea9736b16d1dff3dd832a439367d4df5adba683ec",
+    "fan/it8613_direct.c": "41fe99d15b4a9aa5f90113bd40e4bddf60ce5a5c09ab5dbb3ecf33c0f766518d",
+    "fan/it8613_direct.h": "ff5d58c9cc6c4f4eefa7c2dece07a9399cae892ee8e6783725834c8c5a6fa97d",
+    "fan/it8613_dx4600.c": "714055011a935c287aa836e0af349f3b7294d1d3f416182e7f6cc967d3d149a0",
+    "fan/it8613_dx4600.h": "b6fcc4d7092575fd1d02b178f09988e5db0ace24ee3ba3672c4641f7478688c6",
+    "fan/it8613_dxp4800.c": "fc4043eb01e07dccf38e097c97364acd5d46b618c0d8358902b25e386ba7f64a",
+    "fan/it8613_dxp4800.h": "c62d04e303724c7afa1c9dbb8ba9a0775ce7325cc2a3e1521d8c7d30251922f7",
+    "fan/it8613_dxp4800s.c": "b56aec50d354bda172f255d62af2459b0ded2963ad8f90a1c9d947127e5ed238",
+    "fan/it8613_dxp4800s.h": "2e10bf015ccbd2d2ff09623eb0171d8031df98d2fa8ff18bd163dc8fc5e3d8f6",
+    "fan/it8613_dxp480t.c": "e7bfd6c97122d855ea2e32cecf6620199113df7d23efd698e0656d05839c186a",
+    "fan/it8613_dxp480t.h": "85ea7c08feff331048d1c64b8da56e7e444936e5aea06633c309451a997fed51",
+    "fan/it8613_dxp6800plus.c": "d0bd947b85422dac259538dd95429cb487f10f9adc883e5ace8f79ed05c1afb6",
+    "fan/it8613_dxp6800plus.h": "7c9620d5253bce9dba2b8d46aad373b661366a661c26b4fdf2853eba914defa3",
+    "fan/it8613_dxp6800pro.c": "8e3f59737485abd13d67bf5ccf79843b2210bd409836bb3330e3c15bad2bb24d",
+    "fan/it8613_dxp6800pro.h": "3b9361cc4125ed2579afdc4509be7db7e2e64d45f12b0dd358dc898c3301d5d4",
+    "fan/it8613_fan.c": "3f8e7f6470fe68adaba283714c953652ce12865321b1349af7097f68f8253941",
+    "fan/it8613_fan.h": "3c7029b0722582c939f529d5d4d3e0ac21460eb1679a33fc36c04d8ef20a9a80",
+    "fan/it8613_hwmon.c": "c86d241b4380c4722662e6c7c2a40d9a91b7808dd8f6b9aa10065846520a6444",
+    "fan/it8613_hwmon.h": "6dad251e862864bf3e3cc14024c3dcb4ca05922c43c63648735ed9ca7e35f571",
+    "fan/thermal_curve.c": "79ab0ad11f0d25fb420a0f30a716b9b4c2e4a6b479da03d5b743d3c2b0510d1e",
+    "fan/thermal_curve.h": "44cbbf068e535cc4ba57ef0f0eefb2544277a8f78c1c74395850f9c4f4317fad",
+    "include/ugreenctl.h": "2386e31f48eae6ccbcee458efe00f3ce3da82a3b2797c719314fb5325ff8bc47",
+    "integration/llled/ac-recovery/README.zh-CN.md": "7ec1fc5a35d3e58720da8ce110b1397651e9b9fddd83b508879daa0dd25e7752",
+    "integration/llled/ac-recovery/llled-startup-persistence.patch": "90b57e46d6376b8334c1811c5bf69315b20609e04e4cc17b3c29c173337cf0a6",
+    "integration/llled/ac-recovery/source-hashes.json": "41c89000df20f535981d25a10bd01d8da3de9d55d9eeeb2b7eb22ae07e22b3e2",
+    "led/LICENSE.upstream-led": "66efbcc4d3439adf30d570783ca1b35ad86ca8d6cee5a70eee400d2f33f56f82",
+    "led/led.c": "0498e46f573129260e1a53ac5a8a24508d8faefe0243d94e3246e98afe3795e5",
+    "led/led.h": "a2fcad05fdb8bafaf46ce8046ced49bb54c9ddfb15fc9e211ed8bb646a83b567",
+    "led/led_cs201x.c": "8f36539539128cc77f7df079f15e6e8979156766f99a50ea7b9d687b1924a319",
+    "led/led_cs201x.h": "d4ad1e52beb3596e1ae66edfc8d5a5f21cb0c397cf1cf77bce7e401ba7229dfd",
+    "led/led_gpio.c": "f1d7e35bec26d79173b0c7dd14d0d6f244dedb9b0531767abab072f5ec9ce526",
+    "led/led_gpio.h": "c82082a19e91e9b81b1d0e881f7e6bc090e8b98250760cacd3e603e9663486e2",
+    "led/led_protocol.c": "b5cc858798b4d783e16403fe7183cbbed3884d880fe1ea10d668a79d353be709",
+    "led/led_protocol.h": "6732e325c6611ce7f4ee824f22f1361b7ad769b12bcc3c6f078a642655faa91e",
+    "led/led_service.c": "74f7745d47dcc5e865da115b7967ee8c8058074fbe97f5d4318ebfee4b7e742b",
+    "led/led_service.h": "dac8baadcf58046dbc96286e0c2261c9f0dca4e9a40d3aa85ae72ff59683cd27",
+    "led/led_service_test.h": "8772b5b45a62244c52dbbcf21851e8886440e0805401d24edee74d2b35af810a",
+    "led/led_sysfs.c": "7a20af1be127c12cb9cb221c48407ff2a31ba8950f148a9a8ac2b8a52671b72f",
+    "led/led_sysfs.h": "e66a06334f5e58663986864e2a056bddaa6f92fb28f271e8eafa6aa22446aa3b",
+    "led/led_test.h": "aff4a1a27a338d2ea830eb40d35910394b30e087add8888d3f89f90d517be3ed",
+    "models/compatibility.json": "5e5c4cc69456f7f5e4de8a760fd3023f9bbd86a5b0a940718967d3d0751e74e1",
+    "models/dx4600.c": "47eeb6bf0b218fe09680d75d38fcbfa463cd638de118db6ee3379fd92fdbb021",
+    "models/dxp4800.c": "ba0680629d3305bec955b81f47e5fffa826c2ecb680cb979179ae85408e16ad4",
+    "models/dxp4800plus.c": "eff2f126026b7f829b6c8fefccdd1eeb144ad4be3bfc75ab98d600c69929b6fd",
+    "models/dxp4800s.c": "ff11cbb2a1d9cbf0138f50a4f5083df146852e7d77dd354764bb800be6138285",
+    "models/dxp480tplus.c": "0b38b337aa0b8ed3789164b56e9ad9a404677b68ac2ca6914ebad4a0b8335c01",
+    "models/dxp6800plus.c": "fb18f35190e0e87509d2638cba31706e3452727c9e523d5cae3e7d9d7147ef77",
+    "models/dxp6800pro.c": "e7cd4fb68e3512580b674ec2890f50b922456ab941c7b5c4f25efc116c2bb48a",
+    "models/led_profiles.c": "02dcb86901dac47a83a87b2a70c0f3c4e53d5baa3fcc8d4af1110f570dd63768",
+    "models/official-products.json": "409dbd65d155321f40aa3100bcbb490614ddb148443411b2b3a56b72642581b6",
+    "models/unsupported_model.c": "bb704a4da12e5b732e78f41fd2af5d5c3af228bf879b8ee0d42a22bd9aff3dd1",
+    "network/wol.c": "5bbaa9ec9cc1311868480e111e50a6e486e3691f985a63ccfecc021ec4cdbf48",
+    "network/wol.h": "177086414f688a505d73233a3824f853f0f69b806854ae5e95e1d46b3afea117",
+    "network/wol_dx4600.c": "f7b0861f2adc212bd45665ccf6c3cdd642d91b16e5042c5ab0557f77b839725b",
+    "network/wol_dx4600.h": "fd37804b616f5aa9a50fd0af922f623f732fc0032a7d24862120df780af2de12",
+    "network/wol_dxp4800.c": "f7bc7de16b2d220278a53bb1751c862a194d108ab59c1ce24bedb92ee8a9b932",
+    "network/wol_dxp4800.h": "6bb22b5f1a56ce0d3046386e63c06a6e1a4e81b4149503452d425bf2a15ef35a",
+    "network/wol_dxp4800plus.c": "843869c03e5d1330a75e19bbb671ac844ea7e01fae3e87acc6ab9172ce872cad",
+    "network/wol_dxp4800plus.h": "fcccb4ba7dc9e8df6bfc6d506ab759d605e35c174b1818a61eb2ad15442860f5",
+    "network/wol_dxp4800s.c": "223048c23774bc4346804b0777d3a0d7158c3319ac711631e3af34c6267661ce",
+    "network/wol_dxp4800s.h": "4e30c1dfe82a7c57d0a6be0cead31ad610e63f515562ab52da206c9f6ee28587",
+    "network/wol_dxp480tplus.c": "e5722a63046a2fa28961532d730a6b075455a4b05fa94f24d32a56eccb51ac2e",
+    "network/wol_dxp480tplus.h": "750be485ee647223df9e6792fd7d76d6600a2c7164a8d322a986bce3c9f0997a",
+    "network/wol_dxp6800pro.c": "2ad82d5840ce24895e9276d178f86e8cc135f5f4774b337bbc7dcdf37792cf18",
+    "network/wol_dxp6800pro.h": "310c42dc18ad72f6b685cd9d7c7d9942276eb78fc229c9a1d29e399e7313b273",
+    "power/it8613_power.c": "c4d84371d63970956902c1abd61b3eb11738a4422622832d5c1c8ac29e5cb9cb",
+    "power/it8613_power.h": "2d98734ee0060851107a4b02cdd258af93a4985781ce93b39936ae84801bd7bc",
+    "power/rtc_wake.c": "8a696600c9a21d34fa1a09d99d0105a021733193663fd3cff0062beaa745011f",
+    "power/rtc_wake.h": "ab20ca690be94f8ff57147f8eb287ff98e7127755298dbcdfd8257239524cecd",
+    "scripts/collect-disk-evidence.sh": "c70d789a5ba534d7827e4a4799ac810e10c53f5da2e0a195b46062aeda21ef00",
+    "scripts/collect-led-evidence.sh": "47e5dea28101c27110171c80b2e82b1fad249cbd23da40fee928d79893c9954c",
+    "scripts/install.sh": "c61b6e105475552f78a58b462a41855e7289319d0ee659e59ea5aa50f5efbfe7",
+    "scripts/package-almighty.py": "c6efd2d56e0a7524931f19c2fa0e5106fadf82375216bb7e28b905fce4d10bd7",
+    "scripts/run.sh": "cac5418149d5f51944cc5eb9e6e2ca23936a7585552bace20231d1969fd4ca68",
+    "scripts/ugreenctl-ledd-gt.service": "2edd47c6581e70edad2fbb807cd17ed306074b59135f290c7c39cfa7f100dfe5",
+    "scripts/ugreenctl-ledd.service": "b4158aeaeea04c9bef36202f0cbeea5462527b8dd04f6e6a053b4c61d495ed24",
+    "scripts/ugreenctl-startup.py": "0ea14449ad98c6ba2c7a50c727a24c75fdf0db2f219cde1026dd8fd2253ce7b4",
+    "scripts/ugreenctl-startup.service": "64352f5ff4eb1182b29c99040e620a5e8c3cf239332a88620c94ebdbee1dc8c7",
+    "superio/it86x.c": "1ba98fe8d572e9ad9fc967f0b6ed455664365bf4c3784e9f37a8506fa2d09273",
+    "superio/it86x.h": "ef943ce952062a259d8b7d4f7da7bb1fa2f83c6c2dfa1bfb7271274f0531606b",
+    "superio/it86x_unavailable.c": "6e13008410b530b4222a8586f03f97f79b43a87b6bff091217f23f2b28d0ed37",
+    "tests/test_disk_mapping.c": "f15ba66b26843c3ca2ec7cf9a28f81d523731e9222ac8d495e82b494ca6a8c2d",
+    "tests/test_dx4600_plugin.c": "15f098e035fb2766ac2ba4cb6284b2f64307420c367a557ef937b942a81f1a61",
+    "tests/test_hardware_cli.c": "eb379b10daf77608f7d8d8276325da8a223486efc28ba90744eec6b729957e5e",
+    "tests/test_identity.c": "8063acf0bc26ba6daac3f813053e08f967413e822a93ba611c61b5746f4dc500",
+    "tests/test_it8613_direct.c": "ea303d248d9ed9f517b41979abff8392e98b613850c09fb5f361b112459c5c27",
+    "tests/test_it8613_dx4600.c": "5958276bdcb707cedde65d9593301b485a2e2f5537553520fe7f89bebbfcfc78",
+    "tests/test_it8613_dxp4800.c": "70093800be14bee6551039afdcd376572937f203ea84b159d5a874c1ab990889",
+    "tests/test_it8613_dxp4800s.c": "bd6445a6f971bcd8bcf2ac1ef6f2e10fa9e934f5330b99931798273597db09d4",
+    "tests/test_it8613_dxp480t.c": "ef73e878ba807de5974141e99b6a37980f034ef988015fcfc96d01bbadab0d71",
+    "tests/test_it8613_dxp6800plus.c": "6e360819d45165e309db1299126e00b92f914e6baf606ada14db208767675eff",
+    "tests/test_it8613_dxp6800pro.c": "a2f121c03ec952492eb33fa10f8c6913796c7eed2d33d97410a34e9597775aa9",
+    "tests/test_it8613_hwmon.c": "045fccecfbb723d1ea5f0cbc2be0f0314f2ebd38a155e57f6a4326b131172296",
+    "tests/test_it8613_power.c": "9c16f6fa0a5542e1a13273ff29476ba7be1bbf00bb8e9934156598e40dd7b4f7",
+    "tests/test_led.c": "7c686fa954ea7886172e16266e313b154a7f794eccdd0ff0ec067b9194f3d454",
+    "tests/test_led_cs201x.c": "4187470b0b1c0ca89264b75163c077b34656748754f6e6ca077dd9c5bc815d2c",
+    "tests/test_led_gpio.c": "20b509a023e1b38d000941448ca18d26850ae8accacbde501aaacbc2bf509c54",
+    "tests/test_led_service.c": "d7160ede856c0e0277c73c4c0cc7e405fae6bea38fdd89d9afba2843dc710b53",
+    "tests/test_package_almighty.py": "43bab941c5e2b6e4cca0a50891459bf2d63185e2da78dda27025513546790999",
+    "tests/test_package_runtime.py": "d2a297ce8a7eb5d8f6e9343b9aa7d82472ce6fff19330ab0878c9904dfc6e067",
+    "tests/test_rtc_wake.c": "e576213b00708885d99bcd84720ec8828c075a34b473586a153cd6a7704fdd9f",
+    "tests/test_startup_state.py": "582369d237734b9bec2e56185d4d4e490d166ac72a162d32fe061c78d305ba9b",
+    "tests/test_thermal_curve.c": "6707fbfa2ac515dc1ea2736e94e56f83ca91b65a8f5d1cc55b8779d0b4ef1742",
+    "tests/test_wol_dxp4800.c": "779ac458529efa9bf6def20c97ac830dc8dcbaf80bd75b6f384b91c1c819a2aa",
+    "tools/testing/external-runtime.example.json": "3d010b6de0a15260bc07a7ab0cccaa0f65b4dfa0b2059401c8161224e2d9b103",
+    "tools/testing/run_linux.py": "490a8f3366adca5a149db44ac7a472117bdedd0e75236474cbafe679b12aaeea",
+    "tools/toolchains/zig-linux.cmake": "2742ee4d5a4f7ff838cbbe1d2aee9620f0ef5dcfe9e7debccc43909c811540d9",
+    "tools/toolchains/zigar.cmd": "7f6d3c9a3d855fe5884b3094d384a3349404722c8891cdc1b6f006d9fdeb24b1",
+    "tools/toolchains/zigcc-linux-aarch64.cmd": "7a81006458182ab2f23b3ab688c2deec48393cb96aa3fe0cd5b99df5fe886dee",
+    "tools/toolchains/zigcc-linux-x86_64.cmd": "ea441062b2ad3cfabe6de58940b9c5a64843e4e853b80a1c06629962d2b100f8",
+    "tools/toolchains/zigranlib.cmd": "527cc7b2ddc9aab899b2e026ae3ccb4d515eb66b3f240daa7ea883ebeceb7a30"
+  },
+  "status": "experimental-incomplete",
+  "verification_complete": false,
+  "verification_sha256": "17f4f1f749dfc62f3cdc17e272e955fee13bd9ea89673e7fc67986cd160f4cd8",
+  "version": "0.2.0"
+}

@@ -101,8 +101,6 @@ class PreviewState:
         self.settings = parse_ini(DEFAULT_SETTINGS.read_text(encoding="utf-8"))
         self.daemon = "running"
         self.remap_count = 0
-        self.lab_active = False
-        self.lab_highlight = ""
         self.driver_loaded = False
         self.bios_cpu_pwm = 118
         self.bios_sys_pwm = 96
@@ -345,84 +343,9 @@ class PreviewState:
             return self.identity_led_map
         return self.auto_led_map
 
-    def lab_payload(self, message: str = "") -> dict:
-        with self.lock:
-            profile = self.selected_profile()
-            profile_name, _, disk_count, _, _ = self.profile_meta()
-            slots = self.lab_slots[:disk_count]
-            disks = self.lab_disks[:disk_count]
-            payload = {
-                "ok": True,
-                "active": self.lab_active,
-                "mode": self.settings.setdefault("behavior", OrderedDict()).get("disk_map_mode", "auto"),
-                "product_name": f"{profile_name}（预览）",
-                "profile": profile,
-                "session_ttl": 1200,
-                "slots": [{"led": slot, "position": index} for index, slot in enumerate(slots, 1)],
-                "disks": [
-                    dict(
-                        disk,
-                        position=index,
-                        led=self.active_led_map().get(disk["device"], ""),
-                        position_led=self.position_led_map.get(disk["device"], ""),
-                        identity_led=self.identity_led_map.get(disk["device"], ""),
-                        position_supported=bool(disk["hctl"]),
-                        identity_supported=bool(disk["serial"]),
-                    )
-                    for index, disk in enumerate(disks, 1)
-                ],
-            }
-        if message:
-            payload["message"] = message
-        return payload
-
-    def save_identity_mapping(self, body: str) -> None:
-        mapping: dict[str, str] = {}
-        used_leds: set[str] = set()
-        serial_devices = {disk["serial"]: disk["device"] for disk in self.lab_disks}
-        for source_line in body.splitlines():
-            line = source_line.strip()
-            if not line:
-                continue
-            led, device, serial = line.split("|", 2)
-            if led not in self.lab_slots or serial_devices.get(serial) != device or device in mapping or led in used_leds:
-                raise ValueError("映射数据无效")
-            mapping[device] = led
-            used_leds.add(led)
-        if not mapping:
-            raise ValueError("请至少绑定一块硬盘")
-        with self.lock:
-            self.identity_led_map = mapping
-            self.settings.setdefault("behavior", OrderedDict())["disk_map_mode"] = "disk"
-            self.lab_active = False
-            self.lab_highlight = ""
-
-    def save_position_mapping(self, body: str) -> None:
-        mapping: dict[str, str] = {}
-        used_leds: set[str] = set()
-        hctl_devices = {disk["hctl"]: disk["device"] for disk in self.lab_disks}
-        for source_line in body.splitlines():
-            line = source_line.strip()
-            if not line:
-                continue
-            led, device, hctl = line.split("|", 2)
-            if led not in self.lab_slots or hctl_devices.get(hctl) != device or device in mapping or led in used_leds:
-                raise ValueError("位置映射数据无效")
-            mapping[device] = led
-            used_leds.add(led)
-        if not mapping:
-            raise ValueError("请至少绑定一个硬盘位置")
-        with self.lock:
-            self.position_led_map = mapping
-            self.settings.setdefault("behavior", OrderedDict())["disk_map_mode"] = "position"
-            self.lab_active = False
-            self.lab_highlight = ""
-
-    def reset_lab_mapping(self) -> None:
+    def reset_mapping(self) -> None:
         with self.lock:
             self.settings.setdefault("behavior", OrderedDict())["disk_map_mode"] = "auto"
-            self.lab_active = False
-            self.lab_highlight = ""
 
 
 STATE = PreviewState()
@@ -682,7 +605,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 "net_tx_kbps": tx,
                 "net_total_kbps": rx + tx,
                 "updated_at": int(now),
-                "lab_mapping_active": STATE.lab_active,
+                "lab_mapping_active": False,
                 "led_status": power26_status if power_only else "power: on  RGB(100,100,100)  brightness=40\nnetdev: blink  RGB(160,0,255)  brightness=64\ndisk1: on  RGB(0,255,0)  brightness=128\ndisk2: on  RGB(255,255,0)  brightness=64\ndisk3: standby  RGB(0,100,255)  brightness=40",
             })
             return
@@ -1013,7 +936,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
             if STATE.selected_profile() != "dxp480t_plus":
                 self.send_json({"ok": False, "error": "current model does not use the power-0x26 backend"})
                 return
-            if color not in {"red", "white"} or effect not in {"steady", "fast", "slow", "breath", "network", "off"} or not 1 <= threshold <= 1048576:
+            if color not in {"preserve"} or effect not in {"steady", "fast", "slow", "network", "off"} or not 1 <= threshold <= 1048576:
                 self.send_json({"ok": False, "error": "invalid power light parameters"})
                 return
             with STATE.lock:
@@ -1072,9 +995,6 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 "content": README.read_text(encoding="utf-8"),
             })
             return
-        if path == "/lab/mapping/status":
-            self.send_json(STATE.lab_payload())
-            return
         if path == "/driver/install":
             if not self.require_post(method):
                 return
@@ -1097,68 +1017,6 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 STATE.settings.setdefault("hardware", OrderedDict())["backend"] = "cli"
             self.send_json({"ok": True, "message": "内核驱动已卸载，已切换到 CLI 后端"})
             return
-        if path == "/lab/mapping/start":
-            if not self.require_post(method):
-                return
-            with STATE.lock:
-                STATE.lab_active = True
-                STATE.lab_highlight = ""
-            self.send_json(STATE.lab_payload("检测模式已启动，全部硬盘灯已点亮"))
-            return
-        if path == "/lab/mapping/highlight":
-            if not self.require_post(method):
-                return
-            led = (query.get("led") or [""])[0]
-            if not STATE.lab_active:
-                self.send_json({"ok": False, "error": "检测会话已结束，请重新开始"})
-                return
-            if led not in STATE.lab_slots:
-                self.send_json({"ok": False, "error": "无法点亮指定盘位"})
-                return
-            with STATE.lock:
-                STATE.lab_highlight = led
-            self.send_json(STATE.lab_payload(f"{led} 正在闪烁"))
-            return
-        if path == "/lab/mapping/save":
-            if not self.require_post(method):
-                return
-            if not STATE.lab_active:
-                self.send_json({"ok": False, "error": "检测会话已结束，请重新开始"})
-                return
-            try:
-                STATE.save_identity_mapping(body)
-            except (ValueError, TypeError) as error:
-                self.send_json({"ok": False, "error": str(error)})
-                return
-            self.send_json(STATE.lab_payload("按硬盘绑定已保存"))
-            return
-        if path == "/lab/position/save":
-            if not self.require_post(method):
-                return
-            if not STATE.lab_active:
-                self.send_json({"ok": False, "error": "检测会话已结束，请重新开始"})
-                return
-            try:
-                STATE.save_position_mapping(body)
-            except (ValueError, TypeError) as error:
-                self.send_json({"ok": False, "error": str(error)})
-                return
-            self.send_json(STATE.lab_payload("灯光与硬盘位置绑定已保存"))
-            return
-        if path == "/lab/mapping/cancel":
-            if not self.require_post(method):
-                return
-            with STATE.lock:
-                STATE.lab_active = False
-                STATE.lab_highlight = ""
-            self.send_json(STATE.lab_payload("已退出检测模式，原映射保持不变"))
-            return
-        if path == "/lab/mapping/reset":
-            if not self.require_post(method):
-                return
-            STATE.reset_lab_mapping()
-            self.send_json(STATE.lab_payload("已恢复自动 HCTL 映射"))
-            return
         if path == "/mode":
             if not self.require_post(method):
                 return
@@ -1173,7 +1031,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
             if not self.require_post(method):
                 return
             STATE.remap_count += 1
-            STATE.reset_lab_mapping()
+            STATE.reset_mapping()
             disk_count = STATE.profile_meta()[2]
             self.send_json({"ok": True, "message": f"已重新检测 {disk_count} 块硬盘", "disk_count": disk_count})
             return

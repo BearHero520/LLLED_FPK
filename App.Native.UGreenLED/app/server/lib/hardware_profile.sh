@@ -1,7 +1,7 @@
 #!/bin/bash
 # 绿联机型档案：将 DMI 型号转换为控制协议、LED 布局与 HCTL 规则。
 
-UGREEN_CLI_RELEASE="v0.4-beta"
+UGREEN_CLI_RELEASE="almighty-preview-20261026-923fdaa"
 
 hardware_detected_product_name() {
     local product="${UGREEN_PRODUCT_NAME:-}" file
@@ -69,7 +69,12 @@ hardware_profile_display_name() {
         dxp4800_pro) echo "UGREEN DXP4800 Pro" ;;
         dxp4800s) echo "UGREEN DXP4800S" ;;
         dxp4800_gt) echo "UGREEN DXP4800 GT" ;;
-        dxp6800) echo "UGREEN DXP6800 Pro" ;;
+        dxp6800)
+            case "$(hardware_detected_product_name)" in
+                "DXP6800 Plus") echo "UGREEN DXP6800 Plus" ;;
+                *) echo "UGREEN DXP6800 Pro" ;;
+            esac
+            ;;
         dxp8800) echo "UGREEN DXP8800 Plus" ;;
         dxp480t_plus) echo "UGREEN DXP480T / DXP480T Plus" ;;
         idx6011) echo "UGREEN iDX6011" ;;
@@ -81,7 +86,7 @@ hardware_profile_display_name() {
 
 hardware_support_level() {
     case "${1:-$(hardware_profile_key)}" in
-        dx4600|dx4700|dxp2800|dxp4800|dxp4800_plus|dxp6800|dxp8800) echo "stable" ;;
+        dx4600|dx4700|dxp2800|dxp4800|dxp4800_plus|dxp6800|dxp8800) echo "experimental" ;;
         dxp4800s|dxp4800_gt|idx6011|idx6011_pro|idx6012) echo "experimental" ;;
         dxp2800_gt|dxp4800_pro) echo "unverified" ;;
         dxp480t_plus) echo "limited" ;;
@@ -90,17 +95,7 @@ hardware_support_level() {
 }
 
 hardware_write_protocol() {
-    local override="auto"
-    if declare -F settings_get >/dev/null && [[ -n "${SETTINGS_FILE:-}" ]]; then
-        override=$(settings_get "$SETTINGS_FILE" hardware write_protocol "auto")
-    fi
-    case "$override" in
-        legacy|smbus-block) echo "$override"; return ;;
-    esac
-    case "${1:-$(hardware_profile_key)}" in
-        dxp4800_gt|idx6011|idx6011_pro|idx6012) echo "smbus-block" ;;
-        *) echo "legacy" ;;
-    esac
+    echo "upstream-managed"
 }
 
 hardware_disk_count() {
@@ -137,21 +132,9 @@ hardware_hctl_profile() {
     esac
 }
 
-# v0.4-beta CLI 使用旧的 power/netdev/disk1... 编号。iDX6011 Pro 的第二个
-# 网络灯占用原始 LED 2，因此六个物理硬盘灯需要整体后移一位。
+# Almighty owns exact-model LED channel mappings, including netdev2.
 hardware_cli_led_name() {
-    local logical="$1" profile="${2:-$(hardware_profile_key)}" index
-    if [[ "$profile" == "idx6011_pro" ]]; then
-        case "$logical" in
-            netdev2) echo "disk1"; return ;;
-            disk[1-6])
-                index="${logical#disk}"
-                printf 'disk%s\n' "$((index + 1))"
-                return
-                ;;
-        esac
-    fi
-    echo "$logical"
+    printf '%s\n' "$1"
 }
 
 hardware_network_leds() {

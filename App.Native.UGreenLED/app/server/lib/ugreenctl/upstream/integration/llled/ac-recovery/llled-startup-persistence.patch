@@ -1,0 +1,308 @@
+diff --git a/App.Native.UGreenLED/app/server/lib/bios_control.sh b/App.Native.UGreenLED/app/server/lib/bios_control.sh
+--- a/App.Native.UGreenLED/app/server/lib/bios_control.sh
++++ b/App.Native.UGreenLED/app/server/lib/bios_control.sh
+@@ -957,15 +957,16 @@
+ # Save only an explicitly selected policy after a successful guarded write.
+ bios_set_startup_saved() {
+     local policy="$1" product
+-    if [[ "$(bios_detected_profile)" != "dx4600" ]]; then
+-        bios_set_startup "$policy"
+-        return $?
+-    fi
++    BIOS_LAST_ERROR=""
++    bios_supported_model || { BIOS_LAST_ERROR="当前机型不支持来电启动策略"; return 1; }
+     if [[ -z "${SETTINGS_FILE:-}" ]] || ! declare -F settings_set >/dev/null; then
+         BIOS_LAST_ERROR="来电启动配置服务不可用"
+         return 1
+     fi
+-    product=$(hardware_detected_product_name) || return 1
++    if ! product=$(hardware_detected_product_name) || [[ -z "$product" ]]; then
++        BIOS_LAST_ERROR="无法读取精确机型，未写入来电启动策略"
++        return 1
++    fi
+     bios_set_startup "$policy" || return 1
+     if ! settings_set "$SETTINGS_FILE" bios startup_selection "${product}|${policy}"; then
+         BIOS_LAST_ERROR="来电启动已写入硬件，但保存失败；重启后无法自动恢复，请重新设置"
+@@ -977,16 +978,22 @@
+ bios_startup_restore() {
+     local selection product policy
+     BIOS_LAST_ERROR=""
+-    [[ "$(bios_detected_profile)" == "dx4600" ]] || return 0
++    bios_supported_model || return 0
+     [[ -n "${SETTINGS_FILE:-}" ]] && declare -F settings_get >/dev/null || {
+         BIOS_LAST_ERROR="来电启动配置服务不可用"; return 1;
+     }
+-    selection=$(settings_get "$SETTINGS_FILE" bios startup_selection "")
++    if ! selection=$(settings_get "$SETTINGS_FILE" bios startup_selection ""); then
++        BIOS_LAST_ERROR="读取保存的来电启动策略失败"
++        return 1
++    fi
+     [[ -n "$selection" ]] || return 0
+-    product=$(hardware_detected_product_name) || return 1
+-    # Bind the saved choice to exact DMI, including DX4600+/Pro distinctions.
+-    [[ "${selection%|*}" == "$product" ]] || return 0
+-    policy="${selection##*|}"
++    if ! product=$(hardware_detected_product_name) || [[ -z "$product" ]]; then
++        BIOS_LAST_ERROR="无法读取精确机型，未恢复来电启动策略"
++        return 1
++    fi
++    # Bind the saved choice to exact DMI, including variants sharing a plugin.
++    [[ "${selection%%|*}" == "$product" ]] || return 0
++    policy="${selection#*|}"
+     case "$policy" in
+         on|off|last) ;;
+         *) BIOS_LAST_ERROR="保存的来电启动策略无效"; return 1 ;;
+diff --git a/tests/test_startup_persistence.sh b/tests/test_startup_persistence.sh
+--- a/tests/test_startup_persistence.sh
++++ b/tests/test_startup_persistence.sh
+@@ -5,11 +5,13 @@
+ TMP=$(mktemp -d)
+ trap 'rm -rf "$TMP"' EXIT
+ fail() { echo "FAIL: $*" >&2; exit 1; }
++assert_no_calls() { [[ ! -s "$TEST_CALLS" ]] || fail "$*: unexpected hardware call"; }
++assert_saved() { [[ "$(settings_get "$SETTINGS_FILE" bios startup_selection)" == "$1" ]] || fail "selection not preserved: $1"; }
+ export SETTINGS_FILE="$TMP/settings.conf" UGREEN_PRODUCT_NAME=DX4600
+ export BIOS_UGREENCTL="$TMP/ugreenctl" BIOS_UGREENCTL_PLUGIN_DIR="$TMP/models"
+ export TEST_STATE="$TMP/hardware" TEST_CALLS="$TMP/calls" TEST_FAIL="$TMP/fail"
+ mkdir -p "$BIOS_UGREENCTL_PLUGIN_DIR"
+-for model in dx4600 dxp4800 dxp4800plus dxp4800s dxp480tplus dxp6800pro; do
++for model in dx4600 dxp4800 dxp4800plus dxp4800s dxp480tplus dxp6800pro dxp6800plus; do
+     touch "$BIOS_UGREENCTL_PLUGIN_DIR/$model.so"
+ done
+ cat > "$BIOS_UGREENCTL" <<'EOF'
+@@ -27,41 +29,171 @@
+ source "$LIB/hardware_profile.sh"
+ source "$LIB/bios_control.sh"
+ 
+-# A fresh install must not change the firmware's policy.
+-bios_startup_restore
+-[[ ! -e "$TEST_CALLS" ]] || fail 'unconfigured restore wrote hardware'
+-for policy in on off last; do
+-    echo unknown > "$TEST_STATE"
+-    bios_read_cli_startup || fail 'unknown policy made the interface unavailable'
+-    [[ "$BIOS_STARTUP_POLICY" == unknown ]] || fail 'unknown policy was replaced with a default'
+-    bios_set_startup_saved "$policy"
+-    [[ "$(settings_get "$SETTINGS_FILE" bios startup_selection)" == "DX4600|$policy" ]] || fail 'selection not saved'
+-    echo unknown > "$TEST_STATE"
+-    # Restart from a clean shell so in-memory variables cannot mask lost state.
+-    bash -c 'source "$1/settings.sh"; source "$1/hardware_profile.sh"; source "$1/bios_control.sh"; bios_startup_restore' _ "$LIB"
+-    expected="$policy"; [[ "$policy" != last ]] || expected=restore
+-    [[ "$(cat "$TEST_STATE")" == "$expected" ]] || fail "lost $policy after restart"
++# Every exact startup DMI accepted by the adapter must save and replay all
++# explicit choices. Plugin-sharing variants still receive distinct bindings.
++products=('DX4600' 'DX4600+' 'DX4600 Pro' 'DXP4800'
++    'DXP4800 Plus' 'UGREEN DXP4800 Plus' 'DXP4800 Pro' 'UGREEN DXP4800 Pro'
++    'DXP4800S' 'DXP480T Plus' 'UGREEN DXP480T Plus' 'DXP6800 Plus' 'DXP6800 Pro')
++for UGREEN_PRODUCT_NAME in "${products[@]}"; do
++    bios_supported_model || fail "supported exact DMI rejected: $UGREEN_PRODUCT_NAME"
++    settings_set "$SETTINGS_FILE" bios startup_selection ''
++    : > "$TEST_CALLS"
++    bios_startup_restore
++    assert_no_calls "unconfigured $UGREEN_PRODUCT_NAME restore"
++    for policy in on off last; do
++        echo unknown > "$TEST_STATE"
++        bios_read_cli_startup || fail 'unknown policy made the interface unavailable'
++        [[ "$BIOS_STARTUP_POLICY" == unknown ]] || fail 'unknown policy was replaced with a default'
++        : > "$TEST_CALLS"
++        bios_set_startup_saved "$policy"
++        assert_saved "$UGREEN_PRODUCT_NAME|$policy"
++        expected="$policy"; [[ "$policy" != last ]] || expected=restore
++        [[ "$(cat "$TEST_STATE")" == "$expected" ]] || fail "write lost $policy on $UGREEN_PRODUCT_NAME"
++        case "$UGREEN_PRODUCT_NAME" in
++            *DXP480T*) guard='--apply' ;;
++            *) guard='--force --apply' ;;
++        esac
++        grep -Fq -- "$guard power startup set $expected" "$TEST_CALLS" || fail 'missing guarded upstream write'
++        echo unknown > "$TEST_STATE"
++        : > "$TEST_CALLS"
++        # A clean shell proves the value comes from persistent configuration.
++        bash -c 'source "$1/settings.sh"; source "$1/hardware_profile.sh"; source "$1/bios_control.sh"; bios_startup_restore' _ "$LIB"
++        [[ "$(cat "$TEST_STATE")" == "$expected" ]] || fail "lost $policy after $UGREEN_PRODUCT_NAME restart"
++        [[ "$(wc -l < "$TEST_CALLS")" -eq 1 ]] || fail 'restore must make one guarded write'
++        assert_saved "$UGREEN_PRODUCT_NAME|$policy"
++    done
++    touch "$TEST_FAIL"
++    ! bios_set_startup_saved on || fail 'failed hardware write reported success'
++    assert_saved "$UGREEN_PRODUCT_NAME|last"
++    ! bios_startup_restore || fail 'failed restore reported success'
++    rm "$TEST_FAIL"
++    : > "$TEST_CALLS"
++    ! bios_set_startup_saved invalid || fail 'invalid choice accepted'
++    assert_saved "$UGREEN_PRODUCT_NAME|last"
++    assert_no_calls 'invalid choice'
++    for corrupt in "$UGREEN_PRODUCT_NAME|invalid" "$UGREEN_PRODUCT_NAME|on|last" "$UGREEN_PRODUCT_NAME"; do
++        settings_set "$SETTINGS_FILE" bios startup_selection "$corrupt"
++        ! bios_startup_restore || fail "corrupt choice accepted: $corrupt"
++        assert_no_calls 'corrupt choice'
++    done
+ done
+-grep -q -- '--force --apply power startup set on' "$TEST_CALLS" || fail 'missing guarded upstream write'
+ 
++# Exact identity is required even for aliases and variants sharing a plugin.
++for saved_product in "${products[@]}"; do
++    settings_set "$SETTINGS_FILE" bios startup_selection "$saved_product|on"
++    for UGREEN_PRODUCT_NAME in "${products[@]}"; do
++        [[ "$saved_product" != "$UGREEN_PRODUCT_NAME" ]] || continue
++        : > "$TEST_CALLS"
++        bios_startup_restore
++        assert_no_calls "$saved_product selection on $UGREEN_PRODUCT_NAME"
++    done
++done
++for UGREEN_PRODUCT_NAME in 'DX4600 Engineering' 'UGREEN DX4600' 'UGREEN DXP4800' 'UGREEN DXP4800S' 'DXP4800S Engineering' 'UGREEN DXP6800 Plus' 'UGREEN DXP6800 Pro' 'DXP8800 Plus'; do
++    : > "$TEST_CALLS"
++    bios_startup_restore
++    ! bios_set_startup_saved on || fail "unsupported product accepted: $UGREEN_PRODUCT_NAME"
++    assert_no_calls "unsupported $UGREEN_PRODUCT_NAME"
++done
++UGREEN_PRODUCT_NAME=DX4600
++settings_set "$SETTINGS_FILE" bios startup_selection 'DX4600|last'
++: > "$TEST_CALLS"
++(
++    settings_get() { printf 'DX4600|on\n'; return 1; }
++    ! bios_startup_restore || fail 'failed config read reported success'
++    [[ "$BIOS_LAST_ERROR" == *读取*失败* ]] || fail 'missing config read error'
++    assert_no_calls 'failed config read with partial data'
++)
++for identity_failure in error empty; do
++    (
++        # Emulate a DMI read failure after the initial supported-profile check.
++        bios_detected_profile() { echo dx4600; }
++        if [[ "$identity_failure" == error ]]; then
++            hardware_detected_product_name() { echo DX4600; return 1; }
++        else
++            hardware_detected_product_name() { :; }
++        fi
++        ! bios_set_startup_saved on || fail 'unreadable DMI accepted for save'
++        [[ "$BIOS_LAST_ERROR" == *精确机型* ]] || fail 'missing DMI save error'
++        ! bios_startup_restore || fail 'unreadable DMI accepted for restore'
++        [[ "$BIOS_LAST_ERROR" == *精确机型* ]] || fail 'missing DMI restore error'
++        assert_no_calls "DMI $identity_failure"
++    )
++done
++(
++    unset SETTINGS_FILE
++    ! bios_set_startup_saved on || fail 'missing config accepted for save'
++    ! bios_startup_restore || fail 'missing config accepted for restore'
++    assert_no_calls 'missing config service'
++)
++(
++    unset -f settings_set
++    ! bios_set_startup_saved on || fail 'missing config writer accepted'
++    assert_no_calls 'missing config writer'
++)
++(
++    unset -f settings_get
++    ! bios_startup_restore || fail 'missing config reader accepted'
++    assert_no_calls 'missing config reader'
++)
++# Hardware success followed by a persistence failure must be explicit, and the
++# previous selection must remain intact rather than claiming durable success.
++(
++    settings_set() { return 1; }
++    ! bios_set_startup_saved on || fail 'save failure reported success'
++    [[ "$BIOS_LAST_ERROR" == *保存失败* ]] || fail 'missing persistence error'
++    [[ "$(cat "$TEST_STATE")" == on ]] || fail 'save failure incorrectly hid hardware success'
++    assert_saved 'DX4600|last'
++)
++
++# Exercise the existing start/stop hooks through the real service entry point.
++# All other service effects, the LED backend and module loading are mocked.
++SERVICE_APP="$TMP/service-app"
++mkdir -p "$SERVICE_APP/server/lib" "$SERVICE_APP/server/bin" "$TMP/service-var" "$TMP/service-run" "$TMP/mock-bin"
++cp "$LIB/settings.sh" "$LIB/hardware_profile.sh" "$LIB/bios_control.sh" "$SERVICE_APP/server/lib/"
++cat > "$SERVICE_APP/server/lib/logging.sh" <<'EOF'
++ugreen_log_debug() { :; }
++ugreen_log_info() { :; }
++ugreen_log_warn() { printf '%s\n' "$*" >> "$TEST_SERVICE_WARNINGS"; }
++ugreen_log_error() { :; }
++ugreen_log_configure_from_settings() { :; }
++ugreen_log_run_raw() { shift 4; "$@" >/dev/null 2>&1; }
++EOF
++cat > "$SERVICE_APP/server/lib/app_paths.sh" <<'EOF'
++ugreen_resolve_runtime() { RUNTIME_DIR="$UGREEN_RUNTIME_DIR"; mkdir -p "$RUNTIME_DIR"; }
++EOF
++printf ':\n' > "$SERVICE_APP/server/lib/driver_manager.sh"
++cat > "$SERVICE_APP/server/lib/led_api.sh" <<'EOF'
++led_backend_configured() { echo cli; }
++ensure_led_backend() { :; }
++EOF
++for daemon in led_daemon.sh fan_telemetry_daemon.sh http_api.sh; do
++    printf '#!/bin/bash\nexit 0\n' > "$SERVICE_APP/server/$daemon"
++done
++printf '#!/bin/bash\nexit 0\n' > "$TMP/mock-bin/modprobe"
++chmod +x "$TMP/mock-bin/modprobe"
++export TRIM_APPDEST="$SERVICE_APP" TRIM_PKGVAR="$TMP/service-var" UGREEN_RUNTIME_DIR="$TMP/service-run" TEST_SERVICE_WARNINGS="$TMP/service-warnings"
++export PATH="$TMP/mock-bin:$PATH"
++SETTINGS_FILE="$TRIM_PKGVAR/settings.conf"
++for UGREEN_PRODUCT_NAME in "${products[@]}"; do
++    settings_set "$SETTINGS_FILE" bios startup_selection ''
++    : > "$TEST_CALLS"
++    bash "$ROOT/App.Native.UGreenLED/cmd/main" start
++    bash "$ROOT/App.Native.UGreenLED/cmd/main" stop
++    assert_no_calls "unconfigured service $UGREEN_PRODUCT_NAME"
++    settings_set "$SETTINGS_FILE" bios startup_selection "$UGREEN_PRODUCT_NAME|last"
++    for action in start stop; do
++        echo unknown > "$TEST_STATE"
++        : > "$TEST_CALLS"
++        bash "$ROOT/App.Native.UGreenLED/cmd/main" "$action"
++        [[ "$(cat "$TEST_STATE")" == restore ]] || fail "service $action lost policy on $UGREEN_PRODUCT_NAME"
++        [[ "$(wc -l < "$TEST_CALLS")" -eq 1 ]] || fail "service $action must restore exactly once"
++    done
++done
+ touch "$TEST_FAIL"
+-! bios_set_startup_saved on || fail 'failed hardware write reported success'
+-[[ "$(settings_get "$SETTINGS_FILE" bios startup_selection)" == 'DX4600|last' ]] || fail 'failed write replaced saved policy'
+-! bios_startup_restore || fail 'failed restore reported success'
+-rm "$TEST_FAIL"
+-! bios_set_startup_saved invalid || fail 'invalid choice accepted'
+-
+-: > "$TEST_CALLS"
+-UGREEN_PRODUCT_NAME='DX4600 Pro' bios_startup_restore
+-UGREEN_PRODUCT_NAME='DX4600 Engineering' bios_startup_restore
+-UGREEN_PRODUCT_NAME='DXP4800' bios_startup_restore
+-[[ ! -s "$TEST_CALLS" ]] || fail 'selection replayed on another model'
+-settings_set "$SETTINGS_FILE" bios startup_selection 'DX4600|invalid'
+-! bios_startup_restore || fail 'corrupt policy accepted'
+-[[ ! -s "$TEST_CALLS" ]] || fail 'corrupt policy reached hardware'
+-
+-# Configuration failure must not be presented as a persistent success.
+-settings_set() { return 1; }
+-! bios_set_startup_saved on || fail 'save failure reported success'
+-[[ "$BIOS_LAST_ERROR" == *保存失败* ]] || fail 'missing persistence error'
+-echo 'Startup persistence tests passed'
++for action in start stop; do
++    : > "$TEST_SERVICE_WARNINGS"
++    bash "$ROOT/App.Native.UGreenLED/cmd/main" "$action"
++    grep -Fq 'bios.startup_restore_failed' "$TEST_SERVICE_WARNINGS" || fail "service $action hid restore failure"
++    assert_saved "$UGREEN_PRODUCT_NAME|last"
++done
++echo 'Startup persistence tests passed (13 exact products, all policies, cross-model rejection, failures, service start/stop)'
+diff --git a/tests/test_bios_api.sh b/tests/test_bios_api.sh
+--- a/tests/test_bios_api.sh
++++ b/tests/test_bios_api.sh
+@@ -17,6 +17,7 @@
+ : > "$PLUGINS/dxp4800s.so"
+ : > "$PLUGINS/dxp480tplus.so"
+ : > "$PLUGINS/dxp6800pro.so"
++: > "$PLUGINS/dxp6800plus.so"
+ cat > "$BIN" <<'EOF'
+ #!/bin/sh
+ printf 'CALL' >> "$UGREENCTL_CALLS"
+@@ -245,4 +246,17 @@
+ assert_contains "$json" '"ok":true'
+ grep -Fq ' <--force> <--apply> <power> <startup> <set> <restore>' "$CALLS" || fail "DXP4800 Pro startup write did not use --force --apply"
+ 
++# All currently supported exact products use the same persistent API contract.
++for UGREEN_PRODUCT_NAME in 'DX4600' 'DX4600+' 'DX4600 Pro' 'DXP4800' \
++    'DXP4800 Plus' 'UGREEN DXP4800 Plus' 'DXP4800 Pro' 'UGREEN DXP4800 Pro' \
++    'DXP4800S' 'DXP480T Plus' 'UGREEN DXP480T Plus' 'DXP6800 Plus' 'DXP6800 Pro'; do
++    : > "$CALLS"
++    json=$(request /bios/startup 'policy=off&confirm=firmware-reversed' POST)
++    assert_json "$json"
++    assert_contains "$json" '"ok":true'
++    grep -Fxq "startup_selection=$UGREEN_PRODUCT_NAME|off" "$TRIM_PKGVAR/settings.conf" \
++        || fail "$UGREEN_PRODUCT_NAME startup choice was not persisted by API"
++    grep -Fq ' <power> <startup> <set> <off>' "$CALLS" || fail "$UGREEN_PRODUCT_NAME startup write missing"
++done
++
+ echo "BIOS API tests passed"

@@ -12,6 +12,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ secrets.HARDWARE_READ_TOKEN }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v5
@@ -32,6 +34,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m unittest discover -s tests -p test_almighty_import.py
+          python3 -m unittest discover -s tests -p test_preview_web.py
           for test_file in tests/test_*.sh; do
             echo "==> $test_file"
             bash "$test_file"
@@ -39,9 +43,6 @@ jobs:
 
       - name: Build bundled UGREEN-NAS-Hardware control CLI
         run: python3 scripts/build_ugreenctl.py
-
-      - name: Build patched bundled LED CLI
-        run: python3 scripts/build_ugreen_leds_cli.py
 
       - name: Resolve version
         id: version

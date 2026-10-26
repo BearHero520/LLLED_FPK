@@ -1,7 +1,6 @@
 #!/bin/bash
-# 硬盘 HCTL 映射：自动探测 + 实验室手动盘位绑定。
+# 硬盘 HCTL 自动映射及既有自定义映射兼容。
 
-LAB_MAPPING_SESSION_TTL="${LAB_MAPPING_SESSION_TTL:-1200}"
 
 disk_inventory_field() {
     local line="$1" key="$2"
@@ -373,62 +372,6 @@ disk_snapshot_devices() {
     while IFS='|' read -r dev hctl serial model size transport; do
         [[ -n "$dev" ]] && printf '%s|%s|%s|%s|%s|%s\n' "$dev" "$hctl" "$serial" "$model" "$size" "$transport"
     done < <(disk_inventory_rows | sort -t'|' -k2,2V -k1,1)
-}
-
-lab_mapping_lock_file() {
-    printf '%s' "${LAB_MAPPING_LOCK_FILE:-${RUNTIME_DIR:-/tmp}/lab_mapping.lock}"
-}
-
-lab_mapping_session_active() {
-    local lock now started
-    lock=$(lab_mapping_lock_file)
-    [[ -f "$lock" ]] || return 1
-    started=$(cat "$lock" 2>/dev/null || echo 0)
-    now=$(date +%s)
-    if [[ ! "$started" =~ ^[0-9]+$ ]] || (( now - started > LAB_MAPPING_SESSION_TTL )); then
-        rm -f "$lock"
-        return 1
-    fi
-    return 0
-}
-
-lab_mapping_session_touch() {
-    local lock
-    lock=$(lab_mapping_lock_file)
-    mkdir -p "$(dirname "$lock")" 2>/dev/null
-    date +%s > "${lock}.tmp.$$" && mv "${lock}.tmp.$$" "$lock"
-}
-
-lab_mapping_session_end() {
-    rm -f "$(lab_mapping_lock_file)"
-}
-
-lab_mapping_show_all() {
-    local slot failed=0
-    lab_mapping_session_touch || return 1
-    led_clear_cache 2>/dev/null
-    while IFS= read -r slot; do
-        led_set_color "$slot" 220 232 255 96 || failed=1
-    done < <(disk_available_slots)
-    return "$failed"
-}
-
-lab_mapping_highlight_slot() {
-    local selected="$1" slot valid=0 failed=0
-    while IFS= read -r slot; do
-        [[ "$slot" == "$selected" ]] && valid=1
-    done < <(disk_available_slots)
-    [[ $valid -eq 1 ]] || return 2
-    lab_mapping_session_touch || return 1
-    led_clear_cache 2>/dev/null
-    while IFS= read -r slot; do
-        if [[ "$slot" == "$selected" ]]; then
-            led_set_blink "$slot" 22 119 255 820 360 180 || led_set_color "$slot" 22 119 255 180 || failed=1
-        else
-            led_set_color "$slot" 70 82 105 12 || failed=1
-        fi
-    done < <(disk_available_slots)
-    return "$failed"
 }
 
 # 兼容旧名。

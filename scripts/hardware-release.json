@@ -1,0 +1,10 @@
+{
+  "repository": "BearHero520/UGREEN-NAS-Hardware-Almighty",
+  "tag": "almighty-preview-20261026-923fdaa",
+  "commit": "923fdaa26a72041f34cf211ae319377bfd52be53",
+  "archive": "ugreenctl-almighty-0.2.0-linux-x86_64-preview.tar.gz",
+  "archive_sha256": "b3f64db55e35099be3231472f472ec94e58c1adb2d4745b890470a1330e1b021",
+  "manifest": "ugreenctl-almighty-0.2.0-linux-x86_64-preview.manifest.json",
+  "manifest_sha256": "95b1bff446286f948ec1b27d98daf245f8b3975975f5f693f46848c106dcb0ed",
+  "checksums_sha256": "ef60bd966c23f691da744a0d39044cbfbd30b6636e13bed6a5789efccf0053f7"
+}

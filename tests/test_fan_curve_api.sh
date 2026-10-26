@@ -20,7 +20,7 @@ level=off
 [fan_curve]
 enabled=false
 EOF
-for model in dx4600 dxp4800 dxp4800plus dxp4800s dxp480tplus dxp6800pro; do : > "$PLUGINS/$model.so"; done
+for model in dx4600 dxp4800 dxp4800plus dxp4800s dxp480tplus dxp6800pro dxp6800plus; do : > "$PLUGINS/$model.so"; done
 cat > "$BIN" <<'EOF'
 #!/bin/sh
 printf 'CALL' >> "$UGREENCTL_CALLS"
@@ -101,6 +101,15 @@ json=$(request /bios/fan-curve 'action=start&mode=stock-6800pro&confirm=firmware
 assert_contains "$json" '"ok":false'
 assert_contains "$json" '必须与检测到的精确机型匹配'
 
+export UGREEN_PRODUCT_NAME="DXP6800 Plus"
+json=$(request /bios/fan-curve 'action=start&mode=stock-6800plus&confirm=firmware-reversed' POST)
+assert_contains "$json" '"ok":true'
+[[ "$(sed -n 's/^profile=//p' "$CONFIG")" == "stock-6800plus" ]] || fail "Plus compatibility profile was not persisted"
+json=$(request /bios/fan-curve 'action=stop' POST)
+assert_contains "$json" '"ok":true'
+json=$(request /bios/fan-curve 'action=start&mode=stock-6800pro&confirm=firmware-reversed' POST)
+assert_contains "$json" '"ok":false'
+assert_contains "$json" '必须与检测到的精确机型匹配'
 json=$(request /bios/fan-curve 'action=start&mode=custom&confirm=firmware-reversed&interval=10&downshift=60&minimum=40&cpu=42%2C50%2C70%2C78%2C90&hdd=30%2C40%2C46%2C52%2C55&ssd=50%2C55%2C60%2C65%2C70&pwm=65%2C125%2C200%2C235&require_storage=false' POST)
 assert_contains "$json" '"ok":true'
 [[ "$(sed -n 's/^cpu=//p' "$CONFIG")" == "42,50,70,78,90" ]] || fail "URL-encoded CPU curve was not decoded"

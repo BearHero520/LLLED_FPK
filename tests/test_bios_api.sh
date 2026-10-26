@@ -17,6 +17,7 @@ mkdir -p "$PLUGINS"
 : > "$PLUGINS/dxp4800s.so"
 : > "$PLUGINS/dxp480tplus.so"
 : > "$PLUGINS/dxp6800pro.so"
+: > "$PLUGINS/dxp6800plus.so"
 cat > "$BIN" <<'EOF'
 #!/bin/sh
 printf 'CALL' >> "$UGREENCTL_CALLS"
@@ -244,5 +245,18 @@ assert_contains "$json" '"write_confirmation_required":true'
 json=$(request /bios/startup 'policy=last&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":true'
 grep -Fq ' <--force> <--apply> <power> <startup> <set> <restore>' "$CALLS" || fail "DXP4800 Pro startup write did not use --force --apply"
+
+# All currently supported exact products use the same persistent API contract.
+for UGREEN_PRODUCT_NAME in 'DX4600' 'DX4600+' 'DX4600 Pro' 'DXP4800' \
+    'DXP4800 Plus' 'UGREEN DXP4800 Plus' 'DXP4800 Pro' 'UGREEN DXP4800 Pro' \
+    'DXP4800S' 'DXP480T Plus' 'UGREEN DXP480T Plus' 'DXP6800 Plus' 'DXP6800 Pro'; do
+    : > "$CALLS"
+    json=$(request /bios/startup 'policy=off&confirm=firmware-reversed' POST)
+    assert_json "$json"
+    assert_contains "$json" '"ok":true'
+    grep -Fxq "startup_selection=$UGREEN_PRODUCT_NAME|off" "$TRIM_PKGVAR/settings.conf" \
+        || fail "$UGREEN_PRODUCT_NAME startup choice was not persisted by API"
+    grep -Fq ' <power> <startup> <set> <off>' "$CALLS" || fail "$UGREEN_PRODUCT_NAME startup write missing"
+done
 
 echo "BIOS API tests passed"

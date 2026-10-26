@@ -407,72 +407,6 @@ about_readme_json() {
         "$reachable" "$cached" "$(json_str "$ABOUT_README_SOURCE_URL")" "$now" "$(json_str "$content")"
 }
 
-lab_mapping_resume_control() {
-    lab_mapping_session_end
-    led_clear_cache 2>/dev/null
-    rm -f "$DISK_STATUS_FILE"
-    if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-        kill -HUP "$(cat "$PID_FILE")" 2>/dev/null || true
-    else
-        bash "${SERVER_DIR}/led_daemon.sh" once >/dev/null 2>&1 || true
-    fi
-}
-
-lab_mapping_status_json() {
-    local message="${1:-}" active=false mode slot first dev hctl serial model size transport led
-    local position=0 position_supported identity_supported position_led identity_led product profile auto_led physical_position
-    declare -A position_led_map=() identity_led_map=()
-    lab_mapping_session_active && active=true
-    mode=$(disk_mapping_mode "$SETTINGS_FILE")
-    product=$(hardware_detected_product_name)
-    profile=$(hardware_profile_key)
-
-    DISK_LED_MAP=()
-    disk_load_position_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || true
-    for dev in "${!DISK_LED_MAP[@]}"; do position_led_map["$dev"]="${DISK_LED_MAP[$dev]}"; done
-    DISK_LED_MAP=()
-    disk_load_identity_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || true
-    for dev in "${!DISK_LED_MAP[@]}"; do identity_led_map["$dev"]="${DISK_LED_MAP[$dev]}"; done
-    disk_load_mapping_from_settings "$SETTINGS_FILE" 2>/dev/null || DISK_LED_MAP=()
-
-    printf '{"ok":true,"active":%s,"mode":"%s","product_name":"%s","profile":"%s","session_ttl":%s,"slots":[' \
-        "$active" "$(json_str "$mode")" "$(json_str "$product")" "$(json_str "$profile")" "$LAB_MAPPING_SESSION_TTL"
-    first=1
-    while IFS= read -r slot; do
-        [[ -n "$slot" ]] || continue
-        [[ $first -eq 0 ]] && printf ','
-        first=0
-        printf '{"led":"%s","position":%s}' "$(json_str "$slot")" "${slot#disk}"
-    done < <(disk_available_slots)
-    printf '],"disks":['
-    first=1
-    while IFS='|' read -r dev hctl serial model size transport; do
-        [[ -n "$dev" ]] || continue
-        position=$((position + 1))
-        auto_led=$(disk_guess_led_by_hctl "$hctl")
-        physical_position="$position"
-        [[ "$auto_led" =~ ^disk([1-9][0-9]*)$ ]] && physical_position="${BASH_REMATCH[1]}"
-        [[ $first -eq 0 ]] && printf ','
-        first=0
-        led="${DISK_LED_MAP[$dev]:-}"
-        position_led="${position_led_map[$dev]:-}"
-        identity_led="${identity_led_map[$dev]:-}"
-        position_supported=false
-        identity_supported=false
-        [[ "$hctl" =~ ^[0-9]+:[0-9]+:[0-9]+:[0-9]+$ ]] && position_supported=true
-        [[ -n "$serial" ]] && identity_supported=true
-        printf '{"position":%s,"device":"%s","hctl":"%s","serial":"%s","model":"%s","size":"%s","transport":"%s","led":"%s","position_led":"%s","identity_led":"%s","supported":%s,"position_supported":%s,"identity_supported":%s}' \
-            "$physical_position" \
-            "$(json_str "$dev")" "$(json_str "$hctl")" "$(json_str "$serial")" "$(json_str "$model")" \
-            "$(json_str "$size")" "$(json_str "$transport")" "$(json_str "$led")" \
-            "$(json_str "$position_led")" "$(json_str "$identity_led")" \
-            "$position_supported" "$position_supported" "$identity_supported"
-    done < <(disk_inventory_rows | sort -t'|' -k2,2V)
-    printf ']'
-    [[ -n "$message" ]] && printf ',"message":"%s"' "$(json_str "$message")"
-    printf '}'
-}
-
 runtime_file_fresh() {
     local f="$1" max_age="${2:-30}" modified now
     [[ -f "$f" ]] || return 1
@@ -511,7 +445,14 @@ hardware_status_json() {
         while read -r module_name _module_rest; do
             case "$module_name" in
                 it87) it87_loaded=true ;;
-                leds_mcu*|led_ugreen|ugreen_leds|leds_ugreen|n76e003*)
+                leds_mcu*n76e003*|n76e003*)
+                    # The Almighty N76 backend requires this vendor driver.
+                    if ! hardware_power26_controller; then
+                        led_plugin_conflict=true
+                        led_plugin_modules="${led_plugin_modules}${led_plugin_modules:+,}${module_name}"
+                    fi
+                    ;;
+                leds_mcu*|led_ugreen|ugreen_leds|leds_ugreen)
                     led_plugin_conflict=true
                     led_plugin_modules="${led_plugin_modules}${led_plugin_modules:+,}${module_name}"
                     ;;
@@ -903,7 +844,6 @@ case "$API_PATH" in
         mode=$(settings_get "$SETTINGS_FILE" mode global "smart")
         st=$(led_all_status 2>/dev/null || echo "")
         lab_active=false
-        lab_mapping_session_active && lab_active=true
 
         net="disconnected" nlabel="断网" nd=0 no=0 rx=0 tx=0 total=0 updated=0
         if [[ -f "$NET_STATUS_FILE" ]]; then
@@ -1102,92 +1042,6 @@ case "$API_PATH" in
         force=$(query_value force)
         about_readme_json "$force"
         ;;
-    /lab/mapping/status)
-        lab_mapping_status_json
-        ;;
-    /lab/mapping/start)
-        if [[ "$REQUEST_METHOD" != "POST" ]]; then
-            echo '{"ok":false,"error":"method not allowed"}'
-        elif ! ensure_led_backend; then
-            printf '{"ok":false,"error":"%s"}' \
-                "$(json_str "${LED_LAST_ERROR:-LED 控制程序不可用，无法进入检测模式}")"
-        elif lab_mapping_show_all; then
-            lab_mapping_status_json "检测模式已启动，全部硬盘灯已点亮"
-        else
-            lab_mapping_resume_control
-            echo '{"ok":false,"error":"部分硬盘灯点亮失败，已退出检测模式"}'
-        fi
-        ;;
-    /lab/mapping/highlight)
-        led=$(query_value led)
-        if [[ "$REQUEST_METHOD" != "POST" ]]; then
-            echo '{"ok":false,"error":"method not allowed"}'
-        elif ! lab_mapping_session_active; then
-            echo '{"ok":false,"error":"检测会话已结束，请重新开始"}'
-        elif lab_mapping_highlight_slot "$led"; then
-            lab_mapping_status_json "${led} 正在闪烁"
-        else
-            echo '{"ok":false,"error":"无法点亮指定盘位"}'
-        fi
-        ;;
-    /lab/mapping/save)
-        if [[ "$REQUEST_METHOD" != "POST" ]]; then
-            echo '{"ok":false,"error":"method not allowed"}'
-        elif ! lab_mapping_session_active; then
-            echo '{"ok":false,"error":"检测会话已结束，请重新开始"}'
-        elif disk_save_identity_mapping "$SETTINGS_FILE" <<< "$POST_DATA"; then
-            lab_mapping_resume_control
-            lab_mapping_status_json "按硬盘绑定已保存"
-        else
-            result=$?
-            case "$result" in
-                3) error="包含不存在的 LED 盘位" ;;
-                4) error="硬盘设备或序列号已变化，请重新开始检测" ;;
-                5) error="同一硬盘或 LED 不能重复绑定" ;;
-                6) error="请至少绑定一块硬盘" ;;
-                *) error="映射数据无效，未保存任何更改" ;;
-            esac
-            printf '{"ok":false,"error":"%s"}' "$(json_str "$error")"
-        fi
-        ;;
-    /lab/position/save)
-        if [[ "$REQUEST_METHOD" != "POST" ]]; then
-            echo '{"ok":false,"error":"method not allowed"}'
-        elif ! lab_mapping_session_active; then
-            echo '{"ok":false,"error":"检测会话已结束，请重新开始"}'
-        elif disk_save_position_mapping "$SETTINGS_FILE" <<< "$POST_DATA"; then
-            lab_mapping_resume_control
-            lab_mapping_status_json "灯光与硬盘位置绑定已保存"
-        else
-            result=$?
-            case "$result" in
-                3) error="包含不存在的 LED 盘位" ;;
-                4) error="硬盘位置或 HCTL 已变化，请重新开始检测" ;;
-                5) error="同一位置或 LED 不能重复绑定" ;;
-                6) error="请至少绑定一个硬盘位置" ;;
-                *) error="位置映射数据无效，未保存任何更改" ;;
-            esac
-            printf '{"ok":false,"error":"%s"}' "$(json_str "$error")"
-        fi
-        ;;
-    /lab/mapping/cancel)
-        if [[ "$REQUEST_METHOD" != "POST" ]]; then
-            echo '{"ok":false,"error":"method not allowed"}'
-        else
-            lab_mapping_resume_control
-            lab_mapping_status_json "已退出检测模式，原映射保持不变"
-        fi
-        ;;
-    /lab/mapping/reset)
-        if [[ "$REQUEST_METHOD" != "POST" ]]; then
-            echo '{"ok":false,"error":"method not allowed"}'
-        elif disk_reset_auto_mapping "$SETTINGS_FILE"; then
-            lab_mapping_resume_control
-            lab_mapping_status_json "已恢复自动 HCTL 映射"
-        else
-            echo '{"ok":false,"error":"恢复自动映射失败"}'
-        fi
-        ;;
     /mode)
         m=$(query_value mode)
         if [[ "$REQUEST_METHOD" != "POST" ]]; then
@@ -1247,12 +1101,12 @@ case "$API_PATH" in
         if [[ "$REQUEST_METHOD" != "POST" ]]; then
             echo '{"ok":false,"error":"method not allowed"}'
         elif ! hardware_power26_controller; then
-            echo '{"ok":false,"error":"current model does not use the power-0x26 backend"}'
-        elif [[ ! "$color" =~ ^(red|white)$ || ! "$effect" =~ ^(steady|fast|slow|breath|network|off)$ || ! "$threshold" =~ ^[0-9]+$ ]] || \
+            echo '{"ok":false,"error":"current model does not use the N76 backend"}'
+        elif [[ ! "$color" =~ ^(preserve)$ || ! "$effect" =~ ^(steady|fast|slow|network|off)$ || ! "$threshold" =~ ^[0-9]+$ ]] || \
             (( threshold < 1 || threshold > 1048576 )); then
             echo '{"ok":false,"error":"invalid power light parameters"}'
         elif ! ensure_led_backend || [[ "$LED_BACKEND_ACTIVE" != "cli" ]]; then
-            printf '{"ok":false,"error":"%s"}' "$(json_str "${LED_LAST_ERROR:-power-0x26 backend unavailable}")"
+            printf '{"ok":false,"error":"%s"}' "$(json_str "${LED_LAST_ERROR:-N76 backend unavailable}")"
         else
             led_clear_cache 2>/dev/null
             command_effect="$effect"

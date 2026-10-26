@@ -30,34 +30,29 @@ request() {
     bash "$API" | tail -n 1
 }
 
-json=$(request /power26/apply 'color=red&effect=fast&threshold=32')
+json=$(request /power26/apply 'color=preserve&effect=fast&threshold=32')
 assert_contains "$json" 'method not allowed'
 [[ ! -s "$CLI_LOG" ]] || fail "GET request reached LED CLI"
 
 : > "$CLI_LOG"
-json=$(request /power26/apply 'color=red&effect=fast&threshold=32' POST)
+json=$(request /power26/apply 'color=preserve&effect=fast&threshold=32' POST)
 assert_contains "$json" '"ok":true'
-grep -q -- '--dxp480t-power-probe' "$CLI_LOG" || fail "DXP480T controller was not probed through bundled LED CLI"
-grep -q -- '--dxp480t-power red fast' "$CLI_LOG" || fail "power light did not use the DXP480T bundled CLI command"
-if grep -q -- 'power -color\|power -blink\|power -brightness' "$CLI_LOG"; then
-  fail "DXP480T power light fell back to the generic RGB CLI protocol"
-fi
+grep -q -- 'power -status' "$CLI_LOG" || fail "missing readback"
+grep -q -- 'power -blink 250 250 --force --apply' "$CLI_LOG" || fail "missing committed blink"
 
 : > "$CLI_LOG"
-json=$(request /power26/apply 'color=red&effect=off&threshold=32' POST)
+json=$(request /power26/apply 'color=preserve&effect=off&threshold=32' POST)
 assert_contains "$json" '"ok":true'
-grep -q -- '--dxp480t-power red off' "$CLI_LOG" || fail "power light off did not use the DXP480T bundled CLI command"
+grep -q -- 'power -off --force --apply' "$CLI_LOG" || fail "missing committed off"
+: > "$CLI_LOG"
+json=$(request /power26/apply 'color=red&effect=steady' POST)
+assert_contains "$json" '"ok":false'
+json=$(request /power26/apply 'color=preserve&effect=breath' POST)
+assert_contains "$json" '"ok":false'
+[[ ! -s "$CLI_LOG" ]] || fail "unsupported effect reached hardware"
 
 if grep -Eq 'i2c(get|set)|LED_I2C_DEV_ROOT|/sys/class/leds' "$ROOT/App.Native.UGreenLED/app/server/lib/led_api.sh"; then
   fail "application LED API contains direct hardware access"
 fi
-
-PATCH="$ROOT/App.Native.UGreenLED/app/server/vendor/ugreen_leds_controller/patches/dxp480t-power.patch"
-git apply --numstat "$PATCH" >/dev/null || fail "DXP480T LED patch is not valid unified-diff syntax"
-grep -Fq 'write_byte(0xa0, 1)' "$PATCH" || fail "patched CLI does not clear the red selector"
-grep -Fq 'write_byte(0xa0, 2)' "$PATCH" || fail "patched CLI does not clear the white selector"
-grep -Fq 'case effect_t::fast: return write_byte(0x50, 1);' "$PATCH" || fail "patched CLI does not implement fast flash"
-grep -Fq 'return write_byte(0x51, 1);' "$PATCH" || fail "patched CLI does not implement slow flash"
-grep -Fq 'case effect_t::breath: return write_byte(0x50, 2);' "$PATCH" || fail "patched CLI does not implement breathing"
 
 echo "power26 API tests passed"

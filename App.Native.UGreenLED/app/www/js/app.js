@@ -9,7 +9,6 @@
     activity: { title: '活动提示', description: '控制磁盘读写和网络流量的速度闪动。' },
     devices: { title: '设备与高级', description: '管理盘位映射、监测频率、后台服务与诊断状态。' },
     bios: { title: 'BIOS 控制', description: 'DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro 的 IT8613 风扇、来电启动、网络唤醒与 RTC 定时开机控制。' },
-    lab: { title: '实验室', description: '未经验证的高级硬件功能，请确认风险后谨慎使用。' },
   };
 
   const DISK_STATES = [
@@ -132,11 +131,6 @@
     cpu: { timer: null, statusTimer: null, queue: Promise.resolve(), revision: 0, busy: false },
     sys: { timer: null, statusTimer: null, queue: Promise.resolve(), revision: 0, busy: false },
   };
-  let labState = { active: false, mode: 'auto', slots: [], disks: [] };
-  let labMethod = 'position';
-  let labDraft = {};
-  let labIdentifying = '';
-  let labStatusPromise = null;
   let logsLoaded = false;
   let logContent = '';
   let clientErrorTimestamps = [];
@@ -435,384 +429,6 @@
       .finally(() => setBusy(button, false));
   }
 
-  function labDiskLabel(disk) {
-    const details = [disk.size, disk.model, disk.serial ? `S/N ${disk.serial}` : ''].filter(Boolean).join(' · ');
-    return `${disk.device}${details ? ` · ${details}` : ''}`;
-  }
-
-  function updateLabMethodUi() {
-    document.querySelectorAll('[data-lab-method]').forEach((button) => {
-      const active = button.dataset.labMethod === labMethod;
-      button.classList.toggle('active', active);
-      button.setAttribute('aria-selected', active ? 'true' : 'false');
-      button.disabled = labState.active;
-    });
-    const positionMode = labMethod === 'position';
-    $('labMethodHelp').textContent = positionMode
-      ? '将 HCTL 代表的硬盘位置绑定到实际 LED 通道，适合 6/8 盘位灯光乱序的机型。换硬盘后规则仍然有效。'
-      : '将具体硬盘的序列号绑定到 LED 通道。硬盘移动或设备名变化后，映射仍会跟随这块硬盘。';
-    $('labStep2Title').textContent = positionMode ? '逐位置选择 LED' : '逐灯选择硬盘';
-    $('labStep2Copy').textContent = positionMode
-      ? '为每个硬盘位置选择 LED 通道并闪烁验证'
-      : '让一个 LED 通道闪烁，再选择要跟随的硬盘';
-    $('labSessionHelp').textContent = positionMode
-      ? '先确认全部硬盘灯已亮，再为每个硬盘位置选择对应的 LED 通道。当前硬盘信息仅用于帮助识别位置。'
-      : '先确认全部硬盘灯已亮，再为每个 LED 通道选择要绑定的具体硬盘。此方式依赖硬盘序列号。';
-    $('labProgressHint').textContent = positionMode
-      ? '请选择每个硬盘位置对应的 LED 通道'
-      : '请选择每个 LED 通道对应的具体硬盘';
-    $('labPrimaryTitle').textContent = positionMode ? '硬盘位置与 LED' : 'LED 与硬盘';
-    $('labPrimaryHint').textContent = positionMode ? '选择后点击“闪烁所选灯”验证' : '点击“闪烁此灯”确认 LED 通道';
-    $('labInventoryTitle').textContent = positionMode ? 'LED 通道分配' : '检测到的硬盘';
-    $('labSecondaryHint').textContent = positionMode ? '每个 LED 只能分配一次' : '通过型号、容量或序列号核对';
-    $('btnSaveLabMapping').innerHTML = positionMode
-      ? '<i class="bi bi-floppy" aria-hidden="true"></i>保存位置绑定'
-      : '<i class="bi bi-floppy" aria-hidden="true"></i>保存硬盘绑定';
-  }
-
-  function buildLabDraft(data, previousDraft, preserveDraft) {
-    const next = {};
-    if (labMethod === 'position') {
-      const validLeds = new Set((data.slots || []).map((slot) => slot.led));
-      (data.disks || []).filter((disk) => disk.position_supported).forEach((disk) => {
-        const hasPrevious = preserveDraft && Object.prototype.hasOwnProperty.call(previousDraft, disk.hctl);
-        const previous = hasPrevious ? previousDraft[disk.hctl] : disk.position_led;
-        next[disk.hctl] = validLeds.has(previous) ? previous : '';
-      });
-    } else {
-      const validDevices = new Set((data.disks || []).filter((disk) => disk.identity_supported).map((disk) => disk.device));
-      (data.slots || []).forEach((slot) => {
-        const savedDisk = (data.disks || []).find((disk) => disk.identity_led === slot.led);
-        const hasPrevious = preserveDraft && Object.prototype.hasOwnProperty.call(previousDraft, slot.led);
-        const previous = hasPrevious ? previousDraft[slot.led] : savedDisk?.device;
-        next[slot.led] = validDevices.has(previous) ? previous : '';
-      });
-    }
-    return next;
-  }
-
-  function updateLabValidation() {
-    const disks = Array.isArray(labState.disks) ? labState.disks : [];
-    const positionMode = labMethod === 'position';
-    const supported = disks.filter((disk) => positionMode ? disk.position_supported : disk.identity_supported);
-    const assigned = Object.values(labDraft).filter(Boolean);
-    const unique = new Set(assigned);
-    const validation = $('labValidation');
-    const save = $('btnSaveLabMapping');
-    const valid = assigned.length > 0 && assigned.length === unique.size;
-    save.disabled = !labState.active || !valid;
-    $('labProgressText').textContent = positionMode ? `已绑定 ${unique.size} 个位置` : `已绑定 ${unique.size} 块硬盘`;
-
-    if (!disks.length) {
-      validation.textContent = '未检测到硬盘，请确认硬盘已被系统识别。';
-      validation.className = 'lab-validation';
-    } else if (!supported.length) {
-      validation.textContent = positionMode
-        ? '检测到的设备没有可用于位置绑定的 HCTL，暂时无法保存。'
-        : '检测到的硬盘没有序列号，暂时无法按硬盘绑定。';
-      validation.className = 'lab-validation';
-    } else if (!assigned.length) {
-      validation.textContent = positionMode ? '请至少为一个硬盘位置选择 LED。' : '请至少为一个 LED 选择硬盘。';
-      validation.className = 'lab-validation';
-    } else if (assigned.length !== unique.size) {
-      validation.textContent = positionMode ? '同一个 LED 不能绑定到多个位置。' : '同一块硬盘不能绑定到多个 LED。';
-      validation.className = 'lab-validation';
-    } else {
-      const remaining = supported.length - unique.size;
-      validation.textContent = remaining > 0
-        ? positionMode
-          ? `映射有效；另有 ${remaining} 个硬盘位置未绑定，保存后对应 LED 将保持未分配。`
-          : `映射有效；另有 ${remaining} 块带序列号的硬盘未绑定。`
-        : '映射检查通过，可以保存。';
-      validation.className = 'lab-validation ok';
-    }
-  }
-
-  function renderLabInventory() {
-    const container = $('labDiskInventory');
-    const disks = Array.isArray(labState.disks) ? labState.disks : [];
-    container.innerHTML = '';
-    if (labMethod === 'position') {
-      const positionByLed = {};
-      Object.entries(labDraft).forEach(([hctl, led]) => {
-        const disk = disks.find((item) => item.hctl === hctl);
-        if (led && disk) positionByLed[led] = disk.position;
-      });
-      (labState.slots || []).forEach((slot) => {
-        const card = document.createElement('div');
-        const position = positionByLed[slot.led];
-        card.className = `lab-disk-card${position ? ' bound' : ''}`;
-        const head = document.createElement('div');
-        head.className = 'lab-disk-card-head';
-        const title = document.createElement('strong');
-        title.textContent = slot.led;
-        const chip = document.createElement('span');
-        chip.className = `state-chip ${position ? 'active' : 'unknown'}`;
-        chip.textContent = position ? `位置 ${position}` : '未分配';
-        head.append(title, chip);
-        const details = document.createElement('p');
-        details.textContent = `硬盘灯通道 ${slot.position}`;
-        card.append(head, details);
-        container.appendChild(card);
-      });
-      if (!(labState.slots || []).length) {
-        const empty = document.createElement('div');
-        empty.className = 'lab-empty';
-        empty.textContent = '未读取到 LED 通道';
-        container.appendChild(empty);
-      }
-      return;
-    }
-
-    const slotByDevice = {};
-    Object.entries(labDraft).forEach(([slot, device]) => { if (device) slotByDevice[device] = slot; });
-    if (!disks.length) {
-      const empty = document.createElement('div');
-      empty.className = 'lab-empty';
-      empty.textContent = '未检测到硬盘';
-      container.appendChild(empty);
-      return;
-    }
-
-    disks.forEach((disk) => {
-      const card = document.createElement('div');
-      const boundSlot = slotByDevice[disk.device];
-      card.className = `lab-disk-card${boundSlot ? ' bound' : ''}${disk.identity_supported ? '' : ' unsupported'}`;
-      const head = document.createElement('div');
-      head.className = 'lab-disk-card-head';
-      const title = document.createElement('strong');
-      title.textContent = disk.device || '未知设备';
-      title.title = disk.device || '';
-      const chip = document.createElement('span');
-      chip.className = `state-chip ${boundSlot ? 'active' : 'unknown'}`;
-      chip.textContent = !disk.identity_supported ? '无序列号' : boundSlot ? `LED ${boundSlot.replace('disk', '')}` : '未绑定';
-      head.append(title, chip);
-      const details = document.createElement('p');
-      const identity = [disk.model || '未知型号', disk.size || '未知容量', disk.serial ? `S/N ${disk.serial}` : '无序列号'].join(' · ');
-      details.append(document.createTextNode(`${identity} · `));
-      const hctl = document.createElement('code');
-      hctl.textContent = disk.hctl ? `HCTL ${disk.hctl}` : '无 HCTL';
-      details.appendChild(hctl);
-      card.append(head, details);
-      container.appendChild(card);
-    });
-  }
-
-  function renderLabWorkspace() {
-    const container = $('labSlotList');
-    const slots = Array.isArray(labState.slots) ? labState.slots : [];
-    const disks = Array.isArray(labState.disks) ? labState.disks : [];
-    const selected = new Set(Object.values(labDraft).filter(Boolean));
-    container.innerHTML = '';
-
-    if (labMethod === 'position') {
-      const positions = disks.filter((disk) => disk.position_supported);
-      if (!positions.length) {
-        const empty = document.createElement('div');
-        empty.className = 'lab-empty';
-        empty.textContent = '未读取到带 HCTL 的硬盘位置';
-        container.appendChild(empty);
-      }
-      positions.forEach((disk) => {
-        const assignedLed = labDraft[disk.hctl] || '';
-        const row = document.createElement('div');
-        row.className = `lab-slot-row${labIdentifying === assignedLed ? ' identifying' : ''}`;
-        const label = document.createElement('div');
-        label.className = 'lab-slot-label';
-        const title = document.createElement('strong');
-        title.textContent = `硬盘位置 ${disk.position}`;
-        const code = document.createElement('small');
-        code.textContent = `HCTL ${disk.hctl}`;
-        const occupant = document.createElement('span');
-        occupant.className = 'lab-position-occupant';
-        occupant.textContent = [disk.device, disk.size, disk.model].filter(Boolean).join(' · ');
-        label.append(title, code, occupant);
-
-        const select = document.createElement('select');
-        select.className = 'lab-disk-select';
-        select.setAttribute('aria-label', `硬盘位置 ${disk.position} 对应 LED 通道`);
-        const emptyOption = document.createElement('option');
-        emptyOption.value = '';
-        emptyOption.textContent = '未绑定 LED';
-        select.appendChild(emptyOption);
-        slots.forEach((slot) => {
-          const option = document.createElement('option');
-          option.value = slot.led;
-          option.textContent = `${slot.led} · LED 通道 ${slot.position}`;
-          option.disabled = selected.has(slot.led) && assignedLed !== slot.led;
-          select.appendChild(option);
-        });
-        select.value = assignedLed;
-        select.addEventListener('change', () => {
-          labDraft[disk.hctl] = select.value;
-          renderLabWorkspace();
-        });
-
-        const identify = document.createElement('button');
-        identify.type = 'button';
-        identify.className = 'secondary-button';
-        identify.disabled = !assignedLed;
-        identify.innerHTML = '<i class="bi bi-lightning-charge" aria-hidden="true"></i>闪烁所选灯';
-        identify.addEventListener('click', () => {
-          const led = labDraft[disk.hctl];
-          if (!led) return;
-          setBusy(identify, true);
-          api('/lab/mapping/highlight', { method: 'POST', query: `led=${encodeURIComponent(led)}` })
-            .then((data) => {
-              labIdentifying = led;
-              renderLabStatus(data, true);
-              showMessage(`硬盘位置 ${disk.position} 选择的 ${led} 正在闪烁`, 'ok');
-            })
-            .catch(showError)
-            .finally(() => setBusy(identify, false));
-        });
-        row.append(label, select, identify);
-        container.appendChild(row);
-      });
-      renderLabInventory();
-      updateLabValidation();
-      return;
-    }
-
-    const identityDisks = disks.filter((disk) => disk.identity_supported);
-    if (!slots.length) {
-      const empty = document.createElement('div');
-      empty.className = 'lab-empty';
-      empty.textContent = '未读取到硬盘灯盘位';
-      container.appendChild(empty);
-    }
-
-    slots.forEach((slot) => {
-      const row = document.createElement('div');
-      row.className = `lab-slot-row${labIdentifying === slot.led ? ' identifying' : ''}`;
-      const label = document.createElement('div');
-      label.className = 'lab-slot-label';
-      const title = document.createElement('strong');
-      title.textContent = `LED 通道 ${slot.position}`;
-      const code = document.createElement('small');
-      code.textContent = slot.led;
-      label.append(title, code);
-
-      const select = document.createElement('select');
-      select.className = 'lab-disk-select';
-      select.setAttribute('aria-label', `LED 通道 ${slot.position} 对应硬盘`);
-      const emptyOption = document.createElement('option');
-      emptyOption.value = '';
-      emptyOption.textContent = '未绑定 / 空盘位';
-      select.appendChild(emptyOption);
-      identityDisks.forEach((disk) => {
-        const option = document.createElement('option');
-        option.value = disk.device;
-        option.textContent = labDiskLabel(disk);
-        option.disabled = selected.has(disk.device) && labDraft[slot.led] !== disk.device;
-        select.appendChild(option);
-      });
-      select.value = labDraft[slot.led] || '';
-      select.addEventListener('change', () => {
-        labDraft[slot.led] = select.value;
-        renderLabWorkspace();
-      });
-
-      const identify = document.createElement('button');
-      identify.type = 'button';
-      identify.className = 'secondary-button';
-      identify.innerHTML = '<i class="bi bi-lightning-charge" aria-hidden="true"></i>闪烁此灯';
-      identify.addEventListener('click', () => {
-        setBusy(identify, true);
-        api('/lab/mapping/highlight', { method: 'POST', query: `led=${encodeURIComponent(slot.led)}` })
-          .then((data) => {
-            labIdentifying = slot.led;
-            renderLabStatus(data, true);
-            showMessage(`${slot.led} 正在闪烁`, 'ok');
-          })
-          .catch(showError)
-          .finally(() => setBusy(identify, false));
-      });
-      row.append(label, select, identify);
-      container.appendChild(row);
-    });
-    renderLabInventory();
-    updateLabValidation();
-  }
-
-  function renderLabStatus(data, preserveDraft) {
-    const previousDraft = labDraft;
-    const mode = ['position', 'disk'].includes(data.mode) ? data.mode : 'auto';
-    labState = {
-      active: Boolean(data.active),
-      mode,
-      productName: data.product_name || '',
-      profile: data.profile || 'unknown',
-      slots: Array.isArray(data.slots) ? data.slots : [],
-      disks: Array.isArray(data.disks) ? data.disks : [],
-    };
-    if (!labState.active && ['position', 'disk'].includes(labState.mode)) labMethod = labState.mode;
-    document.body.classList.toggle('lab-session-active', labState.active);
-    $('labModeBadge').textContent = labState.mode === 'position'
-      ? '当前：位置绑定'
-      : labState.mode === 'disk' ? '当前：硬盘绑定' : '当前：自动映射';
-    const autoSummary = labState.profile === 'dxp6800'
-      ? `已识别 ${labState.productName || 'DXP6800 系列'}，自动使用六盘位专用顺序：HCTL 0/1 → disk5/6，HCTL 2–5 → disk1–4。`
-      : `已识别 ${labState.productName || '未知机型'}，自动使用标准 HCTL 顺序。`;
-    $('labSummary').textContent = labState.mode === 'position'
-      ? '当前使用 HCTL 位置规则：更换硬盘不会改变 LED 对应关系。'
-      : labState.mode === 'disk'
-        ? '当前使用硬盘序列号规则：设备名变化后，LED 映射仍会跟随具体硬盘。'
-        : `${autoSummary} 如果实际机箱灯位乱序，可选择位置绑定手动修正。`;
-    $('labSession').hidden = !labState.active;
-    $('btnStartLabMapping').disabled = labState.active;
-    $('btnStartLabMapping').innerHTML = labState.active
-      ? '<i class="bi bi-check2-circle" aria-hidden="true"></i>检测模式已启动'
-      : '<i class="bi bi-lightbulb" aria-hidden="true"></i>开始检测并点亮全部硬盘灯';
-
-    updateLabMethodUi();
-    if (labState.active) {
-      labDraft = buildLabDraft(labState, previousDraft, Boolean(preserveDraft));
-      renderLabWorkspace();
-    } else {
-      labDraft = {};
-      labIdentifying = '';
-    }
-    return data;
-  }
-
-  function loadLabMappingStatus() {
-    if (labStatusPromise) return labStatusPromise;
-    labStatusPromise = api('/lab/mapping/status')
-      .then((data) => renderLabStatus(data, labState.active))
-      .catch(showError)
-      .finally(() => { labStatusPromise = null; });
-    return labStatusPromise;
-  }
-
-  function startLabMapping(button, preserveDraft) {
-    setBusy(button, true);
-    return api('/lab/mapping/start', { method: 'POST' })
-      .then((data) => {
-        labIdentifying = '';
-        renderLabStatus(data, Boolean(preserveDraft));
-        showMessage(data.message || '检测模式已启动', 'ok');
-        return data;
-      })
-      .catch(showError)
-      .finally(() => {
-        setBusy(button, false);
-        if (button && button.id === 'btnStartLabMapping') button.disabled = labState.active;
-      });
-  }
-
-  function finishLabMapping(path, button, body, successMessage) {
-    setBusy(button, true);
-    return api(path, { method: 'POST', body })
-      .then((data) => {
-        renderLabStatus(data, false);
-        showMessage(data.message || successMessage, 'ok');
-        return refresh();
-      })
-      .catch(showError)
-      .finally(() => setBusy(button, false));
-  }
-
   function setRoute(route, updateHash) {
     let next = ROUTES[route] ? route : 'overview';
     if (next === 'bios' && biosState.loaded && !biosState.supported) next = 'overview';
@@ -835,7 +451,6 @@
     document.body.classList.toggle('bios-route', next === 'bios');
     if (updateHash !== false && location.hash !== `#${next}`) history.replaceState(null, '', `#${next}`);
     $('appMain').scrollTo({ top: 0, behavior: 'smooth' });
-    if (next === 'lab') loadLabMappingStatus();
     if (next === 'bios') {
       loadBiosStatus();
       scheduleFanChartLayout();
@@ -1188,7 +803,6 @@
       dot.classList.toggle('offline', !running);
     });
     $('statusBar').textContent = (data.led_status || '暂无 LED 原始状态').slice(0, 1400);
-    if (Boolean(data.lab_mapping_active) !== Boolean(labState.active)) loadLabMappingStatus();
   }
 
   function renderMapping(data) {
@@ -1502,6 +1116,11 @@
     dxp6800pro: {
       profile: 'stock-6800pro', name: 'DXP6800 Pro 原厂兼容',
       description: '已恢复原厂 CPU/系统双通道曲线；系统风扇还会应用固件中的 CPU 温度保底。',
+      cpu: '25,38,55,75,90', hdd: '30,35,43,48,55', ssd: '45,50,60,65,70', pwm: '64,130,210,230', minimum: '40',
+    },
+    dxp6800plus: {
+      profile: 'stock-6800plus', name: 'DXP6800 Plus 兼容预设（采用 Pro 参数）',
+      description: '采用 DXP6800 Pro 的 CPU、系统风扇曲线及 CPU 温度保底；这不是从 Plus 固件恢复的原厂预设。',
       cpu: '25,38,55,75,90', hdd: '30,35,43,48,55', ssd: '45,50,60,65,70', pwm: '64,130,210,230', minimum: '40',
     },
   });
@@ -2159,7 +1778,8 @@
     const is480t = biosState.model === 'dxp480t_plus';
     const is4800 = biosState.model === 'dxp4800';
     const is4800s = biosState.model === 'dxp4800s';
-    const is6800 = biosState.model === 'dxp6800pro';
+    const is6800 = ['dxp6800pro', 'dxp6800plus'].includes(biosState.model);
+    const model6800Name = biosState.model === 'dxp6800plus' ? 'DXP6800 Plus' : 'DXP6800 Pro';
     const directFallback = Boolean(biosState.direct_fan_fallback);
     const is4800Pro = biosState.model === 'dxp4800_pro';
     const wolAvailable = Boolean(biosState.wol_available);
@@ -2169,20 +1789,20 @@
       ? '非适用机型'
       : available ? '风扇 hwmon 就绪' : startupAvailable ? '仅来电启动就绪' : '控制器不可用';
     $('biosAvailabilityText').textContent = !biosState.supported
-      ? '此入口仅对 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Pro 开放。'
+      ? '此入口仅对 DXP4800、DXP4800 Plus / Pro、DXP4800S、DXP480T Plus 与 DXP6800 Plus / Pro 开放。'
       : available
         ? directFallback
           ? is480t
             ? `it87 已卸载，CPU 与系统风扇对会分别通过 DXP480T Plus 原厂 Super I/O 路径读取和写入；系统风扇 1/2 使用成对写入。来电启动${startupAvailable ? '也可用' : `独立不可用：${biosState.startup_error || '读取失败'}`}。`
             : is6800
-              ? `it87 已卸载，风扇通过 DXP6800 Pro 固件证明的直控路径读取和写入；CPU 可单独设置，sys 会同步系统风扇 1/2。来电启动${startupAvailable ? '也可用' : `独立不可用：${biosState.startup_error || '读取失败'}`}。`
+              ? `it87 已卸载，风扇通过 ${model6800Name} 固件证明的直控路径读取和写入；CPU 可单独设置，sys 会同步系统风扇 1/2。来电启动${startupAvailable ? '也可用' : `独立不可用：${biosState.startup_error || '读取失败'}`}。`
               : `it87 已卸载，风扇通过受保护的 IT8613 直控路径读取和写入；来电启动${startupAvailable ? '也可用' : `独立不可用：${biosState.startup_error || '读取失败'}`}。`
           : `已动态找到 name=it8613 的 hwmon 节点，风扇通过现有 it87 驱动读取和写入；来电启动${startupAvailable ? '也可用' : `独立不可用：${biosState.startup_error || '读取失败'}`}。`
         : startupAvailable
           ? `来电启动可用，但风扇 hwmon 不可用：${biosState.fan_error || biosState.error || '未找到 name=it8613 的节点'}。`
           : biosState.fan_error || biosState.error || '没有找到可用的 BIOS 控制接口。';
     $('biosModelKicker').textContent = is6800
-      ? 'DXP6800 PRO · IT8613 · FIRMWARE-REVERSED'
+      ? `${model6800Name.toUpperCase()} · IT8613 · FIRMWARE-REVERSED`
       : is4800
       ? 'DXP4800 · IT8613 · FIRMWARE-REVERSED'
       : is4800s
@@ -2430,7 +2050,7 @@
     if (data.driver_conflict) messages.push('检测到厂商 LED 内核模块，实验驱动安装已禁用。');
     if (data.driver_loaded && data.driver_managed) messages.push('修改机型档案或写入协议后，请点击“安装 / 重建实验驱动”让模块参数生效。');
     if (!data.headers_ready) messages.push('当前内核 headers 不可用，不能编译 DKMS；内置 CLI 不受影响。');
-    if (data.support === 'experimental' || data.support === 'unverified') messages.push('此机型需要实机验证，请先在实验室逐灯确认。');
+    if (data.support === 'experimental' || data.support === 'unverified') messages.push('此机型需要实机验证，请确认检测到的机型及盘位映射。');
     if (data.support === 'limited') messages.push('此机型使用独立 N76E003 控制器，仅支持红/白电源灯；没有硬盘灯和网络灯。');
     if (data.backend_active === 'unavailable') messages.push('所选后端不可用或 CLI 与内核驱动发生冲突。');
     $('hardwareMessage').textContent = messages.join(' ');
@@ -2680,56 +2300,6 @@
       });
     });
   });
-  document.querySelectorAll('[data-lab-method]').forEach((button) => {
-    button.addEventListener('click', () => {
-      if (labState.active) return;
-      labMethod = button.dataset.labMethod === 'disk' ? 'disk' : 'position';
-      labDraft = {};
-      updateLabMethodUi();
-    });
-  });
-  $('btnStartLabMapping').addEventListener('click', function () {
-    startLabMapping(this, false);
-  });
-  $('btnShowAllLabLeds').addEventListener('click', function () {
-    startLabMapping(this, true);
-  });
-  $('btnCancelLabMapping').addEventListener('click', function () {
-    if (!window.confirm('确定取消本次检测吗？尚未保存的盘位选择会丢失。')) return;
-    finishLabMapping('/lab/mapping/cancel', this, '', '已退出检测模式');
-  });
-  $('btnResetLabMapping').addEventListener('click', function () {
-    if (!window.confirm('确定恢复自动 HCTL 映射吗？已保存的自定义盘位规则将停用。')) return;
-    finishLabMapping('/lab/mapping/reset', this, '', '已恢复自动映射');
-  });
-  $('btnSaveLabMapping').addEventListener('click', function () {
-    let path;
-    let message;
-    let lines;
-    if (labMethod === 'position') {
-      path = '/lab/position/save';
-      message = '灯光与硬盘位置绑定已保存';
-      lines = labState.disks.map((disk) => {
-        const led = labDraft[disk.hctl];
-        return led && disk.position_supported ? `${led}|${disk.device}|${disk.hctl}` : '';
-      }).filter(Boolean);
-    } else {
-      path = '/lab/mapping/save';
-      message = '按硬盘绑定已保存';
-      const diskByDevice = new Map(labState.disks.map((disk) => [disk.device, disk]));
-      lines = labState.slots.map((slot) => {
-        const device = labDraft[slot.led];
-        const disk = diskByDevice.get(device);
-        return device && disk && disk.identity_supported ? `${slot.led}|${device}|${disk.serial}` : '';
-      }).filter(Boolean);
-    }
-    if (!lines.length) {
-      updateLabValidation();
-      return;
-    }
-    finishLabMapping(path, this, lines.join('\n'), message);
-  });
-
   window.addEventListener('hashchange', () => setRoute(location.hash.slice(1), false));
   setLightingPanel(currentLightingPanel);
   setRoute(location.hash.slice(1) || 'overview', false);

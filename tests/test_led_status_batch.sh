@@ -25,15 +25,7 @@ led_backend_select() { :; }
 led_power26_profile() { [[ "${PROFILE:-dx4600}" == dxp480t_plus ]]; }
 led_list_disk_slots() { printf '%s\n' disk1 disk2 disk3 disk4; }
 led_list_network_slots() { echo netdev; [[ "${PROFILE:-dx4600}" != idx6011_pro ]] || echo netdev2; }
-hardware_cli_led_name() {
-    if [[ "${PROFILE:-dx4600}" == idx6011_pro ]]; then
-        case "$1" in
-            netdev2) echo disk1; return ;;
-            disk*) echo "disk$((${1#disk} + 1))"; return ;;
-        esac
-    fi
-    echo "$1"
-}
+hardware_cli_led_name() { echo "$1"; }
 status=$(led_all_status)
 [[ $(wc -l < "$CLI_LOG") == 1 ]] || fail 'snapshot must make one CLI call'
 [[ $(cat "$CLI_LOG") == 'power netdev disk1 disk2 disk3 disk4 -status' ]] || fail 'wrong batch arguments'
@@ -42,17 +34,21 @@ grep -q '^disk4: unavailable' <<< "$status" || fail 'lost per-LED read failure'
 ! grep -q 'disk1: disk1:' <<< "$status" || fail 'duplicate LED prefix'
 PROFILE=idx6011_pro
 status=$(led_all_status)
-[[ $(tail -n 1 "$CLI_LOG") == 'power netdev disk1 disk2 disk3 disk4 disk5 -status' ]] || fail 'raw mapping lost'
+[[ $(tail -n 1 "$CLI_LOG") == 'power netdev netdev2 disk1 disk2 disk3 disk4 -status' ]] || fail 'raw mapping lost'
 grep -q '^netdev2: status = on' <<< "$status" || fail 'second network mapping lost'
-grep -q '^disk3: unavailable' <<< "$status" || fail 'disk failure mapped to wrong logical slot'
+grep -q '^disk4: unavailable' <<< "$status" || fail 'disk failure mapped to wrong logical slot'
 export MOCK_BUSY=1
 if led_all_status > "$TMP/failed"; then fail 'busy failure must propagate'; fi
 ! grep -q 'status = on' "$TMP/failed" || fail 'failure emitted fabricated state'
+if led_set_color disk1 10 20 30 64; then fail 'failed write must propagate'; fi
+[[ ! -e "$LED_API_CACHE_DIR/disk1.state" ]] || fail 'failed write cached as success'
 unset MOCK_BUSY
+led_set_color disk1 10 20 30 64
+[[ "$(tail -n 1 "$CLI_LOG")" == *'-color 10 20 30 -brightness 64 -on --force --apply' ]] || fail 'write would remain a dry run'
 PROFILE=dxp480t_plus
 before=$(wc -l < "$CLI_LOG")
 led_write_cached_state power 'power26,white,steady'
 status=$(led_all_status)
-[[ $(wc -l < "$CLI_LOG") == "$before" ]] || fail '480T must retain its separate route'
+[[ $(wc -l < "$CLI_LOG") == "$((before + 1))" ]] || fail '480T must query real hardware state'
 grep -q '^power: status = on' <<< "$status" || fail '480T state missing'
 echo 'LED batch, logical mapping, failure and 480T isolation passed'

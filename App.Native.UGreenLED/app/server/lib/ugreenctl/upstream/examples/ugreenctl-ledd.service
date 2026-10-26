@@ -1,0 +1,18 @@
+[Unit]
+Description=UGREEN NAS LED holder
+After=systemd-udev-settle.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/ugreenctl-ledd --force --apply
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/run
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

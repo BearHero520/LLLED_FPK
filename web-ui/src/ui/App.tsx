@@ -7,11 +7,10 @@ import { AboutPage, type AboutInfo } from './AboutPage';
 import { ActivityPage } from './ActivityPage';
 import { BiosPage } from './BiosPage';
 import { DevicesPage } from './DevicesPage';
-import { LabPage } from './LabPage';
 import { LightingPage } from './LightingPage';
 import { OverviewPage, type MappingItem, type StatusData } from './OverviewPage';
 
-type Route = 'overview' | 'lighting' | 'activity' | 'devices' | 'bios' | 'lab' | 'about';
+type Route = 'overview' | 'lighting' | 'activity' | 'devices' | 'bios' | 'about';
 type Toast = { message: string; type: 'ok' | 'err' } | null;
 type HardwareData = Record<string, unknown>;
 type BiosData = Record<string, unknown>;
@@ -22,11 +21,10 @@ const routeInfo: Record<Route, { title: string; description: string }> = {
   activity: { title: '活动提示', description: '控制磁盘读写和网络流量的速度闪动。' },
   devices: { title: '设备与高级', description: '管理盘位映射、机型后端、监测频率与诊断日志。' },
   bios: { title: 'BIOS 控制', description: '安全管理已支持机型的风扇、来电启动、网络唤醒与 RTC 定时开机。' },
-  lab: { title: '实验室', description: '未经验证的高级硬件功能，请确认风险后谨慎使用。' },
   about: { title: '关于', description: '查看应用版本、更新、测试群与 GitHub 项目说明。' },
 };
 const navItems: Array<{ route: Route; label: string; icon: string; warning?: string }> = [
-  { route: 'overview', label: '概览', icon: 'bi-grid-1x2' }, { route: 'lighting', label: '灯光设置', icon: 'bi-lightbulb' }, { route: 'activity', label: '活动提示', icon: 'bi-activity' }, { route: 'devices', label: '设备与高级', icon: 'bi-hdd-rack' }, { route: 'bios', label: 'BIOS 控制', icon: 'bi-motherboard' }, { route: 'lab', label: '实验室', icon: 'bi-eyedropper', warning: '未经验证' }, { route: 'about', label: '关于', icon: 'bi-info-circle' },
+  { route: 'overview', label: '概览', icon: 'bi-grid-1x2' }, { route: 'lighting', label: '灯光设置', icon: 'bi-lightbulb' }, { route: 'activity', label: '活动提示', icon: 'bi-activity' }, { route: 'devices', label: '设备与高级', icon: 'bi-hdd-rack' }, { route: 'bios', label: 'BIOS 控制', icon: 'bi-motherboard' }, { route: 'about', label: '关于', icon: 'bi-info-circle' },
 ];
 const diskStates = [
   { key: 'active', color: '0 255 0', brightness: 128 }, { key: 'idle', color: '255 255 0', brightness: 64 }, { key: 'standby', color: '0 100 255', brightness: 40 }, { key: 'deep_sleep', color: '40 0 80', brightness: 24 }, { key: 'offline', color: 'off', brightness: 0 },
@@ -39,7 +37,7 @@ const modeLabels: Record<string, string> = { off: '关闭全部', on: '开启全
 function normalizeRoute(value: string): Route { return value in routeInfo ? value as Route : 'overview'; }
 
 function NavButton({ item, active, available, onNavigate }: { item: typeof navItems[number]; active: boolean; available: boolean; onNavigate: (route: Route) => void }) {
-  return <button type="button" className={`nav-item${active ? ' active' : ''}${item.route === 'lab' ? ' lab-nav-item' : ''}`} aria-label={item.label} aria-current={active ? 'page' : undefined} hidden={!available} onClick={() => onNavigate(item.route)}><i className={`bi ${item.icon}`} aria-hidden="true" /><span>{item.label}</span>{item.warning ? <small>{item.warning}</small> : null}</button>;
+  return <button type="button" className={`nav-item${active ? ' active' : ''}`} aria-label={item.label} aria-current={active ? 'page' : undefined} hidden={!available} onClick={() => onNavigate(item.route)}><i className={`bi ${item.icon}`} aria-hidden="true" /><span>{item.label}</span>{item.warning ? <small>{item.warning}</small> : null}</button>;
 }
 
 function PageHeader({ route, running, onRefresh, refreshing }: { route: Route; running: boolean | null; onRefresh: () => void; refreshing: boolean }) {
@@ -94,7 +92,7 @@ export function App() {
   useEffect(() => { void api<AboutInfo>('/about/info').then(setAboutInfo).catch(() => setAboutInfo(null)); }, []);
   useEffect(() => () => { if (toastTimer.current) window.clearTimeout(toastTimer.current); }, []);
 
-  const navigate = useCallback((next: Route) => { setRoute(next); if (location.hash !== `#${next}`) location.hash = next; document.getElementById('appMain')?.scrollTo({ top: 0, behavior: 'smooth' }); }, []);
+  const navigate = useCallback((next: Route) => { setRoute(next); if (location.hash !== `#${next}`) location.hash = next; document.getElementById('appMain')?.scrollTo({ top: 0, behavior: 'instant' }); }, []);
   const saveSettings = useCallback(async (lines: string[], successMessage: string) => { await api('/settings', { method: 'POST', body: lines.join('\n') }); await api('/daemon/start', { method: 'POST', body: '' }); await Promise.all([loadSettings(), refresh()]); showToast(successMessage); }, [loadSettings, refresh, showToast]);
   const setMode = useCallback(async (mode: string) => { if (!modeLabels[mode]) return; try { const data = await api<{ mode?: string }>('/mode', { method: 'POST', query: `mode=${encodeURIComponent(mode)}`, body: '' }); setStatus((current) => ({ ...current, mode: data.mode || mode })); showToast(`已切换到${modeLabels[data.mode || mode] || mode}`); await refresh(); } catch (error) { showToast(error instanceof Error ? error.message : '模式切换失败', 'err'); } }, [refresh, showToast]);
   const saveLighting = useCallback(() => saveSettings(lightingSettingsLines(settings), '灯光设置已保存'), [saveSettings, settings]);
@@ -102,5 +100,5 @@ export function App() {
   const power26 = hardware.profile === 'dxp480t_plus'; const running = status ? status.daemon === 'running' : null; const currentMode = status?.mode || settings.mode?.global || 'smart';
 
   const railDotClass = `status-dot${running === true ? ' online' : running === false ? ' offline' : ''}`;
-  return <div className="app-shell"><aside className="app-rail" aria-label="主导航"><div className="brand-block"><img src="./images/logo.png?v=2.1.0-toolbox" alt="UGREEN工具箱" className="brand-logo" width="48" height="48" /><div className="brand-copy"><strong>UGREEN工具箱</strong><span>BearHero · fnOS</span></div></div><nav className="rail-nav">{navItems.map((item) => <NavButton key={item.route} item={item} active={item.route === route} available={item.route !== 'bios' || Boolean(bios?.supported)} onNavigate={navigate} />)}</nav><div className="rail-footer"><span className="rail-state"><span className={railDotClass} /><span>{running === null ? '正在连接' : running ? '服务运行中' : '后台已停止'}</span></span><small>v{aboutInfo?.version || '—'} · BearHero</small></div></aside><main className="app-main" id="appMain"><PageHeader route={route} running={running} refreshing={refreshing} onRefresh={() => void refresh(true)} /><div className={`action-message${toast ? ` visible ${toast.type}` : ''}`} aria-live="polite">{toast?.message}</div><OverviewPage hidden={route !== 'overview'} status={status} mapping={mapping} onDevices={() => navigate('devices')} /><LightingPage hidden={route !== 'lighting'} settings={settings} power26={power26} onSettingsChange={setSettings} onSave={saveLighting} onPower26Apply={applyPower26} onToast={showToast} /><ActivityPage hidden={route !== 'activity'} settings={settings} onSettingsChange={setSettings} onSave={saveSettings} onToast={showToast} /><DevicesPage hidden={route !== 'devices'} mapping={mapping} hardware={hardware} settings={settings} onSettingsChange={setSettings} onSaveSettings={saveSettings} onRefresh={refresh} onToast={showToast} /><BiosPage hidden={route !== 'bios'} bios={bios} hardware={hardware} onRefresh={refresh} onToast={showToast} /><LabPage hidden={route !== 'lab'} onRefresh={refresh} onToast={showToast} /><AboutPage hidden={route !== 'about'} info={aboutInfo} onToast={showToast} /></main><ModeDock mode={currentMode} onModeChange={(mode) => void setMode(mode)} /></div>;
+  return <div className="app-shell"><aside className="app-rail" aria-label="主导航"><div className="brand-block"><img src="./images/logo.png?v=2.1.0-toolbox" alt="UGREEN工具箱" className="brand-logo" width="48" height="48" /><div className="brand-copy"><strong>UGREEN工具箱</strong><span>BearHero · fnOS</span></div></div><nav className="rail-nav">{navItems.map((item) => <NavButton key={item.route} item={item} active={item.route === route} available={item.route !== 'bios' || Boolean(bios?.supported)} onNavigate={navigate} />)}</nav><div className="rail-footer"><span className="rail-state"><span className={railDotClass} /><span>{running === null ? '正在连接' : running ? '服务运行中' : '后台已停止'}</span></span><small>v{aboutInfo?.version || '—'} · BearHero</small></div></aside><main className="app-main" id="appMain"><PageHeader key={route} route={route} running={running} refreshing={refreshing} onRefresh={() => void refresh(true)} /><div className={`action-message${toast ? ` visible ${toast.type}` : ''}`} aria-live="polite">{toast?.message}</div><OverviewPage hidden={route !== 'overview'} status={status} mapping={mapping} onDevices={() => navigate('devices')} /><LightingPage hidden={route !== 'lighting'} settings={settings} power26={power26} onSettingsChange={setSettings} onSave={saveLighting} onPower26Apply={applyPower26} onToast={showToast} /><ActivityPage hidden={route !== 'activity'} settings={settings} onSettingsChange={setSettings} onSave={saveSettings} onToast={showToast} /><DevicesPage hidden={route !== 'devices'} mapping={mapping} hardware={hardware} settings={settings} onSettingsChange={setSettings} onSaveSettings={saveSettings} onRefresh={refresh} onToast={showToast} /><BiosPage hidden={route !== 'bios'} bios={bios} hardware={hardware} onRefresh={refresh} onToast={showToast} /><AboutPage hidden={route !== 'about'} info={aboutInfo} onToast={showToast} /></main><ModeDock mode={currentMode} onModeChange={(mode) => void setMode(mode)} /></div>;
 }

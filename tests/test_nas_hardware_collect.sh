@@ -68,18 +68,12 @@ EOF
 cat > "$LED_CLI" <<'EOF'
 #!/bin/bash
 case "${1:-}" in
-    --version)
+    --help)
         echo 'ugreen_leds_cli fixture-diag1'
         ;;
-    --dxp480t-power-probe)
-        echo 'ready=true bus=2 status_address=0x31 control_address=0x26'
-        ;;
-    --diagnose)
-        printf '%s\n' \
-            'diagnostic_version=1' \
-            'read_only=true' \
-            'product_name=DXP480T Plus' \
-            'power_status_result=ok'
+    all)
+        [[ "$*" == 'all -status' ]] || exit 98
+        echo 'power: status = on, brightness = 64, color = RGB(1, 2, 3)'
         ;;
     *)
         echo 'unexpected mutating CLI command' >&2
@@ -144,8 +138,8 @@ grep -Fq 'name=it8613' <<< "$REPORT"
 grep -Fq 'node=pwm2 mode=' <<< "$REPORT"
 grep -Fq 'value=96' <<< "$REPORT"
 grep -Fq 'ugreen_leds_cli fixture-diag1' <<< "$REPORT"
-grep -Fq 'command=--dxp480t-power-probe' <<< "$REPORT"
-grep -Fq 'ready=true bus=2 status_address=0x31 control_address=0x26' <<< "$REPORT"
+grep -Fq 'command=all -status' <<< "$REPORT"
+grep -Fq 'power: status = on, brightness = 64, color = RGB(1, 2, 3)' <<< "$REPORT"
 grep -Fq 'no_pwm_or_policy_writes=true' <<< "$REPORT"
 grep -Fq 'no_i2c_data_writes=true' <<< "$REPORT"
 grep -Fq 'direct_i2c_tools_used=false' <<< "$REPORT"

@@ -1,0 +1,28 @@
+{
+  "source": "<LLLED_FPK_WORKTREE>",
+  "files": [
+    {
+      "path": "App.Native.UGreenLED/app/server/lib/bios_control.sh",
+      "baseline_sha256": "3c2638fd9f5c0bf5e05d1dba9d96f241413d3be4d63b4d8099cd3368ab23ef7c",
+      "modified_sha256": "42aa72a94276a25c248d7add082daa149868bbfa4b0b548560268b4c549b78fd",
+      "baseline_crlf_count": 0,
+      "modified_crlf_count": 0
+    },
+    {
+      "path": "tests/test_startup_persistence.sh",
+      "baseline_sha256": "5221389111a515167bc323b431472cfa10e9b59797850ba0cca9e805744549ea",
+      "modified_sha256": "b21b573083d661e265e47bad72387c019cbbc27dc5204dad0a88c6bea96d18c2",
+      "baseline_crlf_count": 0,
+      "modified_crlf_count": 0
+    },
+    {
+      "path": "tests/test_bios_api.sh",
+      "baseline_sha256": "de7816d28532e7d1a65c5870c6d6463876e3348b1313fe062166a63270276986",
+      "modified_sha256": "b21668e38045b624d92405f2a4bf30ecb7781d3f170cdfd4c20635b8cc85a1ae",
+      "baseline_crlf_count": 0,
+      "modified_crlf_count": 0
+    }
+  ],
+  "patch_sha256": "90b57e46d6376b8334c1811c5bf69315b20609e04e4cc17b3c29c173337cf0a6",
+  "baseline_checked_before_application": true
+}

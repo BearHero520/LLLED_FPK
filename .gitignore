@@ -28,8 +28,6 @@ ugreen_led_controller.sh
 ugreen_leds_cli
 !/App.Native.UGreenLED/app/server/bin/
 !/App.Native.UGreenLED/app/server/bin/ugreen_leds_cli
-/App.Native.UGreenLED/app/server/bin/ugreenctl
-/App.Native.UGreenLED/app/server/lib/ugreenctl/models/*.so
 quick_install.sh
 quick_led_test.sh
 uninstall.sh
@@ -51,3 +49,6 @@ __pycache__/
 *~
 
 /.work-dx4600-dh2600/
+
+!/scripts/hardware-release.json
+/.work-almighty-release/

@@ -14,7 +14,6 @@ import paramiko
 ROOT = Path(__file__).resolve().parent.parent
 PROJECT = ROOT / "App.Native.UGreenLED"
 DIST = ROOT / "dist"
-LED_BUILD_SCRIPT = Path(__file__).resolve().parent / "build_ugreen_leds_cli.py"
 FAN_CURVE_API_TEST = Path(__file__).resolve().parent.parent / "tests" / "test_fan_curve_api.sh"
 REMOTE_DIR = "/tmp/App.Native.UGreenLED-build"
 LOCAL_ZIP = Path(__file__).resolve().parent / "ugreen_led_pkg.zip"
@@ -81,8 +80,6 @@ def make_zip():
                 if fp.suffix in TEXT_SUFFIX or fp.name in TEXT_NAMES:
                     data = data.replace(b"\r\n", b"\n")
                 zf.writestr(arc, data)
-        data = LED_BUILD_SCRIPT.read_bytes().replace(b"\r\n", b"\n")
-        zf.writestr("scripts/build_ugreen_leds_cli.py", data)
     print(f"ZIP: {LOCAL_ZIP} ({LOCAL_ZIP.stat().st_size} bytes)\n")
 
 
@@ -94,6 +91,8 @@ def main():
         print("NAS 地址、用户名和密码不能为空")
         sys.exit(2)
 
+    from build_fpk import validate_project
+    validate_project()
     make_zip()
     c = paramiko.SSHClient()
     c.load_system_host_keys()
@@ -117,43 +116,9 @@ def main():
     print("\n=== validate fan curve API ===")
     run(c, f"bash {REMOTE_DIR}/tests/test_fan_curve_api.sh")
 
-    print("\n=== build bundled UGREEN-NAS-Hardware control CLI ===")
-    sudo(
-        c,
-        "if ! command -v cmake >/dev/null 2>&1 || ! command -v cc >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then "
-        "apt-get update -qq && apt-get install -y -qq cmake build-essential git; fi",
-        password,
-        5,
-    )
-
-    print("\n=== build patched bundled LED CLI ===")
-    run(c, f"ln -sfn . {REMOTE_DIR}/App.Native.UGreenLED")
-    run(c, f"python3 {REMOTE_DIR}/scripts/build_ugreen_leds_cli.py", 8)
-    run(c, f"rm -f {REMOTE_DIR}/App.Native.UGreenLED")
-
-    hardware_source = f"{REMOTE_DIR}/app/server/vendor/UGREEN-NAS-Hardware"
-    hardware_build = f"{REMOTE_DIR}/.ugreenctl-build"
-    run(
-        c,
-        f"cmake -S {hardware_source} -B {hardware_build} -DCMAKE_BUILD_TYPE=Release && "
-        f"cmake --build {hardware_build} --parallel && "
-        f"ctest --test-dir {hardware_build} --output-on-failure && "
-        f"model_list=\"$({hardware_build}/ugreenctl --plugin-dir {hardware_build}/models models)\" && "
-        f"printf '%s\\n' \"$model_list\" && "
-        f"printf '%s\\n' \"$model_list\" | grep -q '^dx4600[[:space:]]' && "
-        f"printf '%s\\n' \"$model_list\" | grep -q '^dxp4800[[:space:]]' && "
-        f"printf '%s\\n' \"$model_list\" | grep -q '^dxp4800plus[[:space:]]' && "
-        f"printf '%s\\n' \"$model_list\" | grep -q '^dxp4800s[[:space:]]' && "
-        f"printf '%s\\n' \"$model_list\" | grep -q '^dxp480tplus[[:space:]]' && "
-        f"printf '%s\\n' \"$model_list\" | grep -q '^dxp6800pro[[:space:]]' && "
-        f"mkdir -p {REMOTE_DIR}/app/server/bin {REMOTE_DIR}/app/server/lib/ugreenctl/models && "
-        f"install -m 0755 {hardware_build}/ugreenctl {hardware_build}/ugreenctl-fand "
-        f"{REMOTE_DIR}/app/server/bin/ && "
-        f"install -m 0644 {hardware_build}/models/dx4600.so {hardware_build}/models/dxp4800.so {hardware_build}/models/dxp4800plus.so {hardware_build}/models/dxp4800s.so "
-        f"{hardware_build}/models/dxp480tplus.so {hardware_build}/models/dxp6800pro.so "
-        f"{REMOTE_DIR}/app/server/lib/ugreenctl/models/",
-        8,
-    )
+    print("\n=== verify imported Almighty controller ===")
+    run(c, f"chmod +x {REMOTE_DIR}/app/server/bin/ugreenctl {REMOTE_DIR}/app/server/bin/ugreenctl-fand {REMOTE_DIR}/app/server/bin/ugreen_leds_cli {REMOTE_DIR}/app/server/bin/ugreenctl-ledd")
+    run(c, f"{REMOTE_DIR}/app/server/bin/ugreenctl --plugin-dir {REMOTE_DIR}/app/server/lib/ugreenctl/models models")
 
     print("\n=== fnpack build ===")
     sudo(c, f"cd {REMOTE_DIR} && fnpack build", password, 5)
@@ -180,7 +145,13 @@ def main():
         for entry in (
             "server/bin/ugreenctl",
             "server/bin/ugreenctl-fand",
+            "server/bin/ugreen_leds_cli",
+            "server/bin/ugreenctl-ledd",
             "server/lib/ugreenctl/models/dx4600.so",
+            "server/lib/ugreenctl/models/dxp2800.so",
+            "server/lib/ugreenctl/models/dxp8800plus.so",
+            "server/lib/ugreenctl/models/dxp6800plus.so",
+            "server/lib/ugreenctl/build-info.json",
             "server/lib/ugreenctl/models/dxp4800.so",
             "server/lib/ugreenctl/models/dxp4800plus.so",
             "server/lib/ugreenctl/models/dxp4800s.so",

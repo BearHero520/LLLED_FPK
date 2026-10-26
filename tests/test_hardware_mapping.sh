@@ -72,7 +72,7 @@ assert_eq "$(hardware_profile_key)" "dxp4800s"
 assert_eq "$(hardware_profile_display_name)" "UGREEN DXP4800S"
 assert_eq "$(hardware_support_level)" "experimental"
 assert_eq "$(hardware_disk_count)" "4"
-assert_eq "$(hardware_write_protocol)" "legacy"
+assert_eq "$(hardware_write_protocol)" "upstream-managed"
 assert_eq "$(hardware_cli_led_name disk4)" "disk4"
 stock_curve=$(bios_fan_curve_stock_json)
 grep -Fq '"profile":"stock-4800s"' <<< "$stock_curve" || fail "DXP4800S must use its stock profile"
@@ -83,8 +83,8 @@ assert_eq "$(hardware_support_level)" "limited"
 hardware_driver_supported && fail "DXP480T must not use the legacy LED driver"
 settings_set "$SETTINGS_FILE" hardware profile idx6011_pro
 assert_eq "$(hardware_netdev_count)" "2"
-assert_eq "$(hardware_cli_led_name netdev2)" "disk1"
-assert_eq "$(hardware_cli_led_name disk1)" "disk2"
+assert_eq "$(hardware_cli_led_name netdev2)" "netdev2"
+assert_eq "$(hardware_cli_led_name disk1)" "disk1"
 
 CLI_LOG="$TMP/cli.log"
 MOCK_CLI="$TMP/ugreen_leds_cli"
@@ -106,8 +106,8 @@ led_backend_reset
 assert_eq "$(led_backend_name)" "cli"
 led_set_color disk1 10 20 30 70
 led_set_off disk1
-grep -q -- 'disk2.*-color' "$CLI_LOG" || fail "LED color did not go through bundled CLI"
-grep -q -- 'disk2.*-off' "$CLI_LOG" || fail "LED off did not go through bundled CLI"
+grep -q -- 'disk1.*-color' "$CLI_LOG" || fail "LED color did not go through bundled CLI"
+grep -q -- 'disk1.*-off' "$CLI_LOG" || fail "LED off did not go through bundled CLI"
 if grep -Eq 'i2c(get|set)|/sys/class/leds|power-0x26' "$LIB/led_api.sh"; then
   fail "application LED API contains a direct hardware path"
 fi

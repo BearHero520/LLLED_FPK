@@ -71,10 +71,9 @@ apply_netdev_activity() {
 
 apply_power26_from_settings() {
     local settings="$1" color effect
-    color=$(settings_get "$settings" power26 color "white")
+    color=preserve
     effect=$(settings_get "$settings" power26 effect "steady")
-    case "$color" in red|white) ;; *) color="white" ;; esac
-    case "$effect" in steady|fast|slow|breath) ;; network) effect="steady" ;; *) effect="steady" ;; esac
+    case "$effect" in steady|fast|slow) ;; network) effect="steady" ;; *) effect="steady" ;; esac
     led_set_power26_effect "$color" "$effect"
 }
 
@@ -94,9 +93,8 @@ power26_network_effect() {
 
 apply_power26_network_activity() {
     local settings="$1" speed="${2:-0}" color threshold effect
-    color=$(settings_get "$settings" power26 color "white")
+    color=preserve
     threshold=$(settings_get "$settings" power26 network_threshold_kbps "32")
-    case "$color" in red|white) ;; *) color="white" ;; esac
     effect=$(power26_network_effect "$speed" "$threshold")
     led_set_power26_effect "$color" "$effect"
 }

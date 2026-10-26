@@ -37,18 +37,8 @@ led_cli_available() {
 }
 
 led_cli_version() {
-    local output
-    led_cli_available || {
-        printf '<unavailable>\n'
-        return 0
-    }
-    if command -v timeout >/dev/null 2>&1; then
-        output=$(timeout 2 "$UGREEN_CLI" --version 2>/dev/null || true)
-    else
-        output=$("$UGREEN_CLI" --version 2>/dev/null || true)
-    fi
-    output="${output//$'\n'/ }"
-    printf '%s\n' "${output:-<unsupported>}"
+    led_cli_available || { printf 'unavailable\n'; return; }
+    printf '%s\n' "${UGREEN_CLI_RELEASE:-almighty-preview-20261026-923fdaa}"
 }
 
 ensure_cli() {
@@ -76,16 +66,19 @@ led_cli_run() {
 
 # Shared CLI execution for single LEDs and a batch of already mapped names.
 _led_cli_run_raw() {
-    local logical="$1" raw="$2" protocol output rc action
+    local logical="$1" raw="$2" protocol output rc action arg
+    local -a access=()
     shift 2
     ensure_cli || return 1
-    protocol="legacy"
-    declare -F hardware_write_protocol >/dev/null && protocol=$(hardware_write_protocol)
+    protocol="upstream-managed"
+    for arg in "$@"; do
+        case "$arg" in -on|-off|-color|-brightness|-blink|-breath) access=(--force --apply); break ;; esac
+    done
     action="$*"
     if command -v timeout >/dev/null 2>&1; then
-        if output=$(UGREEN_LEDS_WRITE_PROTOCOL="$protocol" timeout 5 "$UGREEN_CLI" "$raw" "$@" 2>&1); then rc=0; else rc=$?; fi
+        if output=$(timeout 5 "$UGREEN_CLI" "$raw" "$@" "${access[@]}" 2>&1); then rc=0; else rc=$?; fi
     else
-        if output=$(UGREEN_LEDS_WRITE_PROTOCOL="$protocol" "$UGREEN_CLI" "$raw" "$@" 2>&1); then rc=0; else rc=$?; fi
+        if output=$("$UGREEN_CLI" "$raw" "$@" "${access[@]}" 2>&1); then rc=0; else rc=$?; fi
     fi
     if [[ "$rc" -ne 0 ]]; then
         output="${output//$'\n'/ }"
@@ -100,41 +93,23 @@ _led_cli_run_raw() {
 }
 
 led_cli_power26_probe() {
-    local output rc
-    ensure_cli || return 1
-    if command -v timeout >/dev/null 2>&1; then
-        if output=$(timeout 5 "$UGREEN_CLI" --dxp480t-power-probe 2>&1); then rc=0; else rc=$?; fi
-    else
-        if output=$("$UGREEN_CLI" --dxp480t-power-probe 2>&1); then rc=0; else rc=$?; fi
-    fi
-    if [[ "$rc" -ne 0 ]]; then
-        output="${output//$'\n'/ }"
-        led_set_error "DXP480T power controller probe failed (rc=$rc${output:+, $output})"
-        _led_log_failure "led.power26_probe_failed" "DXP480T power controller is unavailable" \
-            "exit_code=$rc" "output=$output"
-        return "$rc"
-    fi
-    LED_LAST_ERROR=""
-    printf '%s' "$output"
+    led_cli_run power -status
 }
 
+# The release compatibility CLI supports N76 modes, not palette changes or breath.
 led_cli_power26_apply() {
-    local color="$1" effect="$2" output rc
-    ensure_cli || return 1
-    if command -v timeout >/dev/null 2>&1; then
-        if output=$(timeout 5 "$UGREEN_CLI" --dxp480t-power "$color" "$effect" 2>&1); then rc=0; else rc=$?; fi
-    else
-        if output=$("$UGREEN_CLI" --dxp480t-power "$color" "$effect" 2>&1); then rc=0; else rc=$?; fi
+    local color="$1" effect="$2"
+    if [[ "$effect" != off && "$color" != preserve ]]; then
+        led_set_error "Almighty compatibility CLI does not support N76 color selection"
+        return 2
     fi
-    if [[ "$rc" -ne 0 ]]; then
-        output="${output//$'\n'/ }"
-        led_set_error "DXP480T power LED command failed: $color $effect (rc=$rc${output:+, $output})"
-        _led_log_failure "led.power26_command_failed" "DXP480T power LED CLI command failed" \
-            "color=$color" "effect=$effect" "exit_code=$rc" "output=$output"
-        return "$rc"
-    fi
-    LED_LAST_ERROR=""
-    printf '%s' "$output"
+    case "$effect" in
+        off) led_cli_run power -off ;;
+        steady) led_cli_run power -on ;;
+        fast) led_cli_run power -blink 250 250 ;;
+        slow) led_cli_run power -blink 1000 1000 ;;
+        *) led_set_error "Almighty N76 does not support this effect: $effect"; return 2 ;;
+    esac
 }
 
 led_power26_profile() {
@@ -170,16 +145,6 @@ led_backend_name() {
 led_backend_status_raw() {
     local state
     led_backend_select >/dev/null || return 1
-    if led_power26_profile && [[ "$1" == "power" ]]; then
-        state=$(led_read_cached_state power)
-        case "$state" in
-            off|power26,*,off) echo "status = off" ;;
-            power26,*,fast|power26,*,slow) echo "status = blink" ;;
-            power26,*,breath) echo "status = breath" ;;
-            *) echo "status = on" ;;
-        esac
-        return 0
-    fi
     led_cli_run "$1" -status 2>/dev/null
 }
 
@@ -233,11 +198,7 @@ led_set_color() {
     local led="$1" r="$2" g="$3" b="$4" brightness="${5:-64}" key
     if led_power26_profile; then
         [[ "$led" == "power" ]] || { led_set_error "DXP480T only exposes the power LED"; return 2; }
-        if (( r > g + 20 && r > b + 20 )); then
-            led_set_power26_effect red steady
-        else
-            led_set_power26_effect white steady
-        fi
+        led_set_power26_effect preserve steady
         return
     fi
     ensure_led_backend || return 1
@@ -252,7 +213,7 @@ led_set_off() {
     local led="$1"
     if led_power26_profile; then
         [[ "$led" == "power" ]] || { led_set_error "DXP480T only exposes the power LED"; return 2; }
-        led_set_power26_effect white off
+        led_set_power26_effect preserve off
         return
     fi
     ensure_led_backend || return 1
@@ -267,7 +228,7 @@ led_set_blink() {
     if led_power26_profile; then
         local color effect
         [[ "$led" == "power" ]] || { led_set_error "DXP480T only exposes the power LED"; return 2; }
-        if (( r > g + 20 && r > b + 20 )); then color=red; else color=white; fi
+        color=preserve
         if (( period_ms >= 1200 )); then effect=slow; else effect=fast; fi
         led_set_power26_effect "$color" "$effect"
         return
@@ -283,14 +244,14 @@ led_set_blink() {
     led_write_cached_state "$led" "$key"
 }
 
-# The DXP480T page only invokes the dedicated bundled-CLI command.  No shell
+# The DXP480T page uses supported modes of the bundled compatibility CLI. No shell
 # code in the application probes buses or accesses the LED controller directly.
 led_set_power26_effect() {
-    local color="${1:-white}" effect="${2:-steady}"
+    local color="${1:-preserve}" effect="${2:-steady}"
     local key
     led_power26_profile || { led_set_error "DXP480T power protocol is not active for this model"; return 2; }
-    case "$color" in red|white) ;; *) return 2 ;; esac
-    case "$effect" in off|steady|fast|slow|breath) ;; *) return 2 ;; esac
+    case "$color" in preserve) ;; *) [[ "$effect" == off ]] || { led_set_error "N76 color selection is unsupported by this release"; return 2; } ;; esac
+    case "$effect" in off|steady|fast|slow) ;; *) return 2 ;; esac
     ensure_led_backend || return 1
     key="power26,${color},${effect}"
     [[ "$(led_read_cached_state power)" == "$key" ]] && return 0
@@ -343,16 +304,6 @@ led_all_status() {
     local -a logical_leds=() raw_leds=()
     led_backend_select >/dev/null || return 1
     echo "backend: cli"
-    if led_power26_profile; then
-        state=$(led_read_cached_state power)
-        case "$state" in
-            off|power26,*,off) echo "power: status = off" ;;
-            power26,*,fast|power26,*,slow) echo "power: status = blink" ;;
-            power26,*,breath) echo "power: status = breath" ;;
-            *) echo "power: status = on" ;;
-        esac
-        return 0
-    fi
     for led in power $(led_list_network_slots 2>/dev/null) $(led_list_disk_slots 2>/dev/null); do
         logical_leds+=("$led")
         raw_leds+=("$(led_cli_name "$led")")

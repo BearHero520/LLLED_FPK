@@ -81,8 +81,6 @@ class PreviewApiTests(unittest.TestCase):
                 preview.dump_ini(state.settings),
                 state.daemon,
                 state.remap_count,
-                state.lab_active,
-                state.lab_highlight,
                 state.driver_loaded,
                 state.bios_cpu_pwm,
                 state.bios_sys_pwm,
@@ -135,12 +133,6 @@ class PreviewApiTests(unittest.TestCase):
             "/power26/apply?color=white&effect=steady&threshold=32",
             "/driver/install?confirm=install-driver",
             "/driver/unload?confirm=unload-driver",
-            "/lab/mapping/start",
-            "/lab/mapping/highlight?led=disk1",
-            "/lab/mapping/save",
-            "/lab/position/save",
-            "/lab/mapping/cancel",
-            "/lab/mapping/reset",
             "/mode?mode=off",
             "/remap",
             "/daemon/start",
@@ -156,6 +148,14 @@ class PreviewApiTests(unittest.TestCase):
                 self.assertTrue(headers["content-type"].startswith("application/json"))
                 self.assertEqual(headers["x-request-id"], "preview-test-request")
                 self.assertEqual(self.state_snapshot(), before)
+
+    def test_removed_lab_routes_return_not_found(self) -> None:
+        for method in ("GET", "POST"):
+            for route in ("status", "start", "highlight", "save", "cancel", "reset"):
+                with self.subTest(method=method, route=route):
+                    status, payload, _ = self.request(method, f"/lab/mapping/{route}")
+                    self.assertEqual(status, 404)
+                    self.assertFalse(payload["ok"])
 
     def test_driver_changes_require_confirmation(self) -> None:
         status, payload, _ = self.request("POST", "/driver/install")

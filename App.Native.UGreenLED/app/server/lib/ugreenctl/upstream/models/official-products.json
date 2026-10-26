@@ -1,0 +1,552 @@
+{
+  "schema_version": 1,
+  "retrieved_date": "2026-10-16",
+  "source": "https://www.ugnas.com/support/download-list/product_type=nas&id=10?product_type=nas&id=10&type=2",
+  "scope": "All 27 NAS entries displayed by the official Chinese download directory; marketing entries are not hardware validation.",
+  "products": [
+    {
+      "official_product_id": 42,
+      "name": "DXP2800 GT",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D42?id=42&product_type=nas&type=2",
+      "source_html_sha256": "4c1ec9fd50e50ad155d97a6e81fe89d84f500b2fd751bb331825cda5f7716d1b",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7293&model=42"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 41,
+      "name": "DXP4800 GT",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D41?id=41&product_type=nas&type=2",
+      "source_html_sha256": "16e06359ba8a83e842f9e10fc3690ffc00ea45b3d2603ee5f979a8edc0ba30a1",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7292&model=41"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 38,
+      "name": "DXP8800 Ultra",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D38?id=38&product_type=nas&type=2",
+      "source_html_sha256": "15a537ad0389e80bba84712ab353e71633b12ea7b123fe2e0b05750c93d83903",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7290&model=38"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 36,
+      "name": "DXP6800 Ultra",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D36?id=36&product_type=nas&type=2",
+      "source_html_sha256": "a9e1b3c2912e2b887b60145d62045ab84a224d69d7436fb8a2c3717a2904ce43",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7288&model=36"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 32,
+      "name": "DXP4800 Pro",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D32?id=32&product_type=nas&type=2",
+      "source_html_sha256": "76a2d4a8f1483ca454605af1027c68af07881ecc354de815444a548440596485",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7284&model=32"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 30,
+      "name": "DXP4800S",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D30?id=30&product_type=nas&type=2",
+      "source_html_sha256": "28443a54349988856378cf7df93988a076a80e22d4ac9682d4345aff9d4980c0",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7283&model=30"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 29,
+      "name": "iDX6011 Pro",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D29?id=29&product_type=nas&type=2",
+      "source_html_sha256": "f38a94ac3128a077742554422aedcefe36704e329656da11c6a91c53c4272105",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.12.0030",
+        "date": "2026-10-10",
+        "display_size": "1,238.10MB",
+        "system": "UGOS Pro",
+        "md5": "780940b4a35a42288216b5b727afd71e",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7455&model=29"
+      },
+      "firmware_artifact_id": "idx-1.20.12",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 28,
+      "name": "DXP6800",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D28?id=28&product_type=nas&type=2",
+      "source_html_sha256": "62241c27761ba87674844d10f5c49016f4f6888a26bfcf94f0fee81342d6eef1",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7282&model=28"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 27,
+      "name": "DH4300 Plus",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D27?id=27&product_type=nas&type=2",
+      "source_html_sha256": "e65fe472a4dfdaf25d9364f6d71271967c457f62946425d1c87cbac5f7879c66",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "834.81MB",
+        "system": "UGOS Pro",
+        "md5": "ae6c93eca31f4e8938205b1dee87777e",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7213&model=27"
+      },
+      "firmware_artifact_id": "rk3588-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 24,
+      "name": "DH2300",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D24?id=24&product_type=nas&type=2",
+      "source_html_sha256": "e9d7559e24190dc1ad3e8f906f9f9cdffef6204c902e31a312ac18fa3720df5f",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "918.65MB",
+        "system": "UGOS Pro",
+        "md5": "bb1023df9dc93de46f26bea857f57e3c",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7215&model=24"
+      },
+      "firmware_artifact_id": "rk3576-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 21,
+      "name": "DX4600",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D21?id=21&product_type=nas&type=2",
+      "source_html_sha256": "41b1bf4faeb4865707b8465672b2a630a35c2b7115fc8ff0aa2c9c9915a67a20",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7281&model=21"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 20,
+      "name": "DX4600+",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D20?id=20&product_type=nas&type=2",
+      "source_html_sha256": "6417ceef0ef8aa416bd3801eb84997841676eb6e888c334c3460933b2816f637",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7280&model=20"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 19,
+      "name": "DX4600 Pro",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D19?id=19&product_type=nas&type=2",
+      "source_html_sha256": "2bfa7fa10d5ec3a10e5f9384ecf2fe5b4b293d4d32ecae973e0cf395a6058d29",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7279&model=19"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 18,
+      "name": "DH2600",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D18?id=18&product_type=nas&type=2",
+      "source_html_sha256": "2dfab18cb29afc08c9ccc6f5aa506fe6d9a9eb5b63d0edc7321570fd955ed760",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7278&model=18"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 17,
+      "name": "DX4700+",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D17?id=17&product_type=nas&type=2",
+      "source_html_sha256": "153c90ffbbcceabe3838e0a40894cb77b67c1ad00dab03c34071a9b1d3a9b2fd",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7277&model=17"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 16,
+      "name": "DX4700",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D16?id=16&product_type=nas&type=2",
+      "source_html_sha256": "bc9d9dba2ef05a19b05f4290d197f48d14c290699c11ca91ed398450458687d3",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7276&model=16"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 14,
+      "name": "DXP8800 Pro",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D14?id=14&product_type=nas&type=2",
+      "source_html_sha256": "dcff3a82a9912b5eace8f516bdc9c0c7f502b24ac1e17f50e97d34c244aaa6f3",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7275&model=14"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 13,
+      "name": "DXP8800 Plus",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D13?id=13&product_type=nas&type=2",
+      "source_html_sha256": "6b608c9b4a420d5546788c52e8eb47cb20bd24923554f9403b9161dbb30d57fe",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7274&model=13"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 12,
+      "name": "DXP8800",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D12?id=12&product_type=nas&type=2",
+      "source_html_sha256": "e991fa33dbf772cd751a7dc27972c88c78ecb88881a64b6598f95b849535fa20",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7273&model=12"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 11,
+      "name": "DXP6800 Pro",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D11?id=11&product_type=nas&type=2",
+      "source_html_sha256": "5d242fb1d469af85fa1eea20733a05eaea22371c437d1498afa0321e21fd09e0",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7272&model=11"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 10,
+      "name": "DXP6800 Plus",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D10?id=10&product_type=nas&type=2",
+      "source_html_sha256": "07aa27c179ef66ce5f479bf95e1f68c05a7a4f7b390f400d865c6b0b3a5e7fd5",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7271&model=10"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 9,
+      "name": "DXP4800 Plus",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D9?id=9&product_type=nas&type=2",
+      "source_html_sha256": "7129fb19fd2791b31e61b8f3d9f291d5bdb805d91ce856b93cf4a4e76ddf9738",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7270&model=9"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 8,
+      "name": "DXP480T Plus",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D8?id=8&product_type=nas&type=2",
+      "source_html_sha256": "e17b397138c5bb9a887bb17932b0f69c27cde5bb58cd71091e570b5b7db748c4",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7269&model=8"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 6,
+      "name": "DXP2800",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D6?id=6&product_type=nas&type=2",
+      "source_html_sha256": "52b989f80050521f600322b6ba96980fb739895a6cb6e91af851601bf4bc6d4b",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7267&model=6"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 4,
+      "name": "DXP4800",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D4?id=4&product_type=nas&type=2",
+      "source_html_sha256": "757fa025fdf8cd2637a827569f8754b9ddfd62fb24a3aebfcfb018d37846b6d9",
+      "firmware_listing_status": "listed",
+      "latest_firmware": {
+        "version": "1.20.0.0142",
+        "date": "2026-09-21",
+        "display_size": "1,243.09MB",
+        "system": "UGOS Pro",
+        "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+        "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7266&model=4"
+      },
+      "firmware_artifact_id": "x86-1.20",
+      "intake_status": "official_md5_verified",
+      "current_delivery_scope": "target"
+    },
+    {
+      "official_product_id": 99,
+      "name": "DH2100",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D99?id=99&product_type=nas&type=2",
+      "source_html_sha256": "928a664e75adfaacc44b564a8d4fbf6bc2970e8132be4e5ca9e6029f7f4e711a",
+      "firmware_listing_status": "no_public_firmware_link",
+      "firmware_artifact_id": null,
+      "intake_status": "official_page_no_firmware_entry",
+      "pending_reason": "Historical missing firmware evidence; user excluded this model from current delivery on 2026-10-16.",
+      "search_evidence": "docs/DH2100_FIRMWARE_SEARCH.zh-CN.md",
+      "current_delivery_scope": "excluded-by-user"
+    },
+    {
+      "official_product_id": 100,
+      "name": "DH2100+",
+      "source_url": "https://www.ugnas.com/support/download-list/product_type%3Dnas%26id%3D100?id=100&product_type=nas&type=2",
+      "source_html_sha256": "dc2ada4dd5b7cad96fa05fde92e59d65bc8a21c74072878115a443a5fa69be4b",
+      "firmware_listing_status": "no_public_firmware_link",
+      "firmware_artifact_id": null,
+      "intake_status": "official_page_no_firmware_entry",
+      "pending_reason": "Historical missing firmware evidence; user excluded this model from current delivery on 2026-10-16.",
+      "search_evidence": "docs/DH2100_FIRMWARE_SEARCH.zh-CN.md",
+      "current_delivery_scope": "excluded-by-user"
+    }
+  ],
+  "firmware_artifacts": [
+    {
+      "id": "x86-1.20",
+      "filename": "6800plus.img",
+      "source_kind": "user_supplied_identical_to_official_md5",
+      "bytes": 1303473152,
+      "md5": "c5358c7713ccf2811aaa7c5adcc10721",
+      "sha256": "73862c9c619f3e8b2279252326654f4915234dc8f437a71eb9a0067a724062c5",
+      "architecture": "amd64",
+      "extraction_directory": "firmware-inbox/work/dxp6800plus"
+    },
+    {
+      "id": "rk3576-1.20",
+      "filename": "release_20260921-firmware_image-1.20.0.142-rk3576_release_arm64_6.1.27_nasync.img",
+      "source_kind": "official_public_download",
+      "bytes": 963269632,
+      "md5": "bb1023df9dc93de46f26bea857f57e3c",
+      "sha256": "a3a645e4f61d3a49d69b0b2c06d61b269a776dd769aa673dedceced4a616b9d3",
+      "architecture": "arm64",
+      "extraction_directory": "firmware-inbox/work/almighty-all-models/packages/24",
+      "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7215&model=24",
+      "download_source": "https://dl-cn.ugnas.com/pro/ota/120000142/release_20260921-firmware_image-1.20.0.142-rk3576_release_arm64_6.1.27_nasync.img"
+    },
+    {
+      "id": "rk3588-1.20",
+      "filename": "release_20260921-firmware_image-1.20.0.142-rk3588_release_arm64_6.1.27_nasync.img",
+      "source_kind": "official_public_download",
+      "bytes": 875359232,
+      "md5": "ae6c93eca31f4e8938205b1dee87777e",
+      "sha256": "837ebfe8fffa4b6221ac8aee13d4b364289eccffcc4076bed6660ee1a6cfe836",
+      "architecture": "arm64",
+      "extraction_directory": "firmware-inbox/work/almighty-all-models/packages/27",
+      "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7213&model=27",
+      "download_source": "https://dl-cn.ugnas.com/pro/ota/120000142/release_20260921-firmware_image-1.20.0.142-rk3588_release_arm64_6.1.27_nasync.img"
+    },
+    {
+      "id": "idx-1.20.12",
+      "filename": "release_agent_cli_20260930-firmware_image-1.20.12.30-intel_release_amd64_6.18_nasync.img",
+      "source_kind": "official_public_download",
+      "bytes": 1298240512,
+      "md5": "780940b4a35a42288216b5b727afd71e",
+      "sha256": "10edeeb661587c4cb495e078b1f3e004d6005c83e6aa7b1c05d764c57df5b50e",
+      "architecture": "amd64",
+      "extraction_directory": "firmware-inbox/work/almighty-all-models/packages/29",
+      "public_link_api": "https://api-zh.ugnas.com/api/system/v1/ua/temp/link?appType=firmware&id=7455&model=29",
+      "download_source": "https://dl-cn.ugnas.com/pro/ota/120120030/release_agent_cli_20260930-firmware_image-1.20.12.30-intel_release_amd64_6.18_nasync.img"
+    }
+  ],
+  "support_status_source": "models/compatibility.json",
+  "catalog_is_not_hardware_validation": true,
+  "intake_summary": {
+    "official_products": 27,
+    "products_with_md5_verified_current_firmware": 25,
+    "unique_current_firmware_artifacts": 4,
+    "new_original_downloads": 3,
+    "existing_originals_readonly_hashed": 8,
+    "missing_legacy_firmware_models": [
+      "DH2100",
+      "DH2100+"
+    ]
+  },
+  "delivery_scope": {
+    "updated_date": "2026-10-16",
+    "target_count": 25,
+    "excluded_by_user": [
+      "DH2100",
+      "DH2100+"
+    ],
+    "notice": "The official 27-product inventory is preserved. DH2100 and DH2100+ are excluded from the current delivery by the user; no support or non-applicability is inferred."
+  }
+}
