@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import urllib.request
 
 ROOT = Path(__file__).resolve().parent.parent
 SERVER = ROOT / 'App.Native.UGreenLED/app/server'
@@ -100,6 +101,9 @@ def install_release(manifest, files, lock, server=SERVER):
     record = {'branch': 'Almighty', 'revision': lock['commit'], 'release_tag': lock['tag'],
               'archive_sha256': lock['archive_sha256'], 'architecture': 'x86_64',
               'status': manifest['status'], 'files': {}}
+    for key in ('repository', 'source_type', 'artifact_commit', 'artifact_path'):
+        if key in lock:
+            record[key] = lock[key]
     payloads = {}
     for program in PROGRAMS:
         payloads[f'bin/{program}'] = files[f'usr/local/bin/{program}']
@@ -125,6 +129,19 @@ def install_release(manifest, files, lock, server=SERVER):
     # Written last: incomplete imports fail the packaging receipt check.
     (server / 'lib/ugreenctl/build-info.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
 
+def download_assets(lock, directory):
+    if lock.get('source_type') == 'git-artifact':
+        # Read immutable Git content, never the moving branch head.
+        for name in (lock['archive'], lock['manifest'], 'SHA256SUMS'):
+            url = f"https://raw.githubusercontent.com/{lock['repository']}/{lock['artifact_commit']}/{lock['artifact_path']}/{name}"
+            with urllib.request.urlopen(url, timeout=90) as response:
+                data = response.read()
+            (directory / name).write_bytes(data)
+    else:
+        subprocess.run(['gh', 'release', 'download', lock['tag'], '--repo', lock['repository'],
+                        '--dir', str(directory), '--pattern', lock['archive'], '--pattern', lock['manifest'],
+                        '--pattern', 'SHA256SUMS'], check=True)
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--asset-dir', type=Path)
@@ -135,9 +152,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='almighty-download-') as temporary:
         directory = args.asset_dir or Path(temporary)
         if args.asset_dir is None:
-            subprocess.run(['gh', 'release', 'download', lock['tag'], '--repo', lock['repository'],
-                            '--dir', str(directory), '--pattern', lock['archive'], '--pattern', lock['manifest'],
-                            '--pattern', 'SHA256SUMS'], check=True)
+            download_assets(lock, directory)
         manifest, files = validate_release(directory, lock)
         smoke_test(files, args.runtime_root)
         if not args.check_only:

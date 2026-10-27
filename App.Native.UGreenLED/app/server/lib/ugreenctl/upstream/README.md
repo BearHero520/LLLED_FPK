@@ -1,5 +1,7 @@
 # ugreenctl
 
+Experimental N76 userspace control (no module builder): [usage and unverified-output semantics](docs/N76_DIRECT_CONTROL.zh-CN.md).
+
 The `Almighty` branch adds native LED control, physical SATA/NVMe bay mapping and an
 optional `ugreen_leds_cli` argument-compatible executable. See
 [LED and disk commands](docs/LED_CONTROL.zh-CN.md) for commands, evidence and

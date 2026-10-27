@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/ugreen-opensource/kernel-6.12",
+  "commit": "c75c5abd60dd45f45966720293ce1ee505fb8615",
+  "patch_revision": 1,
+  "sources": {
+    "leds-mcu-n76e003.c": {
+      "path": "drivers/ugreen/dxp480t/leds-mcu-n76e003.c",
+      "sha256": "352bd2d58053e57122eaad4fe9e1c671e9447eb1c8937f87951665a804f4ed7a"
+    },
+    "leds-mcu-n76e003-dh2600.c": {
+      "path": "drivers/ugreen/dh2600/leds-mcu-n76e003-dh2600.c",
+      "sha256": "1ea3550c7a44d1918859eb6df10dcd5fba30ccf8c64228c42ee83978a17c5ba5"
+    },
+    "ledtrig-normal-n76e003.c": {
+      "path": "drivers/ugreen/dxp480t/ledtrig-normal-n76e003.c",
+      "sha256": "0249ed503f4cc9e8e1203c27b26b11f3176be833ba4e0a2070d28efb45251183"
+    },
+    "ledtrig-breath-n76e003.c": {
+      "path": "drivers/ugreen/dxp480t/ledtrig-breath-n76e003.c",
+      "sha256": "d3da0de5fe25914ce507ffd34ba6b9ae25392f97bc9da964bfc4a84fb850b29f"
+    }
+  },
+  "models": {
+    "DH2600": {
+      "driver": "leds-mcu-n76e003-dh2600.c",
+      "mode_register_count": 6,
+      "orange_clear_mask": 42,
+      "initial_brightness": "0"
+    },
+    "DXP480T Plus": {
+      "driver": "leds-mcu-n76e003.c",
+      "mode_register_count": 2,
+      "orange_clear_mask": 2,
+      "initial_brightness": "LED_FULL"
+    }
+  }
+}

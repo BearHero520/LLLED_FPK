@@ -1,5 +1,7 @@
 # ugreenctl
 
+N76 已改为显式用户态实验直控，不含驱动编译功能；见 [直控说明与未验证项](docs/N76_DIRECT_CONTROL.zh-CN.md)。
+
 ugreenctl 是一个面向绿联 NAS 的开源、用户态、插件化硬件管理工具。
 
 [English](README.md) · [兼容性目录](docs/COMPATIBILITY.zh-CN.md) ·

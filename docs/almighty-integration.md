@@ -1,9 +1,11 @@
 # Almighty 发布版接入
 
-应用分支为 `almighty`。当前固定使用发布版
-[almighty-preview-20261026-923fdaa](https://github.com/BearHero520/UGREEN-NAS-Hardware-Almighty/releases/tag/almighty-preview-20261026-923fdaa)，
-源码提交 `923fdaa26a72041f34cf211ae319377bfd52be53`，与相邻
-`E:\工作台\UGREEN-NAS-Hardware` 的源码一致。此版是实验性预览，未在 NAS 实机验证。
+应用分支为 `almighty`，应用版本 3.0.1。当前固定使用
+[2026-10-27 N76 直控分支构建](https://github.com/BearHero520/UGREEN-NAS-Hardware/tree/7d36cc702445ce5439cecec207e052914a349f23/artifacts/Almighty/2026-10-27-n76-direct)。
+源码提交 `aff7991ee58709ad34b5afbc2787f0d21300368d`；资产提交
+`7d36cc702445ce5439cecec207e052914a349f23`。这是分支预览资产，不是 GitHub Release。
+未在 NAS 实机验证。上游新增 N76 显式直控，但兼容 CLI 不能将逐动作调用当作完整的选色/点亮事务；
+应用不调用 `ugreenctl led`，不启用直控、不猜测总线或地址，也不宣称已支持无驱动选色。
 
 ## 载荷与边界
 
@@ -30,17 +32,17 @@ DXP480T 的 N76 后端依赖厂商驱动；兼容入口支持开关、快慢闪�
 ```powershell
 python scripts/build_ugreenctl.py
 # 已下载发布资产时：
-python scripts/build_ugreenctl.py --asset-dir .work-almighty-release/923fdaa
+python scripts/build_ugreenctl.py --asset-dir ../UGREEN-NAS-Hardware/artifacts/Almighty/2026-10-27-n76-direct
 ```
 
 Windows 默认使用相邻源码仓库的隔离 QEMU runner 和
 `firmware-inbox/work/almighty-tools` 运行时；可用 `--runtime-root` 修改。
 Linux 直接运行发布程序。`--check-only` 验证但不替换应用文件。
-下载通过已认证的 `gh`；私有仓库需要读取权限。
+当前从公开仓库按不可变资产提交下载；导入器仍兼容通过已认证 `gh` 下载旧 Release。
 
 本地打包将实际四程序与九插件的哈希逐项对照固定发布清单，拒绝旧版本混用。
 远程打包使用本地已验证的载荷，不再编译旧 LED 后端。CI 同样下载固定发布包，
-需要配置 `HARDWARE_READ_TOKEN`；本次未配置密钥或运行远程工作流。
+当前公开分支资产下载不需要 `HARDWARE_READ_TOKEN`；本次未运行远程工作流。
 最终 FPK 和校验文件由打包入口输出至 `dist/`。接入操作不自动打包、推送或发布。
 
 ## 界面

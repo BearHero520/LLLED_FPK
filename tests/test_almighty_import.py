@@ -5,6 +5,7 @@ from pathlib import Path
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('hardware_build', Path(__file__).resolve().parents[1] / 'scripts/build_ugreenctl.py')
 build = importlib.util.module_from_spec(spec)
@@ -54,6 +55,18 @@ class ImportTests(unittest.TestCase):
         for p in build.PROGRAMS:
             self.assertEqual((server / 'bin' / p).read_bytes(), self.files[f'usr/local/bin/{p}'])
         self.assertEqual((server / 'lib/ugreenctl/upstream/LICENSE').read_bytes(), b'notice')
+
+    def test_branch_download_pins_commit_and_preserves_binary_bytes(self):
+        lock = self.bundle()
+        lock.update(source_type='git-artifact', repository='owner/repo',
+                    artifact_commit='b' * 40, artifact_path='artifacts/snapshot')
+        expected = b'\x00\xff\r\nraw'
+        with patch.object(build.urllib.request, 'urlopen', side_effect=lambda *a, **k: io.BytesIO(expected)) as fetch:
+            build.download_assets(lock, self.root)
+        self.assertEqual(fetch.call_count, 3)
+        for call in fetch.call_args_list:
+            self.assertIn('/' + 'b' * 40 + '/artifacts/snapshot/', call.args[0])
+        self.assertEqual((self.root / lock['archive']).read_bytes(), expected)
 
     def test_wrong_architecture(self):
         name = 'usr/local/bin/ugreen_leds_cli'

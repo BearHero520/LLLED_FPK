@@ -1,10 +1,13 @@
 {
-  "repository": "BearHero520/UGREEN-NAS-Hardware-Almighty",
-  "tag": "almighty-preview-20261026-923fdaa",
-  "commit": "923fdaa26a72041f34cf211ae319377bfd52be53",
+  "repository": "BearHero520/UGREEN-NAS-Hardware",
+  "tag": "almighty-20261027-n76-direct",
+  "commit": "aff7991ee58709ad34b5afbc2787f0d21300368d",
   "archive": "ugreenctl-almighty-0.2.0-linux-x86_64-preview.tar.gz",
-  "archive_sha256": "b3f64db55e35099be3231472f472ec94e58c1adb2d4745b890470a1330e1b021",
+  "archive_sha256": "9827b4f1c0f0f251634bf07041c6ff2f9b6504e5e212c3ff1520174ad95389c1",
   "manifest": "ugreenctl-almighty-0.2.0-linux-x86_64-preview.manifest.json",
-  "manifest_sha256": "95b1bff446286f948ec1b27d98daf245f8b3975975f5f693f46848c106dcb0ed",
-  "checksums_sha256": "ef60bd966c23f691da744a0d39044cbfbd30b6636e13bed6a5789efccf0053f7"
+  "manifest_sha256": "9df3544af4a0dc0ea84fd5323fc9f5fde4c589998e60fed19fc612e0ecf21cb3",
+  "checksums_sha256": "cbdbf0d10f925d7fddf511708b65463c12b04538bf787b51d16567f9b7124f4b",
+  "source_type": "git-artifact",
+  "artifact_commit": "7d36cc702445ce5439cecec207e052914a349f23",
+  "artifact_path": "artifacts/Almighty/2026-10-27-n76-direct"
 }

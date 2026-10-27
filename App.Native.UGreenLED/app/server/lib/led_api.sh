@@ -38,7 +38,7 @@ led_cli_available() {
 
 led_cli_version() {
     led_cli_available || { printf 'unavailable\n'; return; }
-    printf '%s\n' "${UGREEN_CLI_RELEASE:-almighty-preview-20261026-923fdaa}"
+    printf '%s\n' "${UGREEN_CLI_RELEASE:-almighty-20261027-n76-direct}"
 }
 
 ensure_cli() {

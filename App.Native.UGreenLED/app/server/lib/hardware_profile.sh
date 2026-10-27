@@ -1,7 +1,7 @@
 #!/bin/bash
 # 绿联机型档案：将 DMI 型号转换为控制协议、LED 布局与 HCTL 规则。
 
-UGREEN_CLI_RELEASE="almighty-preview-20261026-923fdaa"
+UGREEN_CLI_RELEASE="almighty-20261027-n76-direct"
 
 hardware_detected_product_name() {
     local product="${UGREEN_PRODUCT_NAME:-}" file

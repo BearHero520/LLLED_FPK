@@ -14,3 +14,5 @@ limitations, calibration instructions and attribution are in
 Linux I2C userspace API documentation:
 <https://www.kernel.org/doc/html/latest/i2c/dev-interface.html>.
 No Linux kernel or systemd implementation source is copied into this project.
+
+N76 userspace transactions are independently written from the documented wire protocol in the official UGREEN source. Provenance and original SHA-256 values are retained in `tools/n76/sources.json` and `docs/N76_DIRECT_CONTROL.zh-CN.md`. No upstream kernel implementation or driver compiler is bundled.

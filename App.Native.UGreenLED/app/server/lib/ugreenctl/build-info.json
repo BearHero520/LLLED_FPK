@@ -1,15 +1,15 @@
 {
   "branch": "Almighty",
-  "revision": "923fdaa26a72041f34cf211ae319377bfd52be53",
-  "release_tag": "almighty-preview-20261026-923fdaa",
-  "archive_sha256": "b3f64db55e35099be3231472f472ec94e58c1adb2d4745b890470a1330e1b021",
+  "revision": "aff7991ee58709ad34b5afbc2787f0d21300368d",
+  "release_tag": "almighty-20261027-n76-direct",
+  "archive_sha256": "9827b4f1c0f0f251634bf07041c6ff2f9b6504e5e212c3ff1520174ad95389c1",
   "architecture": "x86_64",
   "status": "experimental-incomplete",
   "files": {
-    "ugreenctl": "2bb3a6673270dac2d5031982e0e36f8339a58ef17d5dd1cd19d2fa0d6712b6d3",
+    "ugreenctl": "07a0b1a20f47cac6d1427dccb1fa881f1692a6a5bf2891c63b20f47cf4e09ae9",
     "ugreenctl-fand": "ee17d17b1c80a29b442d369ec72e08ec43e2edcd64f882359f9362a54ed01102",
-    "ugreen_leds_cli": "52549b94d04312f52afff3b57dc194c16a69013477a1692719e2f5600221c755",
-    "ugreenctl-ledd": "dbeb8d83ab670a10369bd1753b00457fa3cf22ab04c34626856916842d7d452f",
+    "ugreen_leds_cli": "718f69d9cd589f79d99c37b01f43edcdd4fb24ff47b333f7a0bfb872b5ba5466",
+    "ugreenctl-ledd": "1cecbbabba72aaf132e0e6f0c9e4037dd3fd4688a5b4b5a875682aae34b2622f",
     "models/dx4600.so": "34ff5fc705cf3d9156918bb4a775ae99b764b9404de90534ff958257e02535d3",
     "models/dxp2800.so": "3bddd1fb642e9d3a73db6b563b750ff8e954f9a40f0ec8eb1ff751a034296836",
     "models/dxp4800.so": "4d261145b97ab91ab745526f99fe8015e5a3736ca075de62990a37c242a8873c",
@@ -19,5 +19,9 @@
     "models/dxp6800pro.so": "87c6bfb7c426905e8a3e71264e5504ae429ff602a0a02a631f096c38d33ca933",
     "models/dxp6800plus.so": "d86635aff5b1a38ca79c63f64de0a2607609bdfc181945cf46c451a174e0cf62",
     "models/dxp8800plus.so": "cd230c6da5a103881b30cc2bf4669176a78b39f858a868c25cfdbf641b0bf6e5"
-  }
+  },
+  "repository": "BearHero520/UGREEN-NAS-Hardware",
+  "source_type": "git-artifact",
+  "artifact_commit": "7d36cc702445ce5439cecec207e052914a349f23",
+  "artifact_path": "artifacts/Almighty/2026-10-27-n76-direct"
 }

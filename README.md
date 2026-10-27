@@ -2,9 +2,9 @@
 
 适用于飞牛 fnOS 的绿联 NAS 灯光、硬件监控与 BIOS 管理应用。
 
-当前版本：**3.0.0**
+当前版本：**3.0.1**
 
-`almighty` 分支现统一使用 [Almighty 预览版 almighty-preview-20261026-923fdaa](https://github.com/BearHero520/UGREEN-NAS-Hardware-Almighty/releases/tag/almighty-preview-20261026-923fdaa) 的控制程序、LED CLI 和机型插件。
+`almighty` 分支现统一使用 [Almighty 2026-10-27 分支构建](https://github.com/BearHero520/UGREEN-NAS-Hardware/tree/7d36cc702445ce5439cecec207e052914a349f23/artifacts/Almighty/2026-10-27-n76-direct) 的控制程序、LED CLI 和机型插件。
 本分支硬件支持属于实验性，历史版本的验证状态不代表此次新版已通过 NAS 实机验证。
 DXP480T 的新版兼容接口支持开关和闪烁、保持当前颜色，暂不支持选色与呼吸。
 导入、校验及服务边界见 [接入说明](docs/almighty-integration.md)。

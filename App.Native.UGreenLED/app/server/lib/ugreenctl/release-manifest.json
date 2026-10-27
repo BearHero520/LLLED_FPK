@@ -24,13 +24,13 @@
       {
         "architecture": "x86_64",
         "firmware_input": "official-md5-and-sha256-verified",
-        "led": "implemented-vendor-driver-required",
+        "led": "implemented-experimental-direct-unverified",
         "nvme_physical_slots": "unknown-block-name-only",
         "physical_validation": "not-performed-by-this-project",
         "product_name": "DH2600",
         "remaining": [
           "Independent physical M.2 connector to PCI topology evidence",
-          "Kernel-driver-independent N76 output/brightness readback evidence and implementation"
+          "Independent N76 output/PWM/timing readback evidence and actual-machine validation"
         ],
         "sata_physical_slots": "implemented-conditional",
         "scope": "target"
@@ -200,12 +200,12 @@
       {
         "architecture": "x86_64",
         "firmware_input": "official-md5-and-sha256-verified",
-        "led": "implemented-vendor-driver-required",
+        "led": "implemented-experimental-direct-unverified",
         "nvme_physical_slots": "implemented-conditional",
         "physical_validation": "not-performed-by-this-project",
         "product_name": "DXP480T Plus",
         "remaining": [
-          "Kernel-driver-independent N76 output/brightness readback evidence and implementation"
+          "Independent N76 output/PWM/timing readback evidence and actual-machine validation"
         ],
         "sata_physical_slots": "not-applicable",
         "scope": "target"
@@ -327,7 +327,7 @@
       }
     ],
     "profile_count": 26,
-    "release_status": "Expanded implementation is experimental and incomplete. Eight M.2 physical-slot layouts remain unknown; N76 requires an already bound vendor kernel driver. GT has an explicit global FLOW holder lifecycle but requires active Host2EC. Fixture tests do not imply physical or distribution validation. DXP2800 GT SATA automatic routing is unknown without exact BIOS pairing; administrator calibration remains available.",
+    "release_status": "Expanded implementation is experimental and incomplete. Eight M.2 physical-slot layouts remain unknown; N76 supports explicit experimental userspace direct access with unverified outputs; the default sysfs path still needs a bound driver. GT has an explicit global FLOW holder lifecycle but requires active Host2EC. Fixture tests do not imply physical or distribution validation. DXP2800 GT SATA automatic routing is unknown without exact BIOS pairing; administrator calibration remains available.",
     "scope_complete": false,
     "target_count": 25,
     "targets": [
@@ -363,14 +363,14 @@
     {
       "mode": "0755",
       "path": "usr/local/bin/ugreen_leds_cli",
-      "sha256": "52549b94d04312f52afff3b57dc194c16a69013477a1692719e2f5600221c755",
-      "size": 594760
+      "sha256": "718f69d9cd589f79d99c37b01f43edcdd4fb24ff47b333f7a0bfb872b5ba5466",
+      "size": 618680
     },
     {
       "mode": "0755",
       "path": "usr/local/bin/ugreenctl",
-      "sha256": "2bb3a6673270dac2d5031982e0e36f8339a58ef17d5dd1cd19d2fa0d6712b6d3",
-      "size": 710992
+      "sha256": "07a0b1a20f47cac6d1427dccb1fa881f1692a6a5bf2891c63b20f47cf4e09ae9",
+      "size": 734928
     },
     {
       "mode": "0755",
@@ -381,8 +381,8 @@
     {
       "mode": "0755",
       "path": "usr/local/bin/ugreenctl-ledd",
-      "sha256": "dbeb8d83ab670a10369bd1753b00457fa3cf22ab04c34626856916842d7d452f",
-      "size": 353088
+      "sha256": "1cecbbabba72aaf132e0e6f0c9e4037dd3fd4688a5b4b5a875682aae34b2622f",
+      "size": 373280
     },
     {
       "mode": "0755",
@@ -447,20 +447,20 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/README.md",
-      "sha256": "73468ffc097f1851ffde15c8679e0ecc67244fb14e7d822bc6febf2919586847",
-      "size": 15347
+      "sha256": "881847171dbf34f215b8f5f7ff99ec9dcd6250b5441045c45447849ac150499e",
+      "size": 15767
     },
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/README.zh-CN.md",
-      "sha256": "933f6882ccfae02a4bddfe75e0453fbc37c2fe10badb9df0e3de3b8999ff850a",
-      "size": 16429
+      "sha256": "d2d6be21f877710e0c159680f008da397f64fbad386b8fb49df76376985c02a9",
+      "size": 16837
     },
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/THIRD_PARTY_NOTICES.md",
-      "sha256": "857402c293d460b9a0f4cbbed9f28803a915d8b5e7aa9b5f32fc1fcc0cf9f801",
-      "size": 880
+      "sha256": "02b3653447e1f43cb956c36af37f279640c58f212a7d8589cfe6afa1817eb389",
+      "size": 1202
     },
     {
       "mode": "0644",
@@ -489,8 +489,8 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/docs/ALL_MODELS_LED_EVIDENCE.zh-CN.md",
-      "sha256": "11f5bbf4b82493c3560a66bcadf464e79ef6d58e5cfe589d7cd66dad56129952",
-      "size": 25880
+      "sha256": "b1a8505496b9f37de2092c8d6618a73f5b2b04a3d7b263e1897a4e9424b92652",
+      "size": 26608
     },
     {
       "mode": "0644",
@@ -501,8 +501,8 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/docs/ALMIGHTY_STATUS.zh-CN.md",
-      "sha256": "380af2c5f682f26898f95ca74978b610ea8bb6a1439014e52f9d775b46ca705e",
-      "size": 3909
+      "sha256": "9fca9f45728c60b2ea1a586d07200d9a2e597e8ed299336217eb3786796b8009",
+      "size": 4341
     },
     {
       "mode": "0644",
@@ -621,8 +621,14 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/docs/LINUX_DEPLOYMENT.zh-CN.md",
-      "sha256": "dfa15c918856d21e4948321e98f0d8276bbdb68d32f0ede572b1b5ace085d6c4",
-      "size": 11506
+      "sha256": "5efd65410d8e96845718a6b8e189cc2b08d24c1ed0797ef967346c06db3aeb04",
+      "size": 11870
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/N76_DIRECT_CONTROL.zh-CN.md",
+      "sha256": "1e3486d2bdaa5d24fdd36cc024d754daeeddd91449a920d67f3a97d9ae32130f",
+      "size": 7775
     },
     {
       "mode": "0644",
@@ -681,8 +687,8 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/integration/llled/ac-recovery/README.zh-CN.md",
-      "sha256": "7ec1fc5a35d3e58720da8ce110b1397651e9b9fddd83b508879daa0dd25e7752",
-      "size": 1993
+      "sha256": "e519cb5ac9d401c6d2d85a06639729512500b64983c940b78156b5b11087ac58",
+      "size": 2003
     },
     {
       "mode": "0644",
@@ -705,8 +711,8 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/models/compatibility.json",
-      "sha256": "5e5c4cc69456f7f5e4de8a760fd3023f9bbd86a5b0a940718967d3d0751e74e1",
-      "size": 43559
+      "sha256": "8ab1ebffb00f0664768346b8acdffc95b22122c39454ad091f892fa366978912",
+      "size": 44139
     },
     {
       "mode": "0644",
@@ -716,32 +722,38 @@
     },
     {
       "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/tools/n76/sources.json",
+      "sha256": "1edae0dbb29d0e90a853f6056ba9d7a97701b1605ce43435f54caeb9d95b5438",
+      "size": 1286
+    },
+    {
+      "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/verification-root.json",
-      "sha256": "17f4f1f749dfc62f3cdc17e272e955fee13bd9ea89673e7fc67986cd160f4cd8",
-      "size": 42963
+      "sha256": "76aa71383cebdc048aac074ea5ad95e99fde4ec5db468f51bfff8cd4fee4de49",
+      "size": 45438
     },
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/verification/ctest-aarch64.log",
-      "sha256": "f6ab9000dfd684002a5315cb5e4eed12bd96d4013a5d9a8bdeaa9d5d9ab19faa",
-      "size": 2798
+      "sha256": "49cd2aecfa6d16ac720afc22ca8d9e36d3e31c7c47d6f111b46b34248c7e53d0",
+      "size": 2855
     },
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/verification/ctest-x86_64.log",
-      "sha256": "bbe020c52ccf81aa1777905189c005c19250a5edf23614824a190c52b5ed0635",
-      "size": 2797
+      "sha256": "3b6cc4d0c4d9151a9e967abfdf351c9bf2f58235f9f4d815c8c018fed52d37ac",
+      "size": 2854
     }
   ],
   "full_suite": "26/26 passed",
   "full_suite_artifacts": {
     "aarch64": {
-      "path": "firmware-inbox/work/almighty-power-persistence-20261026/ctest-aarch64.log",
-      "sha256": "f6ab9000dfd684002a5315cb5e4eed12bd96d4013a5d9a8bdeaa9d5d9ab19faa"
+      "path": "firmware-inbox/work/almighty-n76-direct-20261027/accepted-ctest-aarch64.log",
+      "sha256": "49cd2aecfa6d16ac720afc22ca8d9e36d3e31c7c47d6f111b46b34248c7e53d0"
     },
     "x86_64": {
-      "path": "firmware-inbox/work/almighty-power-persistence-20261026/ctest-x86_64.log",
-      "sha256": "bbe020c52ccf81aa1777905189c005c19250a5edf23614824a190c52b5ed0635"
+      "path": "firmware-inbox/work/almighty-n76-direct-20261027/accepted-ctest-x86_64.log",
+      "sha256": "3b6cc4d0c4d9151a9e967abfdf351c9bf2f58235f9f4d815c8c018fed52d37ac"
     }
   },
   "install_prefix": "/usr/local",
@@ -1030,20 +1042,20 @@
   "scope_complete": false,
   "services": "Examples only; no installation or startup is performed",
   "source_sha256": {
-    ".gitattributes": "6e0abc0d2552a5e4b5069a0a1f0f97d3bbf84def1e61d67ea53785399f58a014",
+    ".gitattributes": "5178cd145a0693647356fbcb1fc7aef6b40f92307cc068946d18dedb7ad19642",
     ".gitignore": "296e7dddc7b41ab965c76d482b1f13085e2f2904df4b541ed23d985daf4e1345",
-    "CMakeLists.txt": "868014006b8fd11bd83f0f55eb76a658263f69186e19d52b31bf147dbe740581",
+    "CMakeLists.txt": "5c2497d60dcbf28042bba84e6ab255990cf0a1b8de403ebe87f221f8443cc5ca",
     "LICENSE": "3e18d1b39f4f82c2f0480bebb05f66908408d5ca785d0ef3be67cde9d18b0604",
-    "README.md": "73468ffc097f1851ffde15c8679e0ecc67244fb14e7d822bc6febf2919586847",
-    "README.zh-CN.md": "933f6882ccfae02a4bddfe75e0453fbc37c2fe10badb9df0e3de3b8999ff850a",
-    "THIRD_PARTY_NOTICES.md": "857402c293d460b9a0f4cbbed9f28803a915d8b5e7aa9b5f32fc1fcc0cf9f801",
+    "README.md": "881847171dbf34f215b8f5f7ff99ec9dcd6250b5441045c45447849ac150499e",
+    "README.zh-CN.md": "d2d6be21f877710e0c159680f008da397f64fbad386b8fb49df76376985c02a9",
+    "THIRD_PARTY_NOTICES.md": "02b3653447e1f43cb956c36af37f279640c58f212a7d8589cfe6afa1817eb389",
     "core/fan_daemon.c": "6c40c5d0a2e7a94432f57c1f1df42803081be437e240efa1c861cd8011c826d3",
-    "core/hardware_cli.c": "f4d19a04246368418e13366f48a8bbe68b30909974de8f1038e03d5eac12f569",
-    "core/hardware_cli.h": "f1804785c7bb9f7ad7bd2e8606f0e3bc3d069aabd559091b229bb81342b4aa97",
+    "core/hardware_cli.c": "1fbe0e7d982c1b74119fe93ea31c8154c9233d67de3939755aa78c53668b1a08",
+    "core/hardware_cli.h": "796e8d85655000a3a8c17dda073f585cb202432b8a386a68bae56dccef54f86e",
     "core/identity.c": "443c12f5b4d45b4ba257a3522a0b4714dd558b24c50420ab696f7b57cec410d5",
     "core/identity.h": "fd0d59a63ee133e8da1ed86568b75b13b9fb9997daa2a69343d36091dc2de8cb",
     "core/led_compat_main.c": "825237a8aa848cc2bbb8f11f89994accf9f44692b06b94e7262aa83ede38d065",
-    "core/led_daemon_main.c": "dcb48b62b4fb77e5f3bab6fd9ecdcb341a8121b2975fb428e7752adf041f4230",
+    "core/led_daemon_main.c": "e9add637221c5613573ccb61d85ad4d3979e46723e8a266118d065f4778dd33f",
     "core/loader.c": "f17141b1bfd9ef3da69173e5fae7bf8723bf077016dfe9c05908c10e5a2a4270",
     "core/loader.h": "f73eb103132a4b8fff2d5c175ec9ad64f391a0ce8fc8a65c5b9ddcf35abfd5dc",
     "core/main.c": "4c732d5f40ca49df1d9cdb3e6fce0326557c3526f248038dd613162cbc2ef926",
@@ -1055,20 +1067,17 @@
     "docs/AC_RECOVERY_PERSISTENCE.zh-CN.md": "17f3864ba0d99244a3fb67c5ee3bcbc052f1708a7d7a130b3943703579a16562",
     "docs/ALL_MODELS_DISK_EVIDENCE.zh-CN.md": "897c8639e51831acaac2e7d6b6cd03680eaa4ad47d2e2d8edf8219d86360cb96",
     "docs/ALL_MODELS_FIRMWARE_INTAKE.zh-CN.md": "d58cbe64badb7ac5b546726a693956758d9efd32bdf2dc9b990d354d127a4135",
-    "docs/ALL_MODELS_LED_EVIDENCE.zh-CN.md": "11f5bbf4b82493c3560a66bcadf464e79ef6d58e5cfe589d7cd66dad56129952",
+    "docs/ALL_MODELS_LED_EVIDENCE.zh-CN.md": "b1a8505496b9f37de2092c8d6618a73f5b2b04a3d7b263e1897a4e9424b92652",
     "docs/ALMIGHTY_PACKAGING.zh-CN.md": "efa1102a317fd9ba4b1c7aee3dd20d1c69b5dfeb86a49b5b3102d991561e47f5",
-    "docs/ALMIGHTY_STATUS.zh-CN.md": "380af2c5f682f26898f95ca74978b610ea8bb6a1439014e52f9d775b46ca705e",
+    "docs/ALMIGHTY_STATUS.zh-CN.md": "9fca9f45728c60b2ea1a586d07200d9a2e597e8ed299336217eb3786796b8009",
     "docs/ARCHITECTURE.md": "821152795e712fbe37bf7456d668d0f73a4299882f3ffca4d3ccb3785513abfd",
     "docs/BUILD_REPRODUCIBILITY.zh-CN.md": "7f6a0dbcf1e1181b196a641b191419ef9c465b4f930137e5413940fdd5ead0bc",
     "docs/COMPATIBILITY.md": "4e77b2208979fc9970a57acd2e1f83296ac46f56f5fd789c634a798e06140039",
     "docs/COMPATIBILITY.zh-CN.md": "466dd757586f7250372510f597508c20d9a85646a40521bc2c55fe10145d137a",
     "docs/DH2100_FIRMWARE_SEARCH.zh-CN.md": "7a4d132512be98a9f186862973fa2da81266ab34c2f3288a88e92a6816acb1e1",
     "docs/DISK_MAPPING_FIRMWARE.zh-CN.md": "7374906c3cfe085f2fa7ce9c567b5bce1343631379cde1f4ac3b99dea4f82d97",
-    "docs/DX4600_INTAKE.md": "857cd07b94797fc775db83536d615718baef2d155ee15c2888e0ee0e88b9338c",
     "docs/DX4600_REVERSE_ENGINEERING.zh-CN.md": "875987ab87cb860137587be002b217a07fff1b6d72fe129f2d8f3c1ed4f88f1a",
     "docs/DXP2800_GT_LED_REVERSE.zh-CN.md": "9f595565d9eb09c59e722c092247c8b2cc91851dab695e6a365021ba6348ab5f",
-    "docs/DXP4800S_1.19.md": "479034495ed9a4b06a6b6623b5db7439034b0fa9521b528fcf48e042e1900854",
-    "docs/DXP4800S_INTAKE.md": "4db9d6dd07946e3f0104488c74396db598c034332950adb15526100de1cc710a",
     "docs/DXP4800S_REVERSE_ENGINEERING.md": "994613f1981304025b50c8c968fc158034f4825a2c59dcefe5dc0be5542db68a",
     "docs/DXP4800S_REVERSE_ENGINEERING.zh-CN.md": "faae0a77de65a7ca1c28d024d6440e5decaaa7519d6b18f5ec0102912832bd76",
     "docs/DXP4800_REVERSE_ENGINEERING.md": "3b3dd132442b8750bdb0f69748ca0710083558b06817bddee1e64fed947b05f8",
@@ -1076,13 +1085,12 @@
     "docs/DXP6800_1.20_FIRMWARE_CHECK.zh-CN.md": "bdcf87383e8134dccc7524176863dfac7ddf65e5bc19e3cdef191a8e061dab6e",
     "docs/DXP6800_PRO_REVERSE_ENGINEERING.md": "509383ce42ebeaa70213909042ab81deeed505868ac3334eb2575b10f3e6283d",
     "docs/FAN_CURVE.md": "d3b46f933eb3c5908e44cf73ebc1011f5651eefc74fe239d56948a69e2ffcb35",
-    "docs/FIRMWARE_REVERSE_PLAYBOOK.zh-CN.md": "621000c5b06763ef95a3d7cec241b2c074c7b47addb76dd77756ae87d64c511e",
     "docs/FIRMWARE_RUNTIME_TRACE_20261026.zh-CN.md": "423138fa5daa7e055a8accc937630873acd20719853bb7e1a745fbc508d52e24",
     "docs/HARDWARE_SUPPORT.md": "a6aec4e8aed7760e4bc3dc1911bb7892a7c9e214f3ab001428a84223554ab31d",
     "docs/LED_CONTROL.zh-CN.md": "996fe019277d6af00b9d7003a7ab755c3a63336bffe5e9697b5b8a2691efb26b",
     "docs/LED_EVIDENCE_COLLECTION.zh-CN.md": "461473973d4172d78532fa750958c9fba637c765e44d82c7ee77c2d04ba72b34",
-    "docs/LINUX_DEPLOYMENT.zh-CN.md": "dfa15c918856d21e4948321e98f0d8276bbdb68d32f0ede572b1b5ace085d6c4",
-    "docs/NEW_MODEL_TEMPLATE.md": "64c370a2c538fde526396f3b8e4822c2c6f6eaa172b2c85487b6e03da89b3285",
+    "docs/LINUX_DEPLOYMENT.zh-CN.md": "5efd65410d8e96845718a6b8e189cc2b08d24c1ed0797ef967346c06db3aeb04",
+    "docs/N76_DIRECT_CONTROL.zh-CN.md": "1e3486d2bdaa5d24fdd36cc024d754daeeddd91449a920d67f3a97d9ae32130f",
     "docs/SCHEDULED_POWER_FIRMWARE_EVIDENCE.md": "974a49f2244cb4877082ec88d52835b2ae6f3e706c86495e1e2f207526e959c5",
     "docs/WOL_FIRMWARE_EVIDENCE.md": "90669d0a47c89c806f257bbf706e43cdd29fc8b6a496bb5be7da9610ff78b132",
     "docs/WOL_FIRMWARE_EVIDENCE.zh-CN.md": "e116d3544e1a429cfac1872c9e3ae5bff6a57d0e6ffddfd438277720019d198e",
@@ -1109,16 +1117,18 @@
     "fan/thermal_curve.c": "79ab0ad11f0d25fb420a0f30a716b9b4c2e4a6b479da03d5b743d3c2b0510d1e",
     "fan/thermal_curve.h": "44cbbf068e535cc4ba57ef0f0eefb2544277a8f78c1c74395850f9c4f4317fad",
     "include/ugreenctl.h": "2386e31f48eae6ccbcee458efe00f3ce3da82a3b2797c719314fb5325ff8bc47",
-    "integration/llled/ac-recovery/README.zh-CN.md": "7ec1fc5a35d3e58720da8ce110b1397651e9b9fddd83b508879daa0dd25e7752",
+    "integration/llled/ac-recovery/README.zh-CN.md": "e519cb5ac9d401c6d2d85a06639729512500b64983c940b78156b5b11087ac58",
     "integration/llled/ac-recovery/llled-startup-persistence.patch": "90b57e46d6376b8334c1811c5bf69315b20609e04e4cc17b3c29c173337cf0a6",
     "integration/llled/ac-recovery/source-hashes.json": "41c89000df20f535981d25a10bd01d8da3de9d55d9eeeb2b7eb22ae07e22b3e2",
     "led/LICENSE.upstream-led": "66efbcc4d3439adf30d570783ca1b35ad86ca8d6cee5a70eee400d2f33f56f82",
-    "led/led.c": "0498e46f573129260e1a53ac5a8a24508d8faefe0243d94e3246e98afe3795e5",
-    "led/led.h": "a2fcad05fdb8bafaf46ce8046ced49bb54c9ddfb15fc9e211ed8bb646a83b567",
+    "led/led.c": "085dd5863850fb0f149f3dcff82041ac3e1d9b2df2f694b124269df7109fa204",
+    "led/led.h": "4ab26b5ddbbef5cf77c02f23a17e11b0920567f3af0f6ff71d2680594cb2f33e",
     "led/led_cs201x.c": "8f36539539128cc77f7df079f15e6e8979156766f99a50ea7b9d687b1924a319",
     "led/led_cs201x.h": "d4ad1e52beb3596e1ae66edfc8d5a5f21cb0c397cf1cf77bce7e401ba7229dfd",
     "led/led_gpio.c": "f1d7e35bec26d79173b0c7dd14d0d6f244dedb9b0531767abab072f5ec9ce526",
     "led/led_gpio.h": "c82082a19e91e9b81b1d0e881f7e6bc090e8b98250760cacd3e603e9663486e2",
+    "led/led_n76_protocol.c": "58db4c39011414a8b05e2eeaaff7871a4ae330790c4a83edeedfdd9b5d18db0e",
+    "led/led_n76_protocol.h": "33eed8e7bd4ddbd03d3e2804f166eac90bbe49abbbb3312cf747172f6bddfc92",
     "led/led_protocol.c": "b5cc858798b4d783e16403fe7183cbbed3884d880fe1ea10d668a79d353be709",
     "led/led_protocol.h": "6732e325c6611ce7f4ee824f22f1361b7ad769b12bcc3c6f078a642655faa91e",
     "led/led_service.c": "74f7745d47dcc5e865da115b7967ee8c8058074fbe97f5d4318ebfee4b7e742b",
@@ -1126,8 +1136,8 @@
     "led/led_service_test.h": "8772b5b45a62244c52dbbcf21851e8886440e0805401d24edee74d2b35af810a",
     "led/led_sysfs.c": "7a20af1be127c12cb9cb221c48407ff2a31ba8950f148a9a8ac2b8a52671b72f",
     "led/led_sysfs.h": "e66a06334f5e58663986864e2a056bddaa6f92fb28f271e8eafa6aa22446aa3b",
-    "led/led_test.h": "aff4a1a27a338d2ea830eb40d35910394b30e087add8888d3f89f90d517be3ed",
-    "models/compatibility.json": "5e5c4cc69456f7f5e4de8a760fd3023f9bbd86a5b0a940718967d3d0751e74e1",
+    "led/led_test.h": "5a59f56f32e4aeca4e110ac3340fe025a9c4801ebe4d6a9e3aa4ca4397c74339",
+    "models/compatibility.json": "8ab1ebffb00f0664768346b8acdffc95b22122c39454ad091f892fa366978912",
     "models/dx4600.c": "47eeb6bf0b218fe09680d75d38fcbfa463cd638de118db6ee3379fd92fdbb021",
     "models/dxp4800.c": "ba0680629d3305bec955b81f47e5fffa826c2ecb680cb979179ae85408e16ad4",
     "models/dxp4800plus.c": "eff2f126026b7f829b6c8fefccdd1eeb144ad4be3bfc75ab98d600c69929b6fd",
@@ -1158,9 +1168,7 @@
     "power/rtc_wake.h": "ab20ca690be94f8ff57147f8eb287ff98e7127755298dbcdfd8257239524cecd",
     "scripts/collect-disk-evidence.sh": "c70d789a5ba534d7827e4a4799ac810e10c53f5da2e0a195b46062aeda21ef00",
     "scripts/collect-led-evidence.sh": "47e5dea28101c27110171c80b2e82b1fad249cbd23da40fee928d79893c9954c",
-    "scripts/install.sh": "c61b6e105475552f78a58b462a41855e7289319d0ee659e59ea5aa50f5efbfe7",
-    "scripts/package-almighty.py": "c6efd2d56e0a7524931f19c2fa0e5106fadf82375216bb7e28b905fce4d10bd7",
-    "scripts/run.sh": "cac5418149d5f51944cc5eb9e6e2ca23936a7585552bace20231d1969fd4ca68",
+    "scripts/package-almighty.py": "6efd0c0726e9c7b26b22d6acf8cf68b939e1f26ea411b3421c3343915efa2c55",
     "scripts/ugreenctl-ledd-gt.service": "2edd47c6581e70edad2fbb807cd17ed306074b59135f290c7c39cfa7f100dfe5",
     "scripts/ugreenctl-ledd.service": "b4158aeaeea04c9bef36202f0cbeea5462527b8dd04f6e6a053b4c61d495ed24",
     "scripts/ugreenctl-startup.py": "0ea14449ad98c6ba2c7a50c727a24c75fdf0db2f219cde1026dd8fd2253ce7b4",
@@ -1170,7 +1178,7 @@
     "superio/it86x_unavailable.c": "6e13008410b530b4222a8586f03f97f79b43a87b6bff091217f23f2b28d0ed37",
     "tests/test_disk_mapping.c": "f15ba66b26843c3ca2ec7cf9a28f81d523731e9222ac8d495e82b494ca6a8c2d",
     "tests/test_dx4600_plugin.c": "15f098e035fb2766ac2ba4cb6284b2f64307420c367a557ef937b942a81f1a61",
-    "tests/test_hardware_cli.c": "eb379b10daf77608f7d8d8276325da8a223486efc28ba90744eec6b729957e5e",
+    "tests/test_hardware_cli.c": "dcefe55a7b24bb09f770a9e43352646b1fed761dfc3bfbf9f543c62336e0c860",
     "tests/test_identity.c": "8063acf0bc26ba6daac3f813053e08f967413e822a93ba611c61b5746f4dc500",
     "tests/test_it8613_direct.c": "ea303d248d9ed9f517b41979abff8392e98b613850c09fb5f361b112459c5c27",
     "tests/test_it8613_dx4600.c": "5958276bdcb707cedde65d9593301b485a2e2f5537553520fe7f89bebbfcfc78",
@@ -1181,16 +1189,18 @@
     "tests/test_it8613_dxp6800pro.c": "a2f121c03ec952492eb33fa10f8c6913796c7eed2d33d97410a34e9597775aa9",
     "tests/test_it8613_hwmon.c": "045fccecfbb723d1ea5f0cbc2be0f0314f2ebd38a155e57f6a4326b131172296",
     "tests/test_it8613_power.c": "9c16f6fa0a5542e1a13273ff29476ba7be1bbf00bb8e9934156598e40dd7b4f7",
-    "tests/test_led.c": "7c686fa954ea7886172e16266e313b154a7f794eccdd0ff0ec067b9194f3d454",
-    "tests/test_led_cs201x.c": "4187470b0b1c0ca89264b75163c077b34656748754f6e6ca077dd9c5bc815d2c",
-    "tests/test_led_gpio.c": "20b509a023e1b38d000941448ca18d26850ae8accacbde501aaacbc2bf509c54",
-    "tests/test_led_service.c": "d7160ede856c0e0277c73c4c0cc7e405fae6bea38fdd89d9afba2843dc710b53",
+    "tests/test_led.c": "c1d746bc4e5c3b3a5c96d84417ad59e4b2623cb3c36db32b71d8cf0f4fd5c16b",
+    "tests/test_led_cs201x.c": "c93f2024a37c3fd63b9c148b3196b6805ab52a597c5d3c1f52452d7f709bcc34",
+    "tests/test_led_gpio.c": "609f21bb801eaf2e4289e7db83b3a2ca3f7f9cbfbc49455fc2428704909132bf",
+    "tests/test_led_n76.c": "94d96fc29e5ba45a1fa74842a3943dadec3df0b327b103a38416916b56d0dbe5",
+    "tests/test_led_service.c": "536dd3884d6bd5b8aecebe1a676d1be85b30fd193bf423e113ac009a693c67f6",
     "tests/test_package_almighty.py": "43bab941c5e2b6e4cca0a50891459bf2d63185e2da78dda27025513546790999",
     "tests/test_package_runtime.py": "d2a297ce8a7eb5d8f6e9343b9aa7d82472ce6fff19330ab0878c9904dfc6e067",
     "tests/test_rtc_wake.c": "e576213b00708885d99bcd84720ec8828c075a34b473586a153cd6a7704fdd9f",
     "tests/test_startup_state.py": "582369d237734b9bec2e56185d4d4e490d166ac72a162d32fe061c78d305ba9b",
     "tests/test_thermal_curve.c": "6707fbfa2ac515dc1ea2736e94e56f83ca91b65a8f5d1cc55b8779d0b4ef1742",
     "tests/test_wol_dxp4800.c": "779ac458529efa9bf6def20c97ac830dc8dcbaf80bd75b6f384b91c1c819a2aa",
+    "tools/n76/sources.json": "1edae0dbb29d0e90a853f6056ba9d7a97701b1605ce43435f54caeb9d95b5438",
     "tools/testing/external-runtime.example.json": "3d010b6de0a15260bc07a7ab0cccaa0f65b4dfa0b2059401c8161224e2d9b103",
     "tools/testing/run_linux.py": "490a8f3366adca5a149db44ac7a472117bdedd0e75236474cbafe679b12aaeea",
     "tools/toolchains/zig-linux.cmake": "2742ee4d5a4f7ff838cbbe1d2aee9620f0ef5dcfe9e7debccc43909c811540d9",
@@ -1201,6 +1211,6 @@
   },
   "status": "experimental-incomplete",
   "verification_complete": false,
-  "verification_sha256": "17f4f1f749dfc62f3cdc17e272e955fee13bd9ea89673e7fc67986cd160f4cd8",
+  "verification_sha256": "76aa71383cebdc048aac074ea5ad95e99fde4ec5db468f51bfff8cd4fee4de49",
   "version": "0.2.0"
 }

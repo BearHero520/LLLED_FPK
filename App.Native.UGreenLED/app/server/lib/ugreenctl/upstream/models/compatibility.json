@@ -25,7 +25,7 @@
       "verified_current_firmware_product_count": 25,
       "missing_official_firmware": [],
       "priority": "Complete the 25 current targets. DH2100 and DH2100+ are excluded by the user; do not continue legacy firmware searches.",
-      "release_status": "Expanded implementation is experimental and incomplete. Eight M.2 physical-slot layouts remain unknown; N76 requires an already bound vendor kernel driver. GT has an explicit global FLOW holder lifecycle but requires active Host2EC. Fixture tests do not imply physical or distribution validation. DXP2800 GT SATA automatic routing is unknown without exact BIOS pairing; administrator calibration remains available.",
+      "release_status": "Expanded implementation is experimental and incomplete. Eight M.2 physical-slot layouts remain unknown; N76 supports explicit experimental userspace direct access with unverified outputs; the default sysfs path still needs a bound driver. GT has an explicit global FLOW holder lifecycle but requires active Host2EC. Fixture tests do not imply physical or distribution validation. DXP2800 GT SATA automatic routing is unknown without exact BIOS pairing; administrator calibration remains available.",
       "evidence": [
         "models/official-products.json",
         "docs/ALL_MODELS_FIRMWARE_INTAKE.zh-CN.md",
@@ -58,13 +58,13 @@
           "scope": "target",
           "architecture": "x86_64",
           "firmware_input": "official-md5-and-sha256-verified",
-          "led": "implemented-vendor-driver-required",
+          "led": "implemented-experimental-direct-unverified",
           "sata_physical_slots": "implemented-conditional",
           "nvme_physical_slots": "unknown-block-name-only",
           "physical_validation": "not-performed-by-this-project",
           "remaining": [
             "Independent physical M.2 connector to PCI topology evidence",
-            "Kernel-driver-independent N76 output/brightness readback evidence and implementation"
+            "Independent N76 output/PWM/timing readback evidence and actual-machine validation"
           ]
         },
         {
@@ -234,12 +234,12 @@
           "scope": "target",
           "architecture": "x86_64",
           "firmware_input": "official-md5-and-sha256-verified",
-          "led": "implemented-vendor-driver-required",
+          "led": "implemented-experimental-direct-unverified",
           "sata_physical_slots": "not-applicable",
           "nvme_physical_slots": "implemented-conditional",
           "physical_validation": "not-performed-by-this-project",
           "remaining": [
-            "Kernel-driver-independent N76 output/brightness readback evidence and implementation"
+            "Independent N76 output/PWM/timing readback evidence and actual-machine validation"
           ]
         },
         {
@@ -366,7 +366,8 @@
         "smbus-block-le",
         "sysfs-n76",
         "sysfs-gpio",
-        "cs201x-sio"
+        "cs201x-sio",
+        "n76-direct-experimental"
       ],
       "state": "reverse-engineered",
       "physical_validation": "not-performed-by-this-project",
@@ -377,7 +378,8 @@
         "Controller owners excluded and fixed process lock held",
         "Transport readback required; driver cache and unknown fields explicitly labelled",
         "GPIO chardev writes require explicitly started ugreenctl-ledd to retain line ownership",
-        "GT FLOW=0 requires an explicit --takeover-flow holder lifecycle that restores all raw LEDs and original FLOW on clean exit"
+        "GT FLOW=0 requires an explicit --takeover-flow holder lifecycle that restores all raw LEDs and original FLOW on clean exit",
+        "N76 direct exception explicitly accepted 2026-10-27: only mode registers verified, output/PWM/timing unknown and sent-unverified; no guessed readback"
       ],
       "profiles": [
         {
@@ -518,13 +520,15 @@
           "product_name": "DXP480T Plus",
           "profile": "dxp480t-n76",
           "protocol": "sysfs-n76",
-          "disk_leds": 0
+          "disk_leds": 0,
+          "optional_transport": "n76-direct-experimental"
         },
         {
           "product_name": "DH2600",
           "profile": "dh2600-n76",
           "protocol": "sysfs-n76",
-          "disk_leds": 2
+          "disk_leds": 2,
+          "optional_transport": "n76-direct-experimental"
         },
         {
           "product_name": "DH2300",
@@ -543,10 +547,11 @@
         "models/led_profiles.c",
         "docs/ALL_MODELS_LED_EVIDENCE.zh-CN.md",
         "docs/DXP2800_GT_LED_REVERSE.zh-CN.md",
-        "led/LICENSE.upstream-led"
+        "led/LICENSE.upstream-led",
+        "docs/N76_DIRECT_CONTROL.zh-CN.md"
       ],
       "known_gaps": [
-        "DH2600 and DXP480T Plus require their verified vendor N76 driver to be bound. Bare-I2C output and brightness readback are not evidenced; no ACK-only fallback is exposed.",
+        "DH2600/DXP480T Plus default to bound-driver sysfs. Explicit --n76-direct BUS:ADDR provides experimental byte-data control without the vendor module. True output/PWM/timing readback remains unknown, declared sent-unverified by user choice; no identify/locate restoration or physical validation.",
         "DXP2800 GT requires CS2011, already active LDN0a and a valid dynamic Host2EC base. Direct CLI requires FLOW=1; explicit ugreenctl-ledd --takeover-flow handles a verified FLOW=0 lifecycle. Inactive LDN is unsupported; autonomous animation phase and physical ARGB read feasibility remain unverified.",
         "DH2300 and DH4300 Plus need exact original DT wiring and a GPIO v2 kernel, or the verified stock driver. GPIO holder is explicitly started by the user.",
         "DXP2800 accepts only its two independently evidenced product_version strings."

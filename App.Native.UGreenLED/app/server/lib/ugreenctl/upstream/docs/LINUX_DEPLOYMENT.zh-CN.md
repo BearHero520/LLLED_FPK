@@ -1,5 +1,7 @@
 # Linux NAS 部署
 
+> 2026-10-27 更新：N76 增加显式 `--n76-direct BUS:ADDR` 实验直控，用户接受真实输出未验证的限制；模式回读保留，其余字段保持 unknown。下文原厂驱动依赖及拒绝裸写描述记录此前的严格回读策略，当前例外和范围以 [N76 直控说明](N76_DIRECT_CONTROL.zh-CN.md) 为准。无驱动编译功能。
+
 本指南面向 fnOS、Debian/Ubuntu、PVE、Unraid、TrueNAS SCALE。当前 25 款整合仍未完成，
 具体机型、驱动依赖和未知盘位见 [灯光与盘位说明](LED_CONTROL.zh-CN.md)。下列部署方式
 不代表已在这些系统的 NAS 实机验证。不要混用不同版本的程序、插件和能力目录。
