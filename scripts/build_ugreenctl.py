@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import the pinned Almighty Release after hash, ELF and isolated CLI validation."""
+"""Import the pinned hardware Release after hash, ELF and isolated CLI validation."""
 from __future__ import annotations
 import argparse
 import hashlib
@@ -38,8 +38,12 @@ def validate_release(directory, lock):
         if entries.get(lock[key]) != lock[key + '_sha256']:
             raise ValueError('Release checksum list mismatch')
     manifest = json.loads(raw)
-    if manifest['architecture'] != 'x86_64' or manifest['branch'] != 'Almighty':
-        raise ValueError('Expected Almighty x86_64 release')
+    if manifest['architecture'] != 'x86_64' or manifest['branch'] != lock.get('branch', 'Almighty'):
+        raise ValueError('Expected pinned branch x86_64 release')
+    if 'version' in lock and manifest.get('version') != lock['version']:
+        raise ValueError('Hardware release version mismatch')
+    if 'release_channel' in lock and manifest.get('release_channel') != lock['release_channel']:
+        raise ValueError('Hardware release channel mismatch')
     files = {}
     prefix = manifest['package'] + '/'
     with tarfile.open(directory / lock['archive'], 'r:gz') as archive:
@@ -55,6 +59,8 @@ def validate_release(directory, lock):
     if files.get('manifest.json') != raw:
         raise ValueError('Embedded manifest mismatch')
     listed = {item['path'] for item in manifest['files']}
+    if set(files) != listed | {'manifest.json'}:
+        raise ValueError('Unlisted archive payload')
     for item in manifest['files']:
         data = files.get(item['path'])
         if data is None or len(data) != item['size'] or digest(data) != item['sha256']:
@@ -67,9 +73,13 @@ def validate_release(directory, lock):
                 or int.from_bytes(data[18:20], 'little') != 62
                 or int.from_bytes(data[16:18], 'little') not in ((3,) if name.endswith('.so') else (2, 3))):
             raise ValueError(f'Wrong ELF type or architecture: {name}')
+    if lock.get('source_type') == 'github-release':
+        verification = json.loads(files['usr/local/share/doc/ugreenctl/verification-root.json'])
+        if verification.get('source_commit') != lock['commit'] or verification.get('branch') != lock['branch']:
+            raise ValueError('Hardware release source commit/branch mismatch')
     return manifest, files
 
-def smoke_test(files, runtime_root):
+def smoke_test(files, runtime_root, expected_version=None):
     with tempfile.TemporaryDirectory(prefix='almighty-release-') as temporary:
         stage = Path(temporary)
         (stage / 'models').mkdir()
@@ -90,8 +100,10 @@ def smoke_test(files, runtime_root):
                 raise ValueError(f'{program} smoke test failed: {result.stdout} {result.stderr}')
             return result.stdout + result.stderr
         models = run('ugreenctl', ['--plugin-dir', '/work/models' if os.name == 'nt' else str(stage / 'models'), 'models'])
-        if set(MODELS) - {line.split()[0] for line in models.splitlines() if line.strip()}:
+        if set(MODELS) != {line.split()[0] for line in models.splitlines() if line.strip()}:
             raise ValueError('Not all ten plugins loaded')
+        if expected_version is not None and run('ugreenctl', ['--version']).strip() != expected_version:
+            raise ValueError('Imported CLI version mismatch')
         for command in (['network', 'wol', 'models'], ['power', 'rtc-wake', 'models']):
             profiles = run('ugreenctl', command)
             if '\tDXP8800 Plus\t' not in profiles or '\tDXP6800 Plus\t' not in profiles:
@@ -103,9 +115,10 @@ def smoke_test(files, runtime_root):
             raise ValueError('Unexpected fan daemon')
 
 def install_release(manifest, files, lock, server=SERVER):
-    record = {'branch': 'Almighty', 'revision': lock['commit'], 'release_tag': lock['tag'],
+    record = {'branch': manifest['branch'], 'revision': lock['commit'], 'release_tag': lock['tag'],
               'archive_sha256': lock['archive_sha256'], 'architecture': 'x86_64',
-              'status': manifest['status'], 'files': {}}
+              'status': manifest['status'], 'version': manifest.get('version'),
+              'release_channel': manifest.get('release_channel'), 'files': {}}
     if 'local_extension' in manifest:
         record['base_revision'] = lock['commit']
         record['revision'] = 'local-source-sha256:' + digest(
@@ -127,6 +140,18 @@ def install_release(manifest, files, lock, server=SERVER):
             payloads['lib/ugreenctl/upstream/' + name[len(prefix):]] = data
     payloads['lib/ugreenctl/release-manifest.json'] = files['manifest.json']
     payloads['bin/ugreen_leds_cli.sha256'] = (record['files']['ugreen_leds_cli'] + '  ugreen_leds_cli\n').encode('ascii')
+    # This directory is entirely managed by the imported manifest. Remove the
+    # previous local extension snapshot when replacing it with a full Release.
+    upstream = server / 'lib/ugreenctl/upstream'
+    boundary = server.resolve()
+    old_paths = sorted(upstream.rglob('*'), key=lambda p: len(p.parts), reverse=True)
+    for old in old_paths:
+        if old.is_symlink() or not old.resolve().is_relative_to(boundary):
+            raise ValueError('Unsafe imported upstream path')
+        if old.is_file() and old.relative_to(server).as_posix() not in payloads:
+            old.unlink()
+        elif old.is_dir() and not any(old.iterdir()):
+            old.rmdir()
     for name, data in payloads.items():
         target = server / name
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -179,7 +204,7 @@ def main():
         if args.asset_dir is None:
             download_assets(lock, directory)
         manifest, files = validate_release(directory, lock)
-        smoke_test(files, args.runtime_root)
+        smoke_test(files, args.runtime_root, expected_version=lock.get('version'))
         if not args.check_only:
             install_release(manifest, files, lock)
         print(f'Validated {lock["tag"]}: four programs, ten plugins, all manifest payload hashes')

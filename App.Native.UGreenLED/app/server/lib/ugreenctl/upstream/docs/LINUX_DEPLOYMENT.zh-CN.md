@@ -8,8 +8,10 @@
 
 ## 先核对归档与运行环境
 
-当前交叉构建的四程序及九插件使用动态 glibc。2026-10-16 对两个架构共 26 个 ELF 的
-独立检查结果如下；以后以各归档 manifest 的 `runtime_abi` 为准。
+当前 `main` 正式渠道包包含四程序及十插件，使用动态 glibc；下载和快速开始见
+[主线 README](../README.zh-CN.md#下载与快速开始)。下表保留 2026-10-16
+对当时四程序、九插件、两个架构共 26 个 ELF 的独立检查结果；新版以各归档
+manifest 的 `runtime_abi` 为准，历史运行库烟测不自动覆盖新构建。
 
 | 要求 | x86_64 | aarch64 |
 | --- | --- | --- |
@@ -34,7 +36,7 @@ getconf GNU_LIBC_VERSION
 /your/release/usr/local/bin/ugreenctl --plugin-dir /your/release/usr/local/lib/ugreenctl/models models
 ```
 
-`--help`、`led list` 不控制硬件；插件列表应完整加载九个模块且没有加载警告。
+`--help`、`led list` 不控制硬件；当前包的插件列表应完整加载十个模块且没有加载警告。
 需要进一步诊断时，在 NAS 宿主机运行 `led status --json` 和 `disk list --json`。
 能启动程序或加载插件不证明灯光写入、盘位映射或全部发行版已验证。
 

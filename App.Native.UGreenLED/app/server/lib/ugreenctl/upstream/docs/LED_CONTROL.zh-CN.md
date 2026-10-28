@@ -1,4 +1,7 @@
-# Almighty：灯光、盘位与旧命令兼容
+# 灯光、盘位与旧命令兼容
+
+本功能已从原 Almighty 合入 `main`，后续源码与使用说明统一以主分支为准。
+当前预览包的下载、校验和目录结构见 [README](../README.zh-CN.md#下载与快速开始)。
 
 本功能面向 Linux x86/x86_64 及 ARM64，首批部署目标为飞牛、Debian/Ubuntu、
 PVE、Unraid、TrueNAS SCALE。RGB MCU 通过通用 `i2c-dev` 和档案指定的

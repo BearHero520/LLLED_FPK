@@ -189,15 +189,19 @@ def validate_project() -> None:
     if unexpected_models:
         raise SystemExit("存在非当前分支的机型插件，请重新构建硬件组件：" + ", ".join(unexpected_models))
     metadata = json.loads((model_dir.parent / "build-info.json").read_text(encoding="utf-8"))
-    expected_artifacts = {"ugreenctl", "ugreenctl-fand", "ugreen_leds_cli", "ugreenctl-ledd"} | {f"models/{name}" for name in allowed_models}
-    if metadata.get("branch", "").lower() != "almighty" or set(metadata.get("files", {})) != expected_artifacts:
-        raise SystemExit("Almighty 硬件构建记录不完整，请重新导入构建")
     lock = json.loads((ROOT / "scripts/hardware-release.json").read_text(encoding="utf-8"))
+    expected_artifacts = {"ugreenctl", "ugreenctl-fand", "ugreen_leds_cli", "ugreenctl-ledd"} | {f"models/{name}" for name in allowed_models}
+    if metadata.get("branch") != lock.get("branch", "Almighty") or set(metadata.get("files", {})) != expected_artifacts:
+        raise SystemExit("硬件构建记录不完整或分支不符，请重新导入构建")
+    if lock.get("source_type") == "github-release" and metadata.get("revision") != lock["commit"]:
+        raise SystemExit("Hardware payload source commit differs from the pinned Release")
+    if "release_channel" in lock and metadata.get("release_channel") != lock["release_channel"]:
+        raise SystemExit("Hardware payload distribution channel differs from the pinned Release")
     if metadata.get("release_tag") != lock["tag"] or metadata.get("archive_sha256") != lock["archive_sha256"]:
-        raise SystemExit("Hardware payload is not the pinned Almighty Release")
+        raise SystemExit("Hardware payload is not the pinned Release")
     release_manifest = model_dir.parent / "release-manifest.json"
     if hashlib.sha256(release_manifest.read_bytes()).hexdigest() != lock["manifest_sha256"]:
-        raise SystemExit("Almighty release manifest SHA256 mismatch")
+        raise SystemExit("Hardware release manifest SHA256 mismatch")
     published = json.loads(release_manifest.read_text(encoding="utf-8"))
     published_hashes = {item["path"]: item["sha256"] for item in published["files"]}
     for name, value in metadata["files"].items():

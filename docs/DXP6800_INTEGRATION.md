@@ -1,10 +1,11 @@
 # DXP6800 BIOS / fan integration
 
-Current application release: **UGreen Control v3.0.5**. The original LLLED_FPK
+Current application release: **UGreen Control v3.0.6**. The original LLLED_FPK
 repository was directly renamed to UGreen-Control, preserving source history and
-Releases. The dated sections below record the earlier integration and validation
-stages; statements that no FPK was built refer to those stages. v3.0.5 has since
-been packaged and published. See [release notes](releases/v3.0.5.md).
+Releases. The dated sections below record earlier integration and validation
+stages; statements that no FPK was built refer to those stages. The current
+application pins the complete main-source hardware Release `v0.3.0`,
+replacing the old local extension. See [release notes](releases/v3.0.6.md).
 
 The exact DMI product `DXP6800` now uses upstream's independent `dxp6800.so`.
 The upstream evidence and implementation are in
@@ -18,9 +19,9 @@ are available. The preset uses DXP6800 Pro parameters and is labeled accordingly
 the original DXP6800 factory curve remains unknown.
 No target-device hardware write or physical power-cycle validation was performed.
 
-## Local upstream artifact
+## Historical local upstream artifact (before v3.0.6)
 
-`scripts/hardware-release.json` pins an **immutable, committed preview** extension archive in
+The previous `scripts/hardware-release.json` pinned an **immutable, committed preview** extension archive in
 `UGREEN-NAS-Hardware/artifacts/Almighty/2026-10-28-dxp6800-wake-curve-local`.
 The exact artifact commit is pinned in the lock; the directory name records its original local-build provenance.
 The prior immutable artifact is recorded under `base`. Only `dxp6800.so` and

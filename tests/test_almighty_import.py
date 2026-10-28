@@ -47,9 +47,11 @@ class ImportTests(unittest.TestCase):
         names = [*(f'usr/local/bin/{p}' for p in build.PROGRAMS), *(f'usr/local/lib/ugreenctl/models/{m}.so' for m in build.MODELS)]
         self.files = {name: bytes(elf) for name in names}
         self.files['usr/local/share/doc/ugreenctl/LICENSE'] = b'notice'
+        self.files['usr/local/share/doc/ugreenctl/verification-root.json'] = json.dumps(
+            {'source_commit': 'a' * 40, 'branch': 'main'}).encode()
 
     def bundle(self, extra=None):
-        manifest = dict(package='fixture', architecture='x86_64', branch='Almighty', status='experimental', files=[dict(path=n, size=len(d), sha256=build.digest(d)) for n, d in self.files.items()])
+        manifest = dict(package='fixture', architecture='x86_64', branch='main', version='0.3.0', release_channel='stable', status='experimental', files=[dict(path=n, size=len(d), sha256=build.digest(d)) for n, d in self.files.items()])
         raw = json.dumps(manifest).encode()
         (self.root / 'manifest.json').write_bytes(raw)
         with tarfile.open(self.root / 'archive.tar.gz', 'w:gz') as archive:
@@ -57,7 +59,8 @@ class ImportTests(unittest.TestCase):
                 member = tarfile.TarInfo('fixture/' + name)
                 member.size = len(data)
                 archive.addfile(member, io.BytesIO(data))
-        lock = dict(archive='archive.tar.gz', manifest='manifest.json', tag='preview', commit='a' * 40)
+        lock = dict(archive='archive.tar.gz', manifest='manifest.json', tag='v0.3.0',
+                    commit='a' * 40, branch='main', version='0.3.0', release_channel='stable', source_type='github-release')
         for key in ('archive', 'manifest'):
             lock[key + '_sha256'] = build.digest((self.root / lock[key]).read_bytes())
         sums = ''.join(f'{lock[k + "_sha256"]}  {lock[k]}\n' for k in ('archive', 'manifest')).encode()
@@ -74,10 +77,41 @@ class ImportTests(unittest.TestCase):
         build.install_release(manifest, files, lock, server)
         receipt = json.loads((server / 'lib/ugreenctl/build-info.json').read_text())
         self.assertEqual(len(receipt['files']), 14)
-        self.assertEqual(receipt['release_tag'], 'preview')
+        self.assertEqual(receipt['release_tag'], 'v0.3.0')
+        self.assertEqual(receipt['branch'], 'main')
+        self.assertEqual(receipt['revision'], lock['commit'])
+        self.assertEqual(receipt['release_channel'], 'stable')
         for p in build.PROGRAMS:
             self.assertEqual((server / 'bin' / p).read_bytes(), self.files[f'usr/local/bin/{p}'])
         self.assertEqual((server / 'lib/ugreenctl/upstream/LICENSE').read_bytes(), b'notice')
+
+    def test_rejects_wrong_branch_or_version(self):
+        lock = self.bundle()
+        with self.assertRaisesRegex(ValueError, 'pinned branch'):
+            build.validate_release(self.root, dict(lock, branch='Almighty'))
+        with self.assertRaisesRegex(ValueError, 'version mismatch'):
+            build.validate_release(self.root, dict(lock, version='0.2.0'))
+        with self.assertRaisesRegex(ValueError, 'channel mismatch'):
+            build.validate_release(self.root, dict(lock, release_channel='preview'))
+
+    def test_rejects_wrong_release_source_commit(self):
+        self.files['usr/local/share/doc/ugreenctl/verification-root.json'] = json.dumps(
+            {'source_commit': 'b' * 40, 'branch': 'main'}).encode()
+        with self.assertRaisesRegex(ValueError, 'source commit/branch mismatch'):
+            build.validate_release(self.root, self.bundle())
+
+    def test_replaces_obsolete_extension_sources_only_inside_import_directory(self):
+        lock = self.bundle()
+        manifest, files = build.validate_release(self.root, lock)
+        server = self.root / 'server'
+        obsolete = server / 'lib/ugreenctl/upstream/dxp6800-extension-source/old.c'
+        obsolete.parent.mkdir(parents=True)
+        obsolete.write_text('old local extension')
+        application = server / 'adapter.sh'
+        application.write_text('application adapter')
+        build.install_release(manifest, files, lock, server)
+        self.assertFalse(obsolete.exists())
+        self.assertEqual(application.read_text(), 'application adapter')
 
     def test_branch_download_pins_commit_and_preserves_binary_bytes(self):
         lock = self.bundle()
@@ -117,6 +151,11 @@ class ImportTests(unittest.TestCase):
     def test_duplicate_member(self):
         lock = self.bundle(('usr/local/bin/ugreenctl', b'duplicate'))
         with self.assertRaisesRegex(ValueError, 'Duplicate archive'):
+            build.validate_release(self.root, lock)
+
+    def test_unlisted_payload(self):
+        lock = self.bundle(('usr/local/share/doc/ugreenctl/unlisted.txt', b'unlisted'))
+        with self.assertRaisesRegex(ValueError, 'Unlisted archive payload'):
             build.validate_release(self.root, lock)
 
 if __name__ == '__main__':

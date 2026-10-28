@@ -1,5 +1,7 @@
 # ugreenctl
 
+当前 `main` 已合入 Almighty 实现，以及后续独立 WOL/RTC、DXP6800 和兼容温控曲线。远端 `Almighty` 分支已删除，源码与使用说明统一以 `main` 为准。配套应用的开发与更新位于 [UGreen-Control/main](https://github.com/BearHero520/UGreen-Control/tree/main)，详见[迁移说明](docs/UGREEN_CONTROL_MIGRATION.zh-CN.md)。
+
 N76 已改为显式用户态实验直控，不含驱动编译功能；见 [直控说明与未验证项](docs/N76_DIRECT_CONTROL.zh-CN.md)。
 
 ugreenctl 是一个面向绿联 NAS 的开源、用户态、插件化硬件管理工具。
@@ -7,13 +9,37 @@ ugreenctl 是一个面向绿联 NAS 的开源、用户态、插件化硬件管�
 [English](README.md) · [兼容性目录](docs/COMPATIBILITY.zh-CN.md) ·
 [Compatibility catalog](docs/COMPATIBILITY.md)
 
-`Almighty` 分支新增原生 LED 控制、物理盘位映射及 `ugreen_leds_cli` 参数兼容入口。
+当前实现包含原生 LED 控制、物理盘位映射及 `ugreen_leds_cli` 参数兼容入口。
 快速开始与逐机型限制见 [灯光与盘位说明](docs/LED_CONTROL.zh-CN.md)。
 各 Linux NAS 的运行库、持久目录和服务要求见 [部署指南](docs/LINUX_DEPLOYMENT.zh-CN.md)。
 
 它按照 NAS 机型加载独立的 .so 插件。已实机验证的机型开放正常写入；仅完成固件逆向
 的机型只能在保留全部保护并明确确认风险时开放受限写入。models/ 中存在某机型的插件，
 不代表该机型已被支持。
+
+## 下载与快速开始
+
+[v0.3.0](https://github.com/BearHero520/UGREEN-NAS-Hardware/releases/tag/v0.3.0)
+提供 Linux x86_64、aarch64 两种归档、manifest 和 `SHA256SUMS`。
+本版为正式软件发布；目录覆盖 25 款目标机型，仍保留逐机型实验能力与实机验证缺项，
+详见[更新说明](docs/RELEASE_v0.3.0.zh-CN.md)。
+
+按架构下载归档，将 `sha256sum <归档文件>` 的输出与 `SHA256SUMS` 对应条目比较。
+以 x86_64 为例，解包后先执行只读检查：
+
+```sh
+tar -xzf ugreenctl-almighty-0.3.0-linux-x86_64.tar.gz
+cd ugreenctl-almighty-0.3.0-linux-x86_64
+./usr/local/bin/ugreenctl --version
+./usr/local/bin/ugreenctl --plugin-dir ./usr/local/lib/ugreenctl/models models
+./usr/local/bin/ugreenctl led list --json
+./usr/local/bin/ugreenctl network wol models
+./usr/local/bin/ugreenctl power rtc-wake models
+```
+
+ARM64 使用文件名和目录名中的 `aarch64` 版本。每包包含四个程序、十个模型插件、
+兼容状态与说明文档；保留整个 `usr/local/` 目录结构。上述操作不会安装或启动服务。
+归档名的 `ugreenctl-almighty` 前缀沿用既有打包格式，来源分支为 `main`。
 
 ## 当前支持情况（已实现的固件路径）
 
@@ -28,6 +54,8 @@ ugreenctl 是一个面向绿联 NAS 的开源、用户态、插件化硬件管�
 | DXP4800S (`dxp4800s`) | UGOS Pro `1.17.0.0095`，Build `20260630.111337`，内核 `6.12.30+` | `sys` 风扇、来电启动、WOL、计划唤醒 | 已按固件实现，尚无实机写入验证；PWM 安全范围为 `40..255`，写入需 `--force --apply`。 |
 | DXP480T Plus (`dxp480tplus`) | UGOS Pro `1.17.0.95`，Build `20260630.111337`，内核 `6.12.30+` | CPU/系统风扇读数、`cpu`/`all` PWM、来电启动、WOL、计划唤醒 | CPU 写入已有实机反馈；系统风扇对 (`all`) 的更正固件映射、直控兜底、WOL 和计划唤醒仍待受控实机验证。 |
 | DXP6800 Pro (`dxp6800pro`) | UGOS Pro `1.17.0.0095`，Build `20260630.111337`，内核 `6.12.30+` | CPU/成对系统风扇、来电启动、WOL、计划唤醒 | 已按固件实现，尚无实机写入验证；所有写入均需 `--force --apply`。 |
+| DXP6800 Plus (`dxp6800plus`) | UGOS Pro `1.20.0.0142` | CPU/成对系统风扇、来电恢复、WOL、计划唤醒 | 用户报告已验证，但详细范围未知；写入仍需 `--force --apply`，实际唤醒尚未验证。 |
+| DXP6800 (`dxp6800`) | UGOS Pro `1.20.0.0142` | CPU/成对系统风扇、来电恢复；独立内置 WOL/RTC 命令 | 已按固件实现，实机验证待补；`stock-6800` 采用 Pro 参数，原厂曲线未知。写入需 `--force --apply`。 |
 | DXP2800 / DXP8800 Plus | 上游 LED 协议记录 | 型号识别与有条件的内置 LED 档案 | 风扇/电源插件仍为占位；LED 写入为实验性。 |
 
 风扇/电源写入要求精确 DMI；ARM 灯光使用经固件证实的精确设备树型号、
@@ -111,14 +139,16 @@ LED/盘位命令使用独立内置档案，可先查看 `led list`。不要通�
 | `fan set <风扇 ID> <PWM>` | 手动设定一个风扇或风扇组的速度。 | 风扇 ID 见下表；PWM 建议填 `40..255` 的整数，数值越大转得越快。它不是百分比，不能用 `50%`。 | 预览时显示 `dry-run`；真实写入成功显示 `<风扇 ID> fan PWM set to <PWM>`。 |
 | `power startup get` | 查看断电后恢复供电时的开机策略。 | 无。 | `on`、`off`、`restore` 或 `unknown`。 |
 | `power startup set <策略>` | 修改断电恢复后的开机策略。 | `<策略>` 只能是 `on`（总是开机）、`off`（保持关机）或 `restore`（恢复断电前状态）；`last` 等同于 `restore`。 | 写入成功显示 `startup policy set to <策略>`。 |
-| `network wol get` | 查看网络唤醒是否开启。 | 无。 | `on`、`off` 或 `unknown`。 |
-| `network wol set <on|off>` | 开启或关闭 Magic Packet 网络唤醒。 | 只能填 `on` 或 `off`。 | 写入成功显示 `Wake-on-LAN policy set to <策略>`。 |
+| `network wol models` | 查看独立 WOL 机型表。 | 无。 | 精确机型及自动网口映射或需显式指定网口的状态。 |
+| `network wol get [--interface 网口]` | 查看网络唤醒是否开启。 | 自动映射未确认时须填物理以太网口名。 | `on` 或 `off`；读数未知或混合状态返回错误。 |
+| `network wol set <on|off> [--interface 网口]` | 开启或关闭 Magic Packet 网络唤醒。 | 策略填 `on` 或 `off`；网口同上。 | `WOL on/off; driver readback verified; shutdown wake unverified`。 |
+| `power rtc-wake models` | 查看独立 RTC 机型表。 | 无，不借用 WOL 表或加载插件。 | 精确机型与 RTC 路由。 |
 | `power rtc-wake get` | 查看下一次定时唤醒。 | 无。 | UTC Unix 时间戳，例如 `1893452400`。 |
-| `power rtc-wake set <时间戳>` | 设置下一次定时唤醒。 | 填大于 0 的 UTC Unix 时间戳，不是 `2026-...` 这样的日期文字。 | 写入成功显示 `RTC wake set to <时间戳>`。 |
-| `power rtc-wake clear` | 取消已设置的定时唤醒。 | 无。 | `RTC wake cleared`。 |
+| `power rtc-wake set <时间戳>` | 设置下一次定时唤醒。 | UTC Unix 时间戳，须晚于当前时间 60 秒以上；ARM 须按整分钟对齐。 | `RTC alarm set: <时间戳>; interface readback verified; actual power-on unverified`。 |
+| `power rtc-wake clear` | 取消已设置的定时唤醒。 | 无。 | `RTC alarm cleared: 0; interface readback verified; actual power-on unverified`。 |
 
 风扇 ID 不能混用：DXP4800 Plus/Pro 是 `cpu`、`sys`；DXP4800 和 DXP4800S
-只有 `sys`；DXP6800 Pro 是 `cpu`、`sys`；DXP480T Plus 是 `cpu`、`all`（两个系统
+只有 `sys`；DXP6800、DXP6800 Plus、DXP6800 Pro 是 `cpu`、成对 `sys`；DXP480T Plus 是 `cpu`、`all`（两个系统
 风扇一起设置）。`led list/status/set/on/off/identify` 和 `disk list/map/locate`
 的参数、JSON、预览与实验性写入条件见 [LED 文档](docs/LED_CONTROL.zh-CN.md)。
 
@@ -142,10 +172,15 @@ sudo ugreenctl --apply fan set cpu 120
 
 # 固件逆向写路径还需要显式确认。
 sudo ugreenctl --force --apply network wol set on
-# Wake-on-LAN policy set to on
+# WOL on; driver readback verified; shutdown wake unverified
 sudo ugreenctl --force --apply power rtc-wake set 1893452400
-# RTC wake set to 1893452400
+# RTC alarm set: 1893452400; interface readback verified; actual power-on unverified
 ```
+
+WOL/RTC 使用独立内置机型表，不要求风扇插件存在。先用 `network wol models`、
+`power rtc-wake models` 查看路由；自动网口映射未确认时，显式选择真实物理网口，
+例如 `network wol get --interface enp1s0`。RTC 写入还会核对硬件时钟与系统 UTC
+同步；接口回读成功不等于已验证关机后能唤醒，见[全机型唤醒核对表](docs/ALL_MODELS_WAKE_EVIDENCE.zh-CN.md)。
 
 成功退出码为 `0`。参数错误、不支持的功能、机型不匹配、权限不足或任一安全检查
 失败时，程序会返回非零退出码并向标准错误输出 `error: ...`。除上述单行
@@ -192,6 +227,11 @@ DXP6800 Pro 已从固件恢复、但尚未完成实机写入验证。它提供�
 `ugreenctl-fand` 是受保护的软件曲线守护：它读取 Linux 温度，并通过 `ugreenctl` 提交 PWM
 更新。配置输入、启动命令和机器可读状态文件输出见
 [FAN_CURVE.md](docs/FAN_CURVE.md)。
+
+DXP6800 与 DXP6800 Plus 保留独立精确机型映射，使用相同名称的 `cpu` 与成对 `sys`
+命令。`stock-6800`、`stock-6800plus` 是经用户选择采用 Pro 参数的软件兼容曲线，
+并非恢复出的各自原厂曲线。详见 [DXP6800 说明](docs/DXP6800_SUPPORT.zh-CN.md)
+和 [DXP6800 Plus 说明](docs/DXP6800_1.20_FIRMWARE_CHECK.zh-CN.md)。
 
 DXP480T Plus 的 `cpu` 写入已有实机反馈。`all` 会按照已经实现的原厂系统风扇对事务写入，
 但其更正映射仍等待受控实机验证。正常 hwmon 写入使用 `--apply`，并继续保留精确 DMI

@@ -2,9 +2,9 @@
 
 UGreen Control 是面向飞牛 fnOS 的绿联 NAS 硬件工具箱，将灯光控制、硬件状态监测，以及兼容机型的风扇和电源管理集中到一个界面。
 
-当前版本：**3.0.5**
+当前版本：**3.0.6**
 
-[下载最新版本](https://github.com/BearHero520/UGreen-Control/releases/latest) · [v3.0.5 更新说明](docs/releases/v3.0.5.md) · [问题反馈](https://github.com/BearHero520/UGreen-Control/issues)
+[下载最新版本](https://github.com/BearHero520/UGreen-Control/releases/latest) · [v3.0.6 更新说明](docs/releases/v3.0.6.md) · [问题反馈](https://github.com/BearHero520/UGreen-Control/issues)
 
 本项目由原 **LLLED_FPK 仓库直接更名**为 UGreen-Control，提交历史、Issues、Stars、Fork、标签及 Releases 均保留，旧地址会重定向到新地址。应用标识仍为 `App.Native.UGreenLED`，现有用户可通过 fnOS 应用中心覆盖升级并保留配置。
 
@@ -19,14 +19,14 @@ UGreen Control 是面向飞牛 fnOS 的绿联 NAS 硬件工具箱，将灯光控
 
 不同机型的可用功能和验证状态不同，请以应用内检测结果及对应硬件文档为准。
 
-## v3.0.5 更新
+## v3.0.6 更新
 
-- 统一使用 UGreen Control 名称，在线更新、下载、说明和反馈入口使用本仓库地址。
-- 将原 `almighty` 分支的应用实现合入 `main`，保留独立 WOL / RTC 能力及实际网卡选择。
-- 接入 DXP6800 独立插件、三路风扇遥测、自定义温控及 Pro 参数兼容预设。
-- 改善界面控件、灯光交互和窄屏布局。
+- 固定使用 [UGREEN-NAS-Hardware v0.3.0](https://github.com/BearHero520/UGREEN-NAS-Hardware/releases/tag/v0.3.0)，整体更新四个硬件程序、十个机型插件及随包上游文档。
+- 导入和打包同时校验发布标签、主分支提交、归档、manifest 与逐文件 SHA-256，移除旧局部扩展源码快照。
+- 保留独立 WOL / RTC、实际网口选择、DXP6800 三路遥测及 Pro 参数兼容曲线。
+- 应用按正式版本发布，可通过原 `App.Native.UGreenLED` 应用标识覆盖升级并保留配置。
 
-DXP6800 原厂温控曲线仍未知，兼容预设采用 DXP6800 Pro 参数；DXP480T 的兼容 LED 入口支持开关、闪烁和保持当前颜色，暂不支持选色与呼吸。v3.0.5 未新增 NAS 实机写入或关机唤醒验证。
+应用正式发布不改变上游硬件包的 `experimental-incomplete` 状态。DXP6800 原厂温控曲线仍未知，兼容预设采用 DXP6800 Pro 参数；DXP480T 的兼容 LED 入口支持开关、闪烁和保持当前颜色，暂不支持选色与呼吸。v3.0.6 未新增 NAS 实机写入或关机唤醒验证。
 
 应用通过内置 CLI 完成硬件操作。BIOS、风扇、来电恢复及唤醒能力由独立的 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 提供；LED 操作统一调用包内 `server/bin/ugreen_leds_cli`。载荷来源、校验记录和接入边界见[硬件接入说明](docs/almighty-integration.md)。
 
@@ -42,7 +42,7 @@ DXP6800 原厂温控曲线仍未知，兼容预设采用 DXP6800 Pro 参数；DX
 
 ## LED 适配机型
 
-下表为 LED 适配的历史状态，不代表 v3.0.5 的风扇、BIOS 或唤醒功能均已通过实机验证。各项能力分别检测。
+下表为 LED 适配的历史状态，不代表当前版本的风扇、BIOS 或唤醒功能均已通过实机验证。各项能力分别检测。
 
 | 状态 | 机型 |
 |------|------|

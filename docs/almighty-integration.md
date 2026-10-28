@@ -1,12 +1,12 @@
-# UGreen Control v3.0.5 硬件接入说明
+# UGreen Control v3.0.6 硬件接入说明
 
 原 LLLED_FPK 的 `almighty` 已合入 `main`，原仓库现直接更名为 [UGreen-Control](https://github.com/BearHero520/UGreen-Control)。提交历史、Issues、标签与 Releases 保留，后续源码维护、在线更新及应用内 README 使用当前仓库。应用标识仍为 `App.Native.UGreenLED`，现有用户可在 fnOS 应用中心覆盖升级。
 
 ## 固定的硬件载荷
 
-上游 `UGREEN-NAS-Hardware/Almighty` 合入 `main`；当前应用固定使用提交 [`b6d4666`](https://github.com/BearHero520/UGREEN-NAS-Hardware/tree/b6d46660c87db1566f7c74b5abe1b37df1223f50) 中的 `artifacts/Almighty/2026-10-28-dxp6800-wake-curve-local` 预览归档。归档、manifest 及 SHA256SUMS 哈希见 [scripts/hardware-release.json](../scripts/hardware-release.json)。`git-artifact` 从不可变提交读取，构建不依赖开发机本地文件。
+上游原 `Almighty` 已合入 `main` 并删除分支。当前应用固定使用 [UGREEN-NAS-Hardware v0.3.0](https://github.com/BearHero520/UGREEN-NAS-Hardware/releases/tag/v0.3.0) 的 Linux x86_64 正式发布归档，来源提交为 [`754fdfb`](https://github.com/BearHero520/UGREEN-NAS-Hardware/tree/754fdfb29badb045d5a214fbf687fc167f8cb86f)。源码子模块固定到同一提交。归档、manifest 及 SHA256SUMS 哈希见 [scripts/hardware-release.json](../scripts/hardware-release.json)，构建直接下载固定版本并校验，不依赖开发机本地文件。
 
-这是已提交的实验性预览产物，尚无新增 NAS 实机验证。归档承载提交不代表整包二进制来自同一次源码构建；基包记录和 DXP6800 扩展源码哈希保留在归档中，构建记录使用源码哈希标识扩展的实际来源。
+四程序与十插件均来自本次主线完整重建，整体替换旧的局部扩展载荷；旧 `dxp6800-extension-source` 快照不再随应用打包。上游仍标记 `experimental-incomplete`，应用 v3.0.6 正式发布不改变各机型的验证等级，尚无新增 NAS 实机验证。包内保留上游 manifest、当前源码与二进制哈希及完整 CTest 日志。
 
 ## 载荷与边界
 
@@ -27,7 +27,7 @@ npm run check
 npm test
 npm run build
 cd ..
-python scripts/build_fpk.py --expect-version 3.0.5
+python scripts/build_fpk.py --expect-version 3.0.6
 ```
 
 Windows 导入需通过 `--source-root` 指定上游仓库，以使用其隔离 QEMU 运行环境。最终 FPK 和校验文件统一放到 `E:/工作台/LLLED_FPK/dist/`；CI 临时测试可使用 runner 的临时目录。发布附带固定文件名、版本文件名及版本文件的 SHA-256。

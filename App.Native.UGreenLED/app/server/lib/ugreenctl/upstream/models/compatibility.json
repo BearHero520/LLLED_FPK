@@ -1207,7 +1207,9 @@
           "shutdown_script_sha256": "a8343172f6fb95018ab2cc467888c1d8f55bc556f6eee92373183c91a8b102fe"
         }
       ],
-      "physical_validation": "Actual shutdown/wake not performed; not full hardware certification"
+      "physical_validation": "Actual shutdown/wake not performed; not full hardware certification",
+      "rtc_clock_guard": "Before set, same-controller since_epoch must be within 5 seconds of system Unix time; unknown or offset clocks refused before clearing existing alarm. LOCAL/DST conversion unsupported.",
+      "compatibility_validation": "validation/almighty/2026-10-27-linux-wake/result.json"
     }
   },
   "models": [
@@ -1628,6 +1630,57 @@
       },
       "known_conflicts": [],
       "evidence": []
+    },
+    {
+      "id": "dxp6800",
+      "plugin": "dxp6800.so",
+      "marketing_names": [
+        "UGREEN DXP6800"
+      ],
+      "dmi_product_names": [
+        "DXP6800"
+      ],
+      "support_level": "reverse-engineered",
+      "write_requirements": [
+        "exact DMI product name DXP6800",
+        "--force experimental acknowledgement",
+        "--apply",
+        "IT8613 identity check",
+        "vendor /proc/it86 driver must be inactive",
+        "manual fan PWM 40-255"
+      ],
+      "controller": {
+        "transport": "Linux hwmon with guarded direct Super I/O fallback",
+        "chip": "ITE IT8613",
+        "chip_id": "0x8613",
+        "hwmon_name": "it8613"
+      },
+      "capabilities": {
+        "fan_rpm": "reverse-engineered",
+        "fan_cpu_pwm_write": "reverse-engineered",
+        "fan_system_pair_pwm_write": "reverse-engineered",
+        "fan_system_individual_write": "blocked",
+        "fan_pwm_readback": "reverse-engineered",
+        "fan_automatic_service": "stock-6800 (user-selected Pro parameters) and custom; original factory curve unknown",
+        "fan_stop": "blocked",
+        "led": "not-implemented",
+        "power_recovery": "reverse-engineered",
+        "wake_on_lan": "unverified",
+        "rtc_scheduled_wake": "unverified"
+      },
+      "known_conflicts": [
+        "The vendor /proc/it86 interface or ug_it86x_cpufan module must not access the controller concurrently.",
+        "The generic it87 driver may remain loaded while its name=it8613 hwmon node is used; it must be unloaded before direct fallback."
+      ],
+      "evidence": [
+        {
+          "firmware": "UGOS Pro 1.20.0.0142",
+          "input_sha256": "73862c9c619f3e8b2279252326654f4915234dc8f437a71eb9a0067a724062c5",
+          "module_sha256": "dbecee7bcd4920fdc685a3162e7b7402ac12ee0994e7a87f43d1ce08da87ed4b",
+          "method": "Exact DXP6800 stock routing and seven-byte module branch; docs/DXP6800_SUPPORT.zh-CN.md",
+          "scope": "Static firmware evidence; physical validation pending."
+        }
+      ]
     }
   ]
 }

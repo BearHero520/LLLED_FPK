@@ -216,3 +216,7 @@ Exact DMI `DXP6800 Plus` has an independent firmware-reversed plugin from UGOS P
 ## 2026-10-27 WOL / RTC 独立核对
 
 25 款的官方调用链和条件接入见 [WOL / RTC 核对表](ALL_MODELS_WAKE_EVIDENCE.zh-CN.md)。RTC 使用独立精确机型表，不再借用 WOL 标记；15 款 WOL 自动网口映射仍未确认，必须显式指定物理网卡。全部机型实际关机唤醒、逐 BIOS 行为和持久性仍待验证。此项不改变灯光/盘位未完成清单。
+
+## DXP6800
+
+Exact DMI `DXP6800` has an independent firmware-reversed IT8613 plugin for CPU PWM, paired system PWM, three tachometers and AC recovery. hwmon takes priority; guarded direct fallback is allowed only on ENODEV. Writes require `--force --apply`, PWM 40..255. Custom software curves and the user-selected `stock-6800` Pro-parameter compatibility preset are available; the original factory curve and physical validation remain unknown. See [evidence](DXP6800_SUPPORT.zh-CN.md).

@@ -1,6 +1,6 @@
 {
   "architecture": "x86_64",
-  "branch": "Almighty",
+  "branch": "main",
   "catalog": {
     "excluded_by_user": [
       "DH2100",
@@ -363,86 +363,86 @@
     {
       "mode": "0755",
       "path": "usr/local/bin/ugreen_leds_cli",
-      "sha256": "7bf18542c1bc887087e979f96f6db0548e086fc23f65eca33759fe05617d1568",
-      "size": 618672
+      "sha256": "3d09aa29d7f6d1c90811d270cde6bd2218470a49fe989646804884477535e8e7",
+      "size": 618688
     },
     {
       "mode": "0755",
       "path": "usr/local/bin/ugreenctl",
-      "sha256": "2041070e0104ef815013dfd71fb0d185f4b6c37772ca430c626674e438b96bff",
-      "size": 795752
+      "sha256": "5388eaeef1d399153cf73532b75d62ef7cc422832aaf1256f76bd2b371e4bef9",
+      "size": 796760
     },
     {
       "mode": "0755",
       "path": "usr/local/bin/ugreenctl-fand",
-      "sha256": "dc949844028e6d5b325584a47aca4a420c9d4c6a129a087ce161f53f3c4a3744",
-      "size": 90824
+      "sha256": "533ce36edaee4d202a91874af645e2bbd61ea80cdaf9dceb0d94641167c8dc18",
+      "size": 90872
     },
     {
       "mode": "0755",
       "path": "usr/local/bin/ugreenctl-ledd",
-      "sha256": "be4a17a6b07aa6937d74a892ecbaf8bb19aa43f0ce91ece86bb95992015b971a",
-      "size": 373280
+      "sha256": "2f326c79557e6634f9e87d14be7127e049af5372333c619d5b7057f892d5173a",
+      "size": 373296
     },
     {
       "mode": "0755",
       "path": "usr/local/lib/ugreenctl/models/dx4600.so",
-      "sha256": "8467f713f2f841777a0c994443967e1c948cd10f3b253dd6d6c9ea13f28de758",
-      "size": 102216
+      "sha256": "12648ab2af69a99f782cc1cb5d65dd7299a5c19b72e6eb65e494cf261a1bc483",
+      "size": 102232
     },
     {
       "mode": "0755",
       "path": "usr/local/lib/ugreenctl/models/dxp2800.so",
-      "sha256": "eef1cc57c8170d5fd0a785ee12ee46e515125ec4be6fdaffbbe8ee184cdda95c",
-      "size": 6656
+      "sha256": "540a8fc7538ad977a302f65f096e708ea5802b58e05823447e389b8c61a432f9",
+      "size": 6672
     },
     {
       "mode": "0755",
       "path": "usr/local/lib/ugreenctl/models/dxp4800.so",
-      "sha256": "2da14b3f176ab3270f92b6e788955df933c8c196e23162dc9ac4e1c59d067991",
-      "size": 102104
-    },
-    {
-      "mode": "0755",
-      "path": "usr/local/lib/ugreenctl/models/dxp4800plus.so",
-      "sha256": "71937462e641fd7978c7044b274dbf258b36007dfcab5284fbd55387a32ac5ff",
-      "size": 101384
-    },
-    {
-      "mode": "0755",
-      "path": "usr/local/lib/ugreenctl/models/dxp4800s.so",
-      "sha256": "6fe998379e741071fb626b7bae239ef82c53387861d173e9110b4329c8936b0a",
+      "sha256": "1f472ce1216049120c45003c1b4acb15af1faac285a750ee3e85c1a992426e9a",
       "size": 102120
     },
     {
       "mode": "0755",
+      "path": "usr/local/lib/ugreenctl/models/dxp4800plus.so",
+      "sha256": "8d163f12929896f456d720111762e39655731ba2c805beebe526b3d8352b540a",
+      "size": 101400
+    },
+    {
+      "mode": "0755",
+      "path": "usr/local/lib/ugreenctl/models/dxp4800s.so",
+      "sha256": "0e8d7eb258238d35896f1ed7c78ed82d7d2eed5d0647c8a8cbafa46a6742c61b",
+      "size": 102136
+    },
+    {
+      "mode": "0755",
       "path": "usr/local/lib/ugreenctl/models/dxp480tplus.so",
-      "sha256": "c7c0a3adbc7612fb05d414c5f2e15040a0690c83d75f56b1715951cee539bc43",
-      "size": 101904
+      "sha256": "239192f63eeb8398eee4a1da84f5095c004901fa6feb83eca80fde9b4852669f",
+      "size": 101920
     },
     {
       "mode": "0755",
       "path": "usr/local/lib/ugreenctl/models/dxp6800.so",
-      "sha256": "bb2d604e4d9961ad9fcc64e5603f55754d975c86a16f95e5e4f98e0ea6d08ebc",
-      "size": 75520
+      "sha256": "bd3729106bc51dea49ec9b2c0eae77cdcb22b2e37825c586afaf1cb87bc8d765",
+      "size": 75576
     },
     {
       "mode": "0755",
       "path": "usr/local/lib/ugreenctl/models/dxp6800plus.so",
-      "sha256": "2c9a767f4411161c3ae6a68dcff37b0b179414c2e492cd89597b41696ffd555e",
-      "size": 103088
+      "sha256": "744bc3dfe1f74ef6faec20d1714a08b8003acddfd63ed0dd22f4a2fa95d77794",
+      "size": 103104
     },
     {
       "mode": "0755",
       "path": "usr/local/lib/ugreenctl/models/dxp6800pro.so",
-      "sha256": "bf64a854596c9264a091a359c33193bf4f90b7de7ed72bedc161111ec2fc02ff",
-      "size": 103264
+      "sha256": "2fe80a6aab169191644a785442f4de3da31a57003b932cec817997fb8000f6f2",
+      "size": 103280
     },
     {
       "mode": "0755",
       "path": "usr/local/lib/ugreenctl/models/dxp8800plus.so",
-      "sha256": "1a193937272011c8c5ee5abfc2cbc86bc44608ed3f56713211a725b9fcbb0a8a",
-      "size": 6672
+      "sha256": "8fbc53709047de4562217ed4354c05584e6d97c2bef5a9e5dd60f2ff50d447cf",
+      "size": 6688
     },
     {
       "mode": "0644",
@@ -453,14 +453,14 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/README.md",
-      "sha256": "881847171dbf34f215b8f5f7ff99ec9dcd6250b5441045c45447849ac150499e",
-      "size": 15767
+      "sha256": "f903637f18de50060f1b72ab4ac49c25f0eb2a0e2cf6e00143ef4c2265ccee46",
+      "size": 19095
     },
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/README.zh-CN.md",
-      "sha256": "d2d6be21f877710e0c159680f008da397f64fbad386b8fb49df76376985c02a9",
-      "size": 16837
+      "sha256": "00355c234e1a7ff6e780da026aa9f6fe1069f632545ef3137c50b1d2cea19496",
+      "size": 20048
     },
     {
       "mode": "0644",
@@ -501,20 +501,20 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/docs/ALL_MODELS_WAKE_EVIDENCE.zh-CN.md",
-      "sha256": "95351386e21e5b6347c753d67fb8f292e130aa25062ca0856b9f5a3846cf0ca6",
-      "size": 10801
+      "sha256": "a591aefc8e87c8db8e9c1e351522d8c9f565e2701c110ed150c4cac291335bd7",
+      "size": 12172
     },
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/docs/ALMIGHTY_PACKAGING.zh-CN.md",
-      "sha256": "efa1102a317fd9ba4b1c7aee3dd20d1c69b5dfeb86a49b5b3102d991561e47f5",
-      "size": 5747
+      "sha256": "f0c46a2274a1661cb65d4102c903383c1e2b070a9a5232754cdb242ca6b229ae",
+      "size": 6202
     },
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/docs/ALMIGHTY_STATUS.zh-CN.md",
-      "sha256": "44df8f669c847bb87a1b354d8aa0b0ef2eea7305565094ea416ad0599862c3e8",
-      "size": 4700
+      "sha256": "6ceac79b1386b5af7d326dd362a4bf24340060e6a01a1cd5c1185cb2ababc573",
+      "size": 5409
     },
     {
       "mode": "0644",
@@ -525,8 +525,8 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/docs/BUILD_REPRODUCIBILITY.zh-CN.md",
-      "sha256": "7f6a0dbcf1e1181b196a641b191419ef9c465b4f930137e5413940fdd5ead0bc",
-      "size": 8085
+      "sha256": "4dbb809f19be210fb75489d9d5e57b9d7b690487c0fdd78eca65412f0f7ffe7a",
+      "size": 8312
     },
     {
       "mode": "0644",
@@ -621,14 +621,14 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/docs/HARDWARE_SUPPORT.md",
-      "sha256": "ebd4b4246b7f38bfca4a8093ce6aff538242bb12035911df745e333f0cd18eff",
-      "size": 12282
+      "sha256": "9c65230ce1cf97a020d4947f0370cb585008f4d87de40277ccc86abbc02f43bd",
+      "size": 12770
     },
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/docs/LED_CONTROL.zh-CN.md",
-      "sha256": "996fe019277d6af00b9d7003a7ab755c3a63336bffe5e9697b5b8a2691efb26b",
-      "size": 21468
+      "sha256": "9d2ac58fe74fc0adb37405a775ed15928dc73f9b3f9995002c9a4a122e7690c3",
+      "size": 21663
     },
     {
       "mode": "0644",
@@ -639,8 +639,8 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/docs/LINUX_DEPLOYMENT.zh-CN.md",
-      "sha256": "5efd65410d8e96845718a6b8e189cc2b08d24c1ed0797ef967346c06db3aeb04",
-      "size": 11870
+      "sha256": "d37bda4be56ba0546343632abe295ddfbba079e28ebc97304982896944bc161f",
+      "size": 12070
     },
     {
       "mode": "0644",
@@ -650,9 +650,27 @@
     },
     {
       "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/RELEASE_v0.3.0-preview.1.zh-CN.md",
+      "sha256": "36591e28e3d0ce43f341f2237c058bf2bc4da13df8416d318ac20a1944b9c6b4",
+      "size": 2608
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/RELEASE_v0.3.0.zh-CN.md",
+      "sha256": "947dff86a51a72c23df7bf17ddd3c45862423cbb43a154c29e575b55b4fcfe27",
+      "size": 1902
+    },
+    {
+      "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/docs/SCHEDULED_POWER_FIRMWARE_EVIDENCE.md",
       "sha256": "b3352d6d7ee187c32e84e687ea44f4609d871a8115c3afcbf621b5a7e0ce6678",
       "size": 2113
+    },
+    {
+      "mode": "0644",
+      "path": "usr/local/share/doc/ugreenctl/docs/UGREEN_CONTROL_MIGRATION.zh-CN.md",
+      "sha256": "eeecc47fac373af306290b37f04a009043a8716599bfdaee4e17b10c4a416ea0",
+      "size": 1709
     },
     {
       "mode": "0644",
@@ -665,240 +683,6 @@
       "path": "usr/local/share/doc/ugreenctl/docs/WOL_FIRMWARE_EVIDENCE.zh-CN.md",
       "sha256": "f8acf77e16cc87d890be68480d6ea39944d668ce284714ead87aa66cb8ed7b3b",
       "size": 3857
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/CMakeLists.txt",
-      "sha256": "a00bc40d1e01801cd1f840aa5257819f69f7424658f281e2a60019b7800b96c8",
-      "size": 18050
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/core/fan_daemon.c",
-      "sha256": "1e49b652f9cc04d96290a9d465d4d7d4c4c52e0f7bc88d64debcff27453aff76",
-      "size": 16162
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/docs/DXP6800_SUPPORT.zh-CN.md",
-      "sha256": "8cc2853fdf0e297ec6fa5d2ca17b758b120e4bd1d471b2cb7bdf7b6f2ce893fb",
-      "size": 3258
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/docs/FAN_CURVE.md",
-      "sha256": "825df7f665b5ec5926a32a6723ed4f48ff46816777fa8576a9cd51361c092dc6",
-      "size": 7930
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_direct.c",
-      "sha256": "41fe99d15b4a9aa5f90113bd40e4bddf60ce5a5c09ab5dbb3ecf33c0f766518d",
-      "size": 5969
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_direct.h",
-      "sha256": "ff5d58c9cc6c4f4eefa7c2dece07a9399cae892ee8e6783725834c8c5a6fa97d",
-      "size": 1192
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dx4600.c",
-      "sha256": "714055011a935c287aa836e0af349f3b7294d1d3f416182e7f6cc967d3d149a0",
-      "size": 1603
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dx4600.h",
-      "sha256": "b6fcc4d7092575fd1d02b178f09988e5db0ace24ee3ba3672c4641f7478688c6",
-      "size": 409
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dxp4800.c",
-      "sha256": "fc4043eb01e07dccf38e097c97364acd5d46b618c0d8358902b25e386ba7f64a",
-      "size": 1530
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dxp4800.h",
-      "sha256": "c62d04e303724c7afa1c9dbb8ba9a0775ce7325cc2a3e1521d8c7d30251922f7",
-      "size": 415
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dxp4800s.c",
-      "sha256": "b56aec50d354bda172f255d62af2459b0ded2963ad8f90a1c9d947127e5ed238",
-      "size": 1584
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dxp4800s.h",
-      "sha256": "2e10bf015ccbd2d2ff09623eb0171d8031df98d2fa8ff18bd163dc8fc5e3d8f6",
-      "size": 435
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dxp480t.c",
-      "sha256": "e7bfd6c97122d855ea2e32cecf6620199113df7d23efd698e0656d05839c186a",
-      "size": 3347
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dxp480t.h",
-      "sha256": "85ea7c08feff331048d1c64b8da56e7e444936e5aea06633c309451a997fed51",
-      "size": 461
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dxp6800.c",
-      "sha256": "0b3201d7fb3a6b98bcfb8c27c3d4ab28957ad8b5bc85c47b158d6431504b0360",
-      "size": 2825
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dxp6800.h",
-      "sha256": "3425e168792d72c06e78561ffda2dc9a604a2856e922390bbd5ea4799af8a4ed",
-      "size": 458
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dxp6800plus.c",
-      "sha256": "d0bd947b85422dac259538dd95429cb487f10f9adc883e5ace8f79ed05c1afb6",
-      "size": 2854
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dxp6800plus.h",
-      "sha256": "7c9620d5253bce9dba2b8d46aad373b661366a661c26b4fdf2853eba914defa3",
-      "size": 474
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dxp6800pro.c",
-      "sha256": "8e3f59737485abd13d67bf5ccf79843b2210bd409836bb3330e3c15bad2bb24d",
-      "size": 2724
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_dxp6800pro.h",
-      "sha256": "3b9361cc4125ed2579afdc4509be7db7e2e64d45f12b0dd358dc898c3301d5d4",
-      "size": 470
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_fan.c",
-      "sha256": "3f8e7f6470fe68adaba283714c953652ce12865321b1349af7097f68f8253941",
-      "size": 2240
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_fan.h",
-      "sha256": "3c7029b0722582c939f529d5d4d3e0ac21460eb1679a33fc36c04d8ef20a9a80",
-      "size": 433
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_hwmon.c",
-      "sha256": "c86d241b4380c4722662e6c7c2a40d9a91b7808dd8f6b9aa10065846520a6444",
-      "size": 15514
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/it8613_hwmon.h",
-      "sha256": "6dad251e862864bf3e3cc14024c3dcb4ca05922c43c63648735ed9ca7e35f571",
-      "size": 749
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/thermal_curve.c",
-      "sha256": "33d2031f0287f72e51acac44cd0db552e9822584dc369a39edad4b5071664a6c",
-      "size": 34201
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/fan/thermal_curve.h",
-      "sha256": "44cbbf068e535cc4ba57ef0f0eefb2544277a8f78c1c74395850f9c4f4317fad",
-      "size": 3925
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/include/ugreenctl.h",
-      "sha256": "2386e31f48eae6ccbcee458efe00f3ce3da82a3b2797c719314fb5325ff8bc47",
-      "size": 3625
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/models/dxp6800.c",
-      "sha256": "43f71710e6ee54d6ad6598862ae7bab0cd793c6f41716f88625f5e5488906098",
-      "size": 3575
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/power/it8613_power.c",
-      "sha256": "c4d84371d63970956902c1abd61b3eb11738a4422622832d5c1c8ac29e5cb9cb",
-      "size": 2430
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/power/it8613_power.h",
-      "sha256": "2d98734ee0060851107a4b02cdd258af93a4985781ce93b39936ae84801bd7bc",
-      "size": 444
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/power/rtc_wake.c",
-      "sha256": "4be23bcf82c220c36b26aeae214c9ebe58d923d4ebb57caba0b1a0cc8e4732ed",
-      "size": 9640
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/power/rtc_wake.h",
-      "sha256": "083580c05791a0b9582942125deb4ee7efdd69988d398253211d05eecba96f3a",
-      "size": 976
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/scripts/prepare-llled-dxp6800.py",
-      "sha256": "bdc3e4e521df852e9a3906c7774925b76e1ae7c8b459fd19fce16f132f038b07",
-      "size": 4839
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/superio/it86x.c",
-      "sha256": "1ba98fe8d572e9ad9fc967f0b6ed455664365bf4c3784e9f37a8506fa2d09273",
-      "size": 4456
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/superio/it86x.h",
-      "sha256": "ef943ce952062a259d8b7d4f7da7bb1fa2f83c6c2dfa1bfb7271274f0531606b",
-      "size": 577
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/superio/it86x_unavailable.c",
-      "sha256": "6e13008410b530b4222a8586f03f97f79b43a87b6bff091217f23f2b28d0ed37",
-      "size": 950
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/tests/test_dxp6800_plugin.c",
-      "sha256": "d4d295e12954e521e2cdf3ac10823bd569c27e806a4a57ef65e2f32f9a9b269f",
-      "size": 3020
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/tests/test_it8613_dxp6800.c",
-      "sha256": "3f445ae6b994423f55f648148822932495dcc821e2e1ec41e523f0457ce9a56e",
-      "size": 5492
-    },
-    {
-      "mode": "0644",
-      "path": "usr/local/share/doc/ugreenctl/dxp6800-extension-source/tests/test_thermal_curve.c",
-      "sha256": "e54585d841404e781e155893e548ef78512939611bf16b2e2854e2e6768dcb39",
-      "size": 8814
     },
     {
       "mode": "0755",
@@ -963,8 +747,8 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/models/compatibility.json",
-      "sha256": "20eb9d5c2641559b11369bc71f8346eb49d732233a696d1e4ee0d7dc367e8403",
-      "size": 70922
+      "sha256": "04946d7801e38aaeff4cd989c72440bebe4ec6394b604eb359fb2796ad88df58",
+      "size": 74958
     },
     {
       "mode": "0644",
@@ -987,89 +771,46 @@
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/verification-root.json",
-      "sha256": "074cfef3fd435a4243b668637ed99f3b551ff0a1c085ba0d2635376423999457",
-      "size": 55489
+      "sha256": "38966e1e7ad52a3f87590760d61e5d76f92e1a43370d13e4037156fc9d45ce7c",
+      "size": 36889
     },
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/verification/ctest-aarch64.log",
-      "sha256": "a55666ce035e5bd1db3b9fbcf8815aa6ce8d185b2adcc5c695e7fa4ef07043a6",
-      "size": 3274
+      "sha256": "5cec71fd0c71a03c1f62ac35e75e4dc4a20c5de9658dd918843ace471e8c704d",
+      "size": 3588
     },
     {
       "mode": "0644",
       "path": "usr/local/share/doc/ugreenctl/verification/ctest-x86_64.log",
-      "sha256": "40f5e75db8e3162e00994c476eb547206f9793c7e7037a97799376bbada85fc6",
-      "size": 3273
+      "sha256": "73567dcfe3f350cababcc405e792a7b97c514ae9c661ad060c813a344a842155",
+      "size": 3587
     }
   ],
-  "install_prefix": "/usr/local",
-  "local_extension": {
-    "base_archive_sha256": "b9a6c86fa641d5b1e66ccd7b7edd06e36a27953e29ecfcedc5c27de4aab261de",
-    "base_full_suite": "31/31 passed",
-    "base_full_suite_artifacts": {
-      "aarch64": {
-        "path": "firmware-inbox/work/llled-wake-import-20261027/ctest-aarch64.log",
-        "sha256": "a55666ce035e5bd1db3b9fbcf8815aa6ce8d185b2adcc5c695e7fa4ef07043a6"
-      },
-      "x86_64": {
-        "path": "firmware-inbox/work/llled-wake-import-20261027/ctest-x86_64.log",
-        "sha256": "40f5e75db8e3162e00994c476eb547206f9793c7e7037a97799376bbada85fc6"
-      }
+  "full_suite": {
+    "failed": 0,
+    "not_run": 0,
+    "passed": 33,
+    "skipped": 0,
+    "status": "passed",
+    "total": 33
+  },
+  "full_suite_artifacts": {
+    "aarch64": {
+      "path": "firmware-inbox/work/main-release-v0.3.0/ctest-aarch64-final.log",
+      "sha256": "5cec71fd0c71a03c1f62ac35e75e4dc4a20c5de9658dd918843ace471e8c704d"
     },
-    "base_verification_sha256": "074cfef3fd435a4243b668637ed99f3b551ff0a1c085ba0d2635376423999457",
-    "changed_payloads": [
-      "usr/local/bin/ugreenctl-fand",
-      "usr/local/lib/ugreenctl/models/dxp6800.so"
-    ],
-    "id": "dxp6800-20261028",
-    "physical_validation": "not-performed",
-    "source_sha256": {
-      "CMakeLists.txt": "a00bc40d1e01801cd1f840aa5257819f69f7424658f281e2a60019b7800b96c8",
-      "core/fan_daemon.c": "1e49b652f9cc04d96290a9d465d4d7d4c4c52e0f7bc88d64debcff27453aff76",
-      "docs/DXP6800_SUPPORT.zh-CN.md": "8cc2853fdf0e297ec6fa5d2ca17b758b120e4bd1d471b2cb7bdf7b6f2ce893fb",
-      "docs/FAN_CURVE.md": "825df7f665b5ec5926a32a6723ed4f48ff46816777fa8576a9cd51361c092dc6",
-      "fan/it8613_direct.c": "41fe99d15b4a9aa5f90113bd40e4bddf60ce5a5c09ab5dbb3ecf33c0f766518d",
-      "fan/it8613_direct.h": "ff5d58c9cc6c4f4eefa7c2dece07a9399cae892ee8e6783725834c8c5a6fa97d",
-      "fan/it8613_dx4600.c": "714055011a935c287aa836e0af349f3b7294d1d3f416182e7f6cc967d3d149a0",
-      "fan/it8613_dx4600.h": "b6fcc4d7092575fd1d02b178f09988e5db0ace24ee3ba3672c4641f7478688c6",
-      "fan/it8613_dxp4800.c": "fc4043eb01e07dccf38e097c97364acd5d46b618c0d8358902b25e386ba7f64a",
-      "fan/it8613_dxp4800.h": "c62d04e303724c7afa1c9dbb8ba9a0775ce7325cc2a3e1521d8c7d30251922f7",
-      "fan/it8613_dxp4800s.c": "b56aec50d354bda172f255d62af2459b0ded2963ad8f90a1c9d947127e5ed238",
-      "fan/it8613_dxp4800s.h": "2e10bf015ccbd2d2ff09623eb0171d8031df98d2fa8ff18bd163dc8fc5e3d8f6",
-      "fan/it8613_dxp480t.c": "e7bfd6c97122d855ea2e32cecf6620199113df7d23efd698e0656d05839c186a",
-      "fan/it8613_dxp480t.h": "85ea7c08feff331048d1c64b8da56e7e444936e5aea06633c309451a997fed51",
-      "fan/it8613_dxp6800.c": "0b3201d7fb3a6b98bcfb8c27c3d4ab28957ad8b5bc85c47b158d6431504b0360",
-      "fan/it8613_dxp6800.h": "3425e168792d72c06e78561ffda2dc9a604a2856e922390bbd5ea4799af8a4ed",
-      "fan/it8613_dxp6800plus.c": "d0bd947b85422dac259538dd95429cb487f10f9adc883e5ace8f79ed05c1afb6",
-      "fan/it8613_dxp6800plus.h": "7c9620d5253bce9dba2b8d46aad373b661366a661c26b4fdf2853eba914defa3",
-      "fan/it8613_dxp6800pro.c": "8e3f59737485abd13d67bf5ccf79843b2210bd409836bb3330e3c15bad2bb24d",
-      "fan/it8613_dxp6800pro.h": "3b9361cc4125ed2579afdc4509be7db7e2e64d45f12b0dd358dc898c3301d5d4",
-      "fan/it8613_fan.c": "3f8e7f6470fe68adaba283714c953652ce12865321b1349af7097f68f8253941",
-      "fan/it8613_fan.h": "3c7029b0722582c939f529d5d4d3e0ac21460eb1679a33fc36c04d8ef20a9a80",
-      "fan/it8613_hwmon.c": "c86d241b4380c4722662e6c7c2a40d9a91b7808dd8f6b9aa10065846520a6444",
-      "fan/it8613_hwmon.h": "6dad251e862864bf3e3cc14024c3dcb4ca05922c43c63648735ed9ca7e35f571",
-      "fan/thermal_curve.c": "33d2031f0287f72e51acac44cd0db552e9822584dc369a39edad4b5071664a6c",
-      "fan/thermal_curve.h": "44cbbf068e535cc4ba57ef0f0eefb2544277a8f78c1c74395850f9c4f4317fad",
-      "include/ugreenctl.h": "2386e31f48eae6ccbcee458efe00f3ce3da82a3b2797c719314fb5325ff8bc47",
-      "models/dxp6800.c": "43f71710e6ee54d6ad6598862ae7bab0cd793c6f41716f88625f5e5488906098",
-      "power/it8613_power.c": "c4d84371d63970956902c1abd61b3eb11738a4422622832d5c1c8ac29e5cb9cb",
-      "power/it8613_power.h": "2d98734ee0060851107a4b02cdd258af93a4985781ce93b39936ae84801bd7bc",
-      "power/rtc_wake.c": "4be23bcf82c220c36b26aeae214c9ebe58d923d4ebb57caba0b1a0cc8e4732ed",
-      "power/rtc_wake.h": "083580c05791a0b9582942125deb4ee7efdd69988d398253211d05eecba96f3a",
-      "scripts/prepare-llled-dxp6800.py": "bdc3e4e521df852e9a3906c7774925b76e1ae7c8b459fd19fce16f132f038b07",
-      "superio/it86x.c": "1ba98fe8d572e9ad9fc967f0b6ed455664365bf4c3784e9f37a8506fa2d09273",
-      "superio/it86x.h": "ef943ce952062a259d8b7d4f7da7bb1fa2f83c6c2dfa1bfb7271274f0531606b",
-      "superio/it86x_unavailable.c": "6e13008410b530b4222a8586f03f97f79b43a87b6bff091217f23f2b28d0ed37",
-      "tests/test_dxp6800_plugin.c": "d4d295e12954e521e2cdf3ac10823bd569c27e806a4a57ef65e2f32f9a9b269f",
-      "tests/test_it8613_dxp6800.c": "3f445ae6b994423f55f648148822932495dcc821e2e1ec41e523f0457ce9a56e",
-      "tests/test_thermal_curve.c": "e54585d841404e781e155893e548ef78512939611bf16b2e2854e2e6768dcb39"
+    "x86_64": {
+      "path": "firmware-inbox/work/main-release-v0.3.0/ctest-x86_64-final.log",
+      "sha256": "73567dcfe3f350cababcc405e792a7b97c514ae9c661ad060c813a344a842155"
     }
   },
-  "package": "ugreenctl-almighty-0.2.0-linux-x86_64-preview",
-  "physical_validation": "not performed",
+  "install_prefix": "/usr/local",
+  "package": "ugreenctl-almighty-0.3.0-linux-x86_64",
+  "physical_validation": "No new NAS physical validation; compiled software tests run in isolated QEMU without networking, host mounts, storage or hardware passthrough. Python policy tests run on the build host.",
   "plugin_directory": "/usr/local/lib/ugreenctl/models",
-  "preview": true,
+  "preview": false,
+  "release_channel": "stable",
   "runtime_abi": {
     "files": {
       "usr/local/bin/ugreen_leds_cli": {
@@ -1284,6 +1025,26 @@
         "rpath": null,
         "runpath": null
       },
+      "usr/local/lib/ugreenctl/models/dxp6800.so": {
+        "glibc_extra_requirements": [],
+        "glibc_symbol_floor": "2.3",
+        "interpreter": null,
+        "needed_libraries": [
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "required_symbol_versions": {
+          "libc.so.6": [
+            "GLIBC_2.2.5",
+            "GLIBC_2.3"
+          ],
+          "libpthread.so.0": [
+            "GLIBC_2.2.5"
+          ]
+        },
+        "rpath": null,
+        "runpath": null
+      },
       "usr/local/lib/ugreenctl/models/dxp6800plus.so": {
         "glibc_extra_requirements": [],
         "glibc_symbol_floor": "2.14",
@@ -1354,12 +1115,12 @@
   "source_sha256": {
     ".gitattributes": "5178cd145a0693647356fbcb1fc7aef6b40f92307cc068946d18dedb7ad19642",
     ".gitignore": "296e7dddc7b41ab965c76d482b1f13085e2f2904df4b541ed23d985daf4e1345",
-    "CMakeLists.txt": "4570a82dbdf18dc3f870e02a1d3635f0fa493fc54d3cbcf33c1d43d65a607231",
+    "CMakeLists.txt": "31ac3117ed77344b80cff50c90897ae410c223d9494ff6986f45ff5db949ed1e",
     "LICENSE": "3e18d1b39f4f82c2f0480bebb05f66908408d5ca785d0ef3be67cde9d18b0604",
-    "README.md": "881847171dbf34f215b8f5f7ff99ec9dcd6250b5441045c45447849ac150499e",
-    "README.zh-CN.md": "d2d6be21f877710e0c159680f008da397f64fbad386b8fb49df76376985c02a9",
+    "README.md": "f903637f18de50060f1b72ab4ac49c25f0eb2a0e2cf6e00143ef4c2265ccee46",
+    "README.zh-CN.md": "00355c234e1a7ff6e780da026aa9f6fe1069f632545ef3137c50b1d2cea19496",
     "THIRD_PARTY_NOTICES.md": "02b3653447e1f43cb956c36af37f279640c58f212a7d8589cfe6afa1817eb389",
-    "core/fan_daemon.c": "6c40c5d0a2e7a94432f57c1f1df42803081be437e240efa1c861cd8011c826d3",
+    "core/fan_daemon.c": "1e49b652f9cc04d96290a9d465d4d7d4c4c52e0f7bc88d64debcff27453aff76",
     "core/hardware_cli.c": "1fbe0e7d982c1b74119fe93ea31c8154c9233d67de3939755aa78c53668b1a08",
     "core/hardware_cli.h": "796e8d85655000a3a8c17dda073f585cb202432b8a386a68bae56dccef54f86e",
     "core/identity.c": "443c12f5b4d45b4ba257a3522a0b4714dd558b24c50420ab696f7b57cec410d5",
@@ -1368,7 +1129,7 @@
     "core/led_daemon_main.c": "e9add637221c5613573ccb61d85ad4d3979e46723e8a266118d065f4778dd33f",
     "core/loader.c": "f17141b1bfd9ef3da69173e5fae7bf8723bf077016dfe9c05908c10e5a2a4270",
     "core/loader.h": "f73eb103132a4b8fff2d5c175ec9ad64f391a0ce8fc8a65c5b9ddcf35abfd5dc",
-    "core/main.c": "e04e1bc3063759f448f2ec5cfe1cf014dc91ebe984da8ca0997a112344f19078",
+    "core/main.c": "2c364863a812f7c1844f1dbc4163eef4f6657ae35865594243a578f68b6dde9b",
     "core/wake_cli.c": "0823c5aad35deb6a09aedac80317847211bf5091240ae916b2b8c6d381d14022",
     "core/wake_cli.h": "0a3abc62659f63a696898a3940ae480d9bafa14581a9943c2602db3265663b22",
     "disk/NOTICE.md": "5ceab4168b7f672a272a1a903fa908a32e4b5f1553866713f9ae7765dc9fc825",
@@ -1380,11 +1141,11 @@
     "docs/ALL_MODELS_DISK_EVIDENCE.zh-CN.md": "897c8639e51831acaac2e7d6b6cd03680eaa4ad47d2e2d8edf8219d86360cb96",
     "docs/ALL_MODELS_FIRMWARE_INTAKE.zh-CN.md": "d58cbe64badb7ac5b546726a693956758d9efd32bdf2dc9b990d354d127a4135",
     "docs/ALL_MODELS_LED_EVIDENCE.zh-CN.md": "b1a8505496b9f37de2092c8d6618a73f5b2b04a3d7b263e1897a4e9424b92652",
-    "docs/ALL_MODELS_WAKE_EVIDENCE.zh-CN.md": "95351386e21e5b6347c753d67fb8f292e130aa25062ca0856b9f5a3846cf0ca6",
-    "docs/ALMIGHTY_PACKAGING.zh-CN.md": "efa1102a317fd9ba4b1c7aee3dd20d1c69b5dfeb86a49b5b3102d991561e47f5",
-    "docs/ALMIGHTY_STATUS.zh-CN.md": "44df8f669c847bb87a1b354d8aa0b0ef2eea7305565094ea416ad0599862c3e8",
+    "docs/ALL_MODELS_WAKE_EVIDENCE.zh-CN.md": "a591aefc8e87c8db8e9c1e351522d8c9f565e2701c110ed150c4cac291335bd7",
+    "docs/ALMIGHTY_PACKAGING.zh-CN.md": "f0c46a2274a1661cb65d4102c903383c1e2b070a9a5232754cdb242ca6b229ae",
+    "docs/ALMIGHTY_STATUS.zh-CN.md": "6ceac79b1386b5af7d326dd362a4bf24340060e6a01a1cd5c1185cb2ababc573",
     "docs/ARCHITECTURE.md": "821152795e712fbe37bf7456d668d0f73a4299882f3ffca4d3ccb3785513abfd",
-    "docs/BUILD_REPRODUCIBILITY.zh-CN.md": "7f6a0dbcf1e1181b196a641b191419ef9c465b4f930137e5413940fdd5ead0bc",
+    "docs/BUILD_REPRODUCIBILITY.zh-CN.md": "4dbb809f19be210fb75489d9d5e57b9d7b690487c0fdd78eca65412f0f7ffe7a",
     "docs/COMPATIBILITY.md": "4e77b2208979fc9970a57acd2e1f83296ac46f56f5fd789c634a798e06140039",
     "docs/COMPATIBILITY.zh-CN.md": "466dd757586f7250372510f597508c20d9a85646a40521bc2c55fe10145d137a",
     "docs/DH2100_FIRMWARE_SEARCH.zh-CN.md": "7a4d132512be98a9f186862973fa2da81266ab34c2f3288a88e92a6816acb1e1",
@@ -1397,14 +1158,18 @@
     "docs/DXP480T_PLUS_FAN_REVERSE_ENGINEERING.md": "e1153fee7da582d40950f1853b252746fe1f751b54e13db1c064fcc604ae6e9d",
     "docs/DXP6800_1.20_FIRMWARE_CHECK.zh-CN.md": "9b3da3e0470db0d0cbe3ca57a1c2e95729d2c0a038725894e6b7dadafdcdab68",
     "docs/DXP6800_PRO_REVERSE_ENGINEERING.md": "509383ce42ebeaa70213909042ab81deeed505868ac3334eb2575b10f3e6283d",
-    "docs/FAN_CURVE.md": "d3b46f933eb3c5908e44cf73ebc1011f5651eefc74fe239d56948a69e2ffcb35",
+    "docs/DXP6800_SUPPORT.zh-CN.md": "8cc2853fdf0e297ec6fa5d2ca17b758b120e4bd1d471b2cb7bdf7b6f2ce893fb",
+    "docs/FAN_CURVE.md": "825df7f665b5ec5926a32a6723ed4f48ff46816777fa8576a9cd51361c092dc6",
     "docs/FIRMWARE_RUNTIME_TRACE_20261026.zh-CN.md": "423138fa5daa7e055a8accc937630873acd20719853bb7e1a745fbc508d52e24",
-    "docs/HARDWARE_SUPPORT.md": "ebd4b4246b7f38bfca4a8093ce6aff538242bb12035911df745e333f0cd18eff",
-    "docs/LED_CONTROL.zh-CN.md": "996fe019277d6af00b9d7003a7ab755c3a63336bffe5e9697b5b8a2691efb26b",
+    "docs/HARDWARE_SUPPORT.md": "9c65230ce1cf97a020d4947f0370cb585008f4d87de40277ccc86abbc02f43bd",
+    "docs/LED_CONTROL.zh-CN.md": "9d2ac58fe74fc0adb37405a775ed15928dc73f9b3f9995002c9a4a122e7690c3",
     "docs/LED_EVIDENCE_COLLECTION.zh-CN.md": "461473973d4172d78532fa750958c9fba637c765e44d82c7ee77c2d04ba72b34",
-    "docs/LINUX_DEPLOYMENT.zh-CN.md": "5efd65410d8e96845718a6b8e189cc2b08d24c1ed0797ef967346c06db3aeb04",
+    "docs/LINUX_DEPLOYMENT.zh-CN.md": "d37bda4be56ba0546343632abe295ddfbba079e28ebc97304982896944bc161f",
     "docs/N76_DIRECT_CONTROL.zh-CN.md": "1e3486d2bdaa5d24fdd36cc024d754daeeddd91449a920d67f3a97d9ae32130f",
+    "docs/RELEASE_v0.3.0-preview.1.zh-CN.md": "36591e28e3d0ce43f341f2237c058bf2bc4da13df8416d318ac20a1944b9c6b4",
+    "docs/RELEASE_v0.3.0.zh-CN.md": "947dff86a51a72c23df7bf17ddd3c45862423cbb43a154c29e575b55b4fcfe27",
     "docs/SCHEDULED_POWER_FIRMWARE_EVIDENCE.md": "b3352d6d7ee187c32e84e687ea44f4609d871a8115c3afcbf621b5a7e0ce6678",
+    "docs/UGREEN_CONTROL_MIGRATION.zh-CN.md": "eeecc47fac373af306290b37f04a009043a8716599bfdaee4e17b10c4a416ea0",
     "docs/WOL_FIRMWARE_EVIDENCE.md": "d5dd249514e011c1b2564365d6932d6257a8fa2baba5f7014900384939570238",
     "docs/WOL_FIRMWARE_EVIDENCE.zh-CN.md": "f8acf77e16cc87d890be68480d6ea39944d668ce284714ead87aa66cb8ed7b3b",
     "ec/ec.c": "811d4d762f5511882bd3421824a32c2d960b9404a8de10307156a20c9f0c59be",
@@ -1419,6 +1184,8 @@
     "fan/it8613_dxp4800s.h": "2e10bf015ccbd2d2ff09623eb0171d8031df98d2fa8ff18bd163dc8fc5e3d8f6",
     "fan/it8613_dxp480t.c": "e7bfd6c97122d855ea2e32cecf6620199113df7d23efd698e0656d05839c186a",
     "fan/it8613_dxp480t.h": "85ea7c08feff331048d1c64b8da56e7e444936e5aea06633c309451a997fed51",
+    "fan/it8613_dxp6800.c": "0b3201d7fb3a6b98bcfb8c27c3d4ab28957ad8b5bc85c47b158d6431504b0360",
+    "fan/it8613_dxp6800.h": "3425e168792d72c06e78561ffda2dc9a604a2856e922390bbd5ea4799af8a4ed",
     "fan/it8613_dxp6800plus.c": "d0bd947b85422dac259538dd95429cb487f10f9adc883e5ace8f79ed05c1afb6",
     "fan/it8613_dxp6800plus.h": "7c9620d5253bce9dba2b8d46aad373b661366a661c26b4fdf2853eba914defa3",
     "fan/it8613_dxp6800pro.c": "8e3f59737485abd13d67bf5ccf79843b2210bd409836bb3330e3c15bad2bb24d",
@@ -1427,7 +1194,7 @@
     "fan/it8613_fan.h": "3c7029b0722582c939f529d5d4d3e0ac21460eb1679a33fc36c04d8ef20a9a80",
     "fan/it8613_hwmon.c": "c86d241b4380c4722662e6c7c2a40d9a91b7808dd8f6b9aa10065846520a6444",
     "fan/it8613_hwmon.h": "6dad251e862864bf3e3cc14024c3dcb4ca05922c43c63648735ed9ca7e35f571",
-    "fan/thermal_curve.c": "79ab0ad11f0d25fb420a0f30a716b9b4c2e4a6b479da03d5b743d3c2b0510d1e",
+    "fan/thermal_curve.c": "33d2031f0287f72e51acac44cd0db552e9822584dc369a39edad4b5071664a6c",
     "fan/thermal_curve.h": "44cbbf068e535cc4ba57ef0f0eefb2544277a8f78c1c74395850f9c4f4317fad",
     "include/ugreenctl.h": "2386e31f48eae6ccbcee458efe00f3ce3da82a3b2797c719314fb5325ff8bc47",
     "integration/llled/ac-recovery/README.zh-CN.md": "e519cb5ac9d401c6d2d85a06639729512500b64983c940b78156b5b11087ac58",
@@ -1450,12 +1217,13 @@
     "led/led_sysfs.c": "7a20af1be127c12cb9cb221c48407ff2a31ba8950f148a9a8ac2b8a52671b72f",
     "led/led_sysfs.h": "e66a06334f5e58663986864e2a056bddaa6f92fb28f271e8eafa6aa22446aa3b",
     "led/led_test.h": "5a59f56f32e4aeca4e110ac3340fe025a9c4801ebe4d6a9e3aa4ca4397c74339",
-    "models/compatibility.json": "20eb9d5c2641559b11369bc71f8346eb49d732233a696d1e4ee0d7dc367e8403",
+    "models/compatibility.json": "04946d7801e38aaeff4cd989c72440bebe4ec6394b604eb359fb2796ad88df58",
     "models/dx4600.c": "47eeb6bf0b218fe09680d75d38fcbfa463cd638de118db6ee3379fd92fdbb021",
     "models/dxp4800.c": "ba0680629d3305bec955b81f47e5fffa826c2ecb680cb979179ae85408e16ad4",
     "models/dxp4800plus.c": "eff2f126026b7f829b6c8fefccdd1eeb144ad4be3bfc75ab98d600c69929b6fd",
     "models/dxp4800s.c": "ff11cbb2a1d9cbf0138f50a4f5083df146852e7d77dd354764bb800be6138285",
     "models/dxp480tplus.c": "0b38b337aa0b8ed3789164b56e9ad9a404677b68ac2ca6914ebad4a0b8335c01",
+    "models/dxp6800.c": "43f71710e6ee54d6ad6598862ae7bab0cd793c6f41716f88625f5e5488906098",
     "models/dxp6800plus.c": "b0f591f1c22b39920e4b4e47a715ae57127bcfd62fdaaa23e732ae89536a2f8b",
     "models/dxp6800pro.c": "e7cd4fb68e3512580b674ec2890f50b922456ab941c7b5c4f25efc116c2bb48a",
     "models/led_profiles.c": "02dcb86901dac47a83a87b2a70c0f3c4e53d5baa3fcc8d4af1110f570dd63768",
@@ -1483,11 +1251,11 @@
     "network/wol_interface.h": "77965fd934312b10b9c4952f696adda048d8b71e55b3ed000b89849389cc145e",
     "power/it8613_power.c": "c4d84371d63970956902c1abd61b3eb11738a4422622832d5c1c8ac29e5cb9cb",
     "power/it8613_power.h": "2d98734ee0060851107a4b02cdd258af93a4985781ce93b39936ae84801bd7bc",
-    "power/rtc_wake.c": "8ad08151988f5153f23d2c263ab93d9670bb02aa9ec86477049fd02b1b6d321b",
+    "power/rtc_wake.c": "4be23bcf82c220c36b26aeae214c9ebe58d923d4ebb57caba0b1a0cc8e4732ed",
     "power/rtc_wake.h": "083580c05791a0b9582942125deb4ee7efdd69988d398253211d05eecba96f3a",
     "scripts/collect-disk-evidence.sh": "c70d789a5ba534d7827e4a4799ac810e10c53f5da2e0a195b46062aeda21ef00",
     "scripts/collect-led-evidence.sh": "47e5dea28101c27110171c80b2e82b1fad249cbd23da40fee928d79893c9954c",
-    "scripts/package-almighty.py": "7f83bd4f6f32e3db65ce2f2e0aff021bbffd043287d0725148802fc7c35a7646",
+    "scripts/package-almighty.py": "c56ed2b553fbae3a6b71c1a86a8590021cf12e1fdd9fc655f3ed9f0f92aec467",
     "scripts/ugreenctl-ledd-gt.service": "2edd47c6581e70edad2fbb807cd17ed306074b59135f290c7c39cfa7f100dfe5",
     "scripts/ugreenctl-ledd.service": "b4158aeaeea04c9bef36202f0cbeea5462527b8dd04f6e6a053b4c61d495ed24",
     "scripts/ugreenctl-startup.py": "0ea14449ad98c6ba2c7a50c727a24c75fdf0db2f219cde1026dd8fd2253ce7b4",
@@ -1497,6 +1265,7 @@
     "superio/it86x_unavailable.c": "6e13008410b530b4222a8586f03f97f79b43a87b6bff091217f23f2b28d0ed37",
     "tests/test_disk_mapping.c": "f15ba66b26843c3ca2ec7cf9a28f81d523731e9222ac8d495e82b494ca6a8c2d",
     "tests/test_dx4600_plugin.c": "15f098e035fb2766ac2ba4cb6284b2f64307420c367a557ef937b942a81f1a61",
+    "tests/test_dxp6800_plugin.c": "d4d295e12954e521e2cdf3ac10823bd569c27e806a4a57ef65e2f32f9a9b269f",
     "tests/test_hardware_cli.c": "dcefe55a7b24bb09f770a9e43352646b1fed761dfc3bfbf9f543c62336e0c860",
     "tests/test_identity.c": "8063acf0bc26ba6daac3f813053e08f967413e822a93ba611c61b5746f4dc500",
     "tests/test_it8613_direct.c": "ea303d248d9ed9f517b41979abff8392e98b613850c09fb5f361b112459c5c27",
@@ -1504,6 +1273,7 @@
     "tests/test_it8613_dxp4800.c": "70093800be14bee6551039afdcd376572937f203ea84b159d5a874c1ab990889",
     "tests/test_it8613_dxp4800s.c": "bd6445a6f971bcd8bcf2ac1ef6f2e10fa9e934f5330b99931798273597db09d4",
     "tests/test_it8613_dxp480t.c": "ef73e878ba807de5974141e99b6a37980f034ef988015fcfc96d01bbadab0d71",
+    "tests/test_it8613_dxp6800.c": "3f445ae6b994423f55f648148822932495dcc821e2e1ec41e523f0457ce9a56e",
     "tests/test_it8613_dxp6800plus.c": "6e360819d45165e309db1299126e00b92f914e6baf606ada14db208767675eff",
     "tests/test_it8613_dxp6800pro.c": "a2f121c03ec952492eb33fa10f8c6913796c7eed2d33d97410a34e9597775aa9",
     "tests/test_it8613_hwmon.c": "045fccecfbb723d1ea5f0cbc2be0f0314f2ebd38a155e57f6a4326b131172296",
@@ -1513,14 +1283,14 @@
     "tests/test_led_gpio.c": "609f21bb801eaf2e4289e7db83b3a2ca3f7f9cbfbc49455fc2428704909132bf",
     "tests/test_led_n76.c": "94d96fc29e5ba45a1fa74842a3943dadec3df0b327b103a38416916b56d0dbe5",
     "tests/test_led_service.c": "536dd3884d6bd5b8aecebe1a676d1be85b30fd193bf423e113ac009a693c67f6",
-    "tests/test_package_almighty.py": "43bab941c5e2b6e4cca0a50891459bf2d63185e2da78dda27025513546790999",
+    "tests/test_package_almighty.py": "ebe65e04f8e7549da9535297c2545ed7c495c89d7be8c9c1357e85a0c1055b0f",
     "tests/test_package_runtime.py": "d2a297ce8a7eb5d8f6e9343b9aa7d82472ce6fff19330ab0878c9904dfc6e067",
-    "tests/test_rtc_runtime.c": "91493b7040aed4020a1ee0da62fd00ef8a0caf92422a456ee773e7c9eab98d07",
+    "tests/test_rtc_runtime.c": "abb832ee79c148f19a7833a9202a13a53ddbe3eaadd973f388856705cfd48263",
     "tests/test_rtc_wake.c": "e576213b00708885d99bcd84720ec8828c075a34b473586a153cd6a7704fdd9f",
     "tests/test_startup_state.py": "582369d237734b9bec2e56185d4d4e490d166ac72a162d32fe061c78d305ba9b",
-    "tests/test_thermal_curve.c": "6707fbfa2ac515dc1ea2736e94e56f83ca91b65a8f5d1cc55b8779d0b4ef1742",
+    "tests/test_thermal_curve.c": "e54585d841404e781e155893e548ef78512939611bf16b2e2854e2e6768dcb39",
     "tests/test_wake_cli.c": "48d792f4e728acc144f0663b77094d1ab4468a6fb59efcb86f92a74028ff1885",
-    "tests/test_wake_profiles.c": "6026f14d0e7ea08626b2d055dd573353e7ed12a15d2c38008c3720a6ab35af78",
+    "tests/test_wake_profiles.c": "ff00451e7d4956fd9afa952e45bca5c6da7b131556dceb6ff0235e5c5f749a61",
     "tests/test_wol_dxp4800.c": "617cbe629eaaf8d5d7d0d31ed51f288b40be1bcc77b753295ee19ae4f685c7f1",
     "tests/test_wol_interface.c": "41fcf62dcbc3a91dee44fd3bc5775cfb8ab5a6f138fdfd04ecc5b77ce2121bbf",
     "tests/test_wol_runtime.c": "e9654e2f4706e7ec9df6751b43d700246038acac7955d1bc69948ec5598242ec",
@@ -1534,7 +1304,8 @@
     "tools/toolchains/zigranlib.cmd": "527cc7b2ddc9aab899b2e026ae3ccb4d515eb66b3f240daa7ea883ebeceb7a30",
     "validation/almighty/2026-10-27-wake-audit/firmware-evidence.json": "9b954d49fe34730b099cf474774cfe6e7fb0e75191e7b5bb7fdbf69fc1a19df2"
   },
-  "status": "experimental-local-dxp6800",
+  "status": "experimental-incomplete",
   "verification_complete": false,
-  "version": "0.2.0"
+  "verification_sha256": "38966e1e7ad52a3f87590760d61e5d76f92e1a43370d13e4037156fc9d45ce7c",
+  "version": "0.3.0"
 }
