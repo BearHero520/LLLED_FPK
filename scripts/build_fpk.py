@@ -18,6 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PROJECT = ROOT / "App.Native.UGreenLED"
+DEFAULT_DIST = Path("E:/工作台/LLLED_FPK/dist") if os.name == "nt" else ROOT / "dist"
 APP_NAME = "App.Native.UGreenLED"
 TEXT_SUFFIXES = {".c", ".cgi", ".conf", ".css", ".h", ".html", ".js", ".md", ".py", ".sh"}
 TEXT_NAMES = {
@@ -316,7 +317,7 @@ def build(output_dir: Path, expected_version: str | None) -> list[Path]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="构建 fnOS FPK 安装包")
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "dist")
+    parser.add_argument("--output-dir", type=Path, default=DEFAULT_DIST)
     parser.add_argument("--expect-version", help="要求与 manifest 一致的版本或 v 标签")
     args = parser.parse_args()
     build(args.output_dir.resolve(), args.expect_version)

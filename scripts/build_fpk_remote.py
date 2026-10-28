@@ -13,7 +13,7 @@ import paramiko
 
 ROOT = Path(__file__).resolve().parent.parent
 PROJECT = ROOT / "App.Native.UGreenLED"
-DIST = ROOT / "dist"
+DIST = Path("E:/工作台/LLLED_FPK/dist") if os.name == "nt" else ROOT / "dist"
 FAN_CURVE_API_TEST = Path(__file__).resolve().parent.parent / "tests" / "test_fan_curve_api.sh"
 REMOTE_DIR = "/tmp/App.Native.UGreenLED-build"
 LOCAL_ZIP = Path(__file__).resolve().parent / "ugreen_led_pkg.zip"

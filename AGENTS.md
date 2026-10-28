@@ -18,6 +18,12 @@ The following rules are mandatory for every change in this repository:
 Treat these as three separate operations. Authorization for one operation never implies authorization for either of the others:
 
 - **Package / 打包** means build the FPK from the current local checkout by running the local packaging entry point. Write the completed `.fpk` and `.fpk.sha256` files to `dist/`. Do not push commits or tags, dispatch a remote build as a substitute, or create/update a GitHub Release.
-- **Push / 推送** means push the local `main` branch to `origin/main` (`https://github.com/BearHero520/LLLED_FPK.git`). Do not push a version tag and do not create/update a GitHub Release unless the user separately asks to publish a version.
-- **Publish a version / 发布版本** means publish the manifest version as a GitHub Release at `https://github.com/BearHero520/LLLED_FPK/releases/tag/v<version>`. Before publishing, verify that the release commit is present on `origin/main`, the tag is exactly `v<manifest-version>`, and the local package and checksum in `dist/` pass validation. A version-publish request authorizes pushing that single matching version tag and creating/updating its Release, but it does not authorize unrelated commits, branches, or tags.
+- **Push / 推送** means push the local `main` branch to `origin/main` (`https://github.com/BearHero520/UGreen-Control.git`). Do not push a version tag and do not create/update a GitHub Release unless the user separately asks to publish a version.
+- **Publish a version / 发布版本** means publish the manifest version as a GitHub Release at `https://github.com/BearHero520/UGreen-Control/releases/tag/v<version>`. Before publishing, verify that the release commit is present on `origin/main`, the tag is exactly `v<manifest-version>`, and the local package and checksum in `dist/` pass validation. A version-publish request authorizes pushing that single matching version tag and creating/updating its Release, but it does not authorize unrelated commits, branches, or tags.
 - Release assets must include `dist/App.Native.UGreenLED-<version>.fpk`, `dist/App.Native.UGreenLED.fpk`, and `dist/App.Native.UGreenLED-<version>.fpk.sha256`.
+
+# Repository Identity
+
+The original BearHero520/LLLED_FPK repository was directly renamed to BearHero520/UGreen-Control. Its source history, issues, tags and releases remain in the same repository. Use the new origin URL for pushes and version publication. The original local LLLED_FPK workspace and its dist directory remain valid; do not move or discard its uncommitted work merely to match the repository name.
+
+UGREEN-NAS-Hardware remains unchanged by this rename. Do not privatize or recreate it as part of an application repository rename.

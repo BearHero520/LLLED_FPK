@@ -4,14 +4,14 @@
 
 当前版本：**3.0.5**
 
-项目由 [LLLED_FPK](https://github.com/BearHero520/LLLED_FPK) 的 `almighty` 分支迁移至 [UGreen-Control](https://github.com/BearHero520/UGreen-Control) 的 `main`，后续应用开发与在线更新以新仓库为准。LLLED_FPK 同步发布 **v3.0.5**，用于现有用户迁移。应用标识仍为 `App.Native.UGreenLED`，可通过 fnOS 应用中心覆盖升级，保留现有配置。
+本项目原名 **LLLED_FPK**，现已直接更名为 **[UGreen-Control](https://github.com/BearHero520/UGreen-Control)**。原仓库的提交历史、Issues、Stars、Fork、标签与 Releases 均保留；旧仓库地址会重定向到新地址。应用标识仍为 `App.Native.UGreenLED`，现有用户可通过 fnOS 应用中心覆盖升级并保留配置。
 
-## 仓库迁移与分支合并
+## 仓库更名与分支
 
-- `LLLED_FPK/almighty` 可以并入 `LLLED_FPK/main`；本次 v3.0.5 将其当前应用实现合入主线，并同步到 `UGreen-Control/main`。
-- `UGREEN-NAS-Hardware/Almighty` 可以并入该仓库的 `main`；本次将配套硬件实现合入主线。实际分支名区分大小写，为 `Almighty`。
-- v3.0.5 起，在线更新查询 [UGreen-Control Releases](https://github.com/BearHero520/UGreen-Control/releases/latest)，关于页面读取新仓库 `main/README.md`。旧项目保留历史代码和迁移版本。
-- BIOS、风扇、来电恢复、WOL 与 RTC 的硬件检测和访问继续由 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 提供；应用仅适配 API、界面和服务。LED 操作统一调用包内 `server/bin/ugreen_leds_cli`。
+- 原 `LLLED_FPK/almighty` 已合入当前仓库的 `main`；本仓库继续维护完整应用源码及版本发布。
+- `UGREEN-NAS-Hardware/Almighty` 已合入该仓库的 `main`，硬件实现继续在独立硬件仓库维护。
+- v3.0.5 起，在线更新与下载使用 [UGreen-Control Releases](https://github.com/BearHero520/UGreen-Control/releases/latest)，关于页面读取本仓库 `main/README.md`。
+- BIOS、风扇、来电恢复、WOL 与 RTC 的硬件检测和访问由 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 提供；应用仅适配 API、界面和服务。LED 操作统一调用包内 `server/bin/ugreen_leds_cli`。
 
 当前版本保留 Almighty 的独立 WOL／RTC、DXP6800 精确插件、自定义温控曲线及界面改进。硬件包固定到不可变提交和 SHA-256；源码、测试日志和硬件限制见 [接入说明](docs/almighty-integration.md)。本次迁移没有新增 NAS 实机验证。
 
@@ -103,7 +103,7 @@ Plus 兼容温控预设采用 DXP6800 Pro 参数，也可使用自定义曲线�
 python scripts/build_fpk.py
 ```
 
-安装包和校验文件会生成到 `dist/`。
+Windows 本地安装包和校验文件默认生成到 `E:/工作台/LLLED_FPK/dist/`；Linux / CI 默认使用检出目录的 `dist/`。
 
 ## 日志与排错
 
