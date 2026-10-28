@@ -1,10 +1,10 @@
-# UGreen Control v3.0.5 接入与迁移
+# UGreen Control v3.0.5 硬件接入说明
 
-应用从 `LLLED_FPK/almighty` 合入 `LLLED_FPK/main`，并迁移至 [UGreen-Control/main](https://github.com/BearHero520/UGreen-Control/tree/main)。后续在线更新及应用内 README 来自新仓库。应用标识保留 `App.Native.UGreenLED`，现有用户可在 fnOS 应用中心覆盖升级。
+原 LLLED_FPK 的 `almighty` 已合入 `main`，原仓库现直接更名为 [UGreen-Control](https://github.com/BearHero520/UGreen-Control)。提交历史、Issues、标签与 Releases 保留，后续源码维护、在线更新及应用内 README 使用当前仓库。应用标识仍为 `App.Native.UGreenLED`，现有用户可在 fnOS 应用中心覆盖升级。
 
 ## 固定的硬件载荷
 
-上游 `UGREEN-NAS-Hardware/Almighty` 合入 `main`；当前应用固定使用提交 [`b6d4666`](https://github.com/BearHero520/UGREEN-NAS-Hardware/tree/b6d46660c87db1566f7c74b5abe1b37df1223f50) 中的 `artifacts/Almighty/2026-10-28-dxp6800-wake-curve-local` 预览归档。归档、manifest 及 SHA256SUMS 哈希见 `scripts/hardware-release.json`。`git-artifact` 从不可变提交读取，构建不依赖开发机本地文件。
+上游 `UGREEN-NAS-Hardware/Almighty` 合入 `main`；当前应用固定使用提交 [`b6d4666`](https://github.com/BearHero520/UGREEN-NAS-Hardware/tree/b6d46660c87db1566f7c74b5abe1b37df1223f50) 中的 `artifacts/Almighty/2026-10-28-dxp6800-wake-curve-local` 预览归档。归档、manifest 及 SHA256SUMS 哈希见 [scripts/hardware-release.json](../scripts/hardware-release.json)。`git-artifact` 从不可变提交读取，构建不依赖开发机本地文件。
 
 这是已提交的实验性预览产物，尚无新增 NAS 实机验证。归档承载提交不代表整包二进制来自同一次源码构建；基包记录和 DXP6800 扩展源码哈希保留在归档中，构建记录使用源码哈希标识扩展的实际来源。
 
