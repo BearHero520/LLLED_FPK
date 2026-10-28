@@ -21,6 +21,7 @@ PROJECT = ROOT / "App.Native.UGreenLED"
 APP_NAME = "App.Native.UGreenLED"
 TEXT_SUFFIXES = {".c", ".cgi", ".conf", ".css", ".h", ".html", ".js", ".md", ".py", ".sh"}
 TEXT_NAMES = {
+    "NOTICE",
     "config",
     "manifest",
     "privilege",
@@ -48,6 +49,8 @@ def source_epoch() -> int:
 
 def normalized_bytes(path: Path) -> bytes:
     data = path.read_bytes()
+    if path.is_relative_to(PROJECT / "app/server/lib/ugreenctl/upstream"):
+        return data
     if path.suffix.lower() in TEXT_SUFFIXES or path.name in TEXT_NAMES:
         data = data.replace(b"\r\n", b"\n")
     return data
