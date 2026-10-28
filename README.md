@@ -2,9 +2,9 @@
 
 UGreen Control 是面向飞牛 fnOS 的开源绿联 NAS 硬件工具箱，将灯光控制、硬件状态监测，以及兼容机型的风扇和电源管理集中到一个 Web 界面，让日常查看和设置更方便。
 
-当前版本：**3.0.6**
+当前版本：**3.0.7**
 
-[下载最新版本](https://github.com/BearHero520/UGreen-Control/releases/latest) · [v3.0.6 更新说明](docs/releases/v3.0.6.md) · [问题反馈](https://github.com/BearHero520/UGreen-Control/issues)
+[下载最新版本](https://github.com/BearHero520/UGreen-Control/releases/latest) · [v3.0.7 更新说明](docs/releases/v3.0.7.md) · [问题反馈](https://github.com/BearHero520/UGreen-Control/issues)
 
 ## 主要功能
 
@@ -110,7 +110,7 @@ python scripts/build_fpk.py
 
 Windows 本地安装包和校验文件默认生成到 `E:/工作台/LLLED_FPK/dist/`；Linux / CI 默认使用检出目录的 `dist/`。
 
-硬件操作通过内置 CLI 完成。BIOS、风扇、来电恢复及唤醒能力由 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 提供；LED 操作统一调用包内 `server/bin/ugreen_leds_cli`。载荷来源、校验记录与开发边界见[硬件接入说明](docs/almighty-integration.md)。版本变更见 [Releases](https://github.com/BearHero520/UGreen-Control/releases) 和 [v3.0.6 更新说明](docs/releases/v3.0.6.md)。
+硬件操作通过内置 CLI 完成。BIOS、风扇、来电恢复及唤醒能力由 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 提供；LED 操作统一调用包内 `server/bin/ugreen_leds_cli`。载荷来源、校验记录与开发边界见[硬件接入说明](docs/almighty-integration.md)。版本变更见 [Releases](https://github.com/BearHero520/UGreen-Control/releases) 和 [v3.0.7 更新说明](docs/releases/v3.0.7.md)。
 
 ## 日志与排错
 
