@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { updateState } from '../lib/version';
+import { readmeInlineTokens, readmeRepositoryUrl } from '../lib/readme';
 
 export type AboutInfo = {
   display_name?: string;
@@ -29,21 +30,15 @@ type ReadmeData = {
 };
 type Toast = (message: string, type?: 'ok' | 'err') => void;
 
-const repositoryUrl = 'https://github.com/BearHero520/UGreen-Control';
-
-function readmeHref(value: string) {
-  if (/^(https?:|#)/i.test(value)) return value;
-  return `${repositoryUrl}/blob/main/${value.replace(/^\.\//, '')}`;
-}
+const repositoryUrl = readmeRepositoryUrl;
 
 function InlineMarkdown({ text }: { text: string }) {
-  const tokens = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g).filter(Boolean);
-  return <>{tokens.map((token, index) => {
-    if (token.startsWith('**') && token.endsWith('**')) return <strong key={index}>{token.slice(2, -2)}</strong>;
-    if (token.startsWith('`') && token.endsWith('`')) return <code key={index}>{token.slice(1, -1)}</code>;
-    const link = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-    if (link) return <a key={index} href={readmeHref(link[2])} target="_blank" rel="noopener noreferrer">{link[1]}</a>;
-    return <Fragment key={index}>{token}</Fragment>;
+  return <>{readmeInlineTokens(text).map((token, index) => {
+    if (token.kind === 'strong') return <strong key={index}>{token.text}</strong>;
+    if (token.kind === 'code') return <code key={index}>{token.text}</code>;
+    if (token.kind === 'image') return <a key={index} href={token.src} target="_blank" rel="noopener noreferrer"><img src={token.src} alt={token.text} loading="lazy" width="260" /></a>;
+    if (token.kind === 'link') return <a key={index} href={token.href} target="_blank" rel="noopener noreferrer">{token.text}</a>;
+    return <Fragment key={index}>{token.text}</Fragment>;
   })}</>;
 }
 

@@ -70,6 +70,7 @@ body { font-family: var(--newui-font-sans); }
 .readme-document ul, .readme-document ol { margin: 8px 0; padding-left: 24px; }
 .readme-document a { color: #1677ff; text-decoration: none; }
 .readme-document a:hover { text-decoration: underline; }
+.readme-document img { display: block; width: 260px; max-width: 100%; height: auto; }
 .readme-document code { padding: 2px 5px; border-radius: 6px; background: rgba(63, 90, 125, 0.08); font-family: SFMono-Regular, Consolas, monospace; font-size: 0.92em; }
 .readme-document pre { padding: 14px 16px; overflow: auto; border-radius: 13px; background: #1b2533; color: #dce8f5; }
 .readme-document pre code { padding: 0; background: transparent; color: inherit; }
