@@ -136,7 +136,7 @@ def install_release(manifest, files, lock, server=SERVER):
         if old.stem not in MODELS:
             old.unlink()
     # Written last: incomplete imports fail the packaging receipt check.
-    (server / 'lib/ugreenctl/build-info.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+    (server / 'lib/ugreenctl/build-info.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8', newline='\n')
 
 def download_assets(lock, directory):
     if lock.get('source_type') == 'local-artifact':

@@ -107,6 +107,10 @@ def add_tree(
         relative = path.relative_to(source)
         if ".git" in relative.parts:
             continue
+        # The hardware submodule is a build input; runtime binaries and their
+        # pinned source/provenance are already imported into lib/ugreenctl.
+        if relative.parts[:3] == ("server", "vendor", "UGREEN-NAS-Hardware"):
+            continue
         arcname = "/".join(part for part in (prefix, relative.as_posix()) if part)
         if path.is_symlink():
             raise SystemExit(f"暂不支持符号链接：{path}")

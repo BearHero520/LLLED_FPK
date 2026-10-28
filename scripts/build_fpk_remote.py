@@ -71,6 +71,8 @@ def make_zip():
     with zipfile.ZipFile(LOCAL_ZIP, "w", zipfile.ZIP_DEFLATED) as zf:
         for root, dirs, files in os.walk(PROJECT):
             dirs[:] = [d for d in dirs if d not in {".git", "__pycache__", "wizard", "scripts"}]
+            if Path(root).relative_to(PROJECT).as_posix() == "app/server/vendor":
+                dirs[:] = [d for d in dirs if d != "UGREEN-NAS-Hardware"]
             for name in files:
                 if name == ".git":
                     continue

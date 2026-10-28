@@ -33,6 +33,7 @@ esac
 EOF
 cat > "$FAND" <<'EOF'
 #!/bin/sh
+printf 'FAND started\n' >> "$UGREENCTL_CALLS"
 state=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -138,10 +139,15 @@ json=$(request /bios/fan-curve 'action=stop' POST)
 assert_contains "$json" '"ok":true'
 
 : > "$CALLS"
+config_before=$(cat "$CONFIG")
 export UGREEN_PRODUCT_NAME="DXP4800S"
 json=$(request /bios/fan-curve 'action=start&mode=custom' POST)
 assert_contains "$json" '"ok":false'
 assert_contains "$json" '需要先确认风险'
-[[ ! -s "$CALLS" ]] || fail "unconfirmed curve start reached ugreenctl"
+if grep -Ev '^CALL <(network> <wol|power> <rtc-wake)> <models>$' "$CALLS" | grep -q .; then
+    fail "unconfirmed curve start performed more than read-only wake discovery"
+fi
+[[ "$(cat "$CONFIG")" == "$config_before" ]] || fail "unconfirmed curve start changed the configuration"
+[[ ! -e "$TMP/run/fan-curve.pid" ]] || fail "unconfirmed curve start created a daemon PID"
 
 echo "fan curve API tests passed"

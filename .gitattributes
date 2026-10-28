@@ -32,3 +32,5 @@ App.Native.UGreenLED/app/server/bin/ugreenctl* binary
 App.Native.UGreenLED/app/server/lib/ugreenctl/models/*.so binary
 App.Native.UGreenLED/app/server/lib/ugreenctl/release-manifest.json -text
 App.Native.UGreenLED/app/server/lib/ugreenctl/upstream/** -text -whitespace
+App.Native.UGreenLED/app/server/lib/ugreenctl/build-info.json text eol=lf
+App.Native.UGreenLED/app/server/bin/ugreen_leds_cli.sha256 text eol=lf
