@@ -223,9 +223,7 @@ body { font-family: var(--newui-font-sans); }
   to { transform: rotate(360deg); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .fan-telemetry-loading i { animation: none; }
-}
+
 
 @media (max-width: 720px) {
   .bios-controller-row { grid-template-columns: minmax(0, 1fr); gap: 18px; }

@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path, PurePosixPath
 import subprocess
 import sys
@@ -17,7 +18,7 @@ SERVER = ROOT / 'App.Native.UGreenLED/app/server'
 SOURCE = ROOT.parent / 'UGREEN-NAS-Hardware'
 LOCK_FILE = Path(__file__).with_name('hardware-release.json')
 PROGRAMS = ('ugreenctl', 'ugreenctl-fand', 'ugreen_leds_cli', 'ugreenctl-ledd')
-MODELS = ('dx4600', 'dxp2800', 'dxp4800', 'dxp4800plus', 'dxp4800s', 'dxp480tplus', 'dxp6800pro', 'dxp6800plus', 'dxp8800plus')
+MODELS = ('dx4600', 'dxp2800', 'dxp4800', 'dxp4800plus', 'dxp4800s', 'dxp480tplus', 'dxp6800pro', 'dxp6800plus', 'dxp6800', 'dxp8800plus')
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
@@ -90,7 +91,11 @@ def smoke_test(files, runtime_root):
             return result.stdout + result.stderr
         models = run('ugreenctl', ['--plugin-dir', '/work/models' if os.name == 'nt' else str(stage / 'models'), 'models'])
         if set(MODELS) - {line.split()[0] for line in models.splitlines() if line.strip()}:
-            raise ValueError('Not all nine plugins loaded')
+            raise ValueError('Not all ten plugins loaded')
+        for command in (['network', 'wol', 'models'], ['power', 'rtc-wake', 'models']):
+            profiles = run('ugreenctl', command)
+            if '\tDXP8800 Plus\t' not in profiles or '\tDXP6800 Plus\t' not in profiles:
+                raise ValueError('Independent wake profiles are missing from imported CLI')
         if '--apply' not in run('ugreen_leds_cli', ['--help']):
             raise ValueError('Unexpected LED compatibility CLI')
         run('ugreenctl-ledd', ['--help'])
@@ -101,7 +106,11 @@ def install_release(manifest, files, lock, server=SERVER):
     record = {'branch': 'Almighty', 'revision': lock['commit'], 'release_tag': lock['tag'],
               'archive_sha256': lock['archive_sha256'], 'architecture': 'x86_64',
               'status': manifest['status'], 'files': {}}
-    for key in ('repository', 'source_type', 'artifact_commit', 'artifact_path'):
+    if 'local_extension' in manifest:
+        record['base_revision'] = lock['commit']
+        record['revision'] = 'local-source-sha256:' + digest(
+            json.dumps(manifest['local_extension']['source_sha256'], sort_keys=True).encode('utf-8'))
+    for key in ('repository', 'source_type', 'artifact_commit', 'artifact_path', 'source_state'):
         if key in lock:
             record[key] = lock[key]
     payloads = {}
@@ -130,7 +139,17 @@ def install_release(manifest, files, lock, server=SERVER):
     (server / 'lib/ugreenctl/build-info.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
 
 def download_assets(lock, directory):
-    if lock.get('source_type') == 'git-artifact':
+    if lock.get('source_type') == 'local-artifact':
+        # Unpublished builds retain normal archive, manifest and payload checks.
+        root = SOURCE.resolve()
+        source = (root / lock['artifact_path']).resolve()
+        if not source.is_relative_to(root):
+            raise ValueError('Local hardware artifact escapes source root')
+        for name in (lock['archive'], lock['manifest'], 'SHA256SUMS'):
+            if Path(name).name != name or '\\' in name:
+                raise ValueError('Invalid local artifact filename')
+            shutil.copyfile(source / name, directory / name)
+    elif lock.get('source_type') == 'git-artifact':
         # Read immutable Git content, never the moving branch head.
         for name in (lock['archive'], lock['manifest'], 'SHA256SUMS'):
             url = f"https://raw.githubusercontent.com/{lock['repository']}/{lock['artifact_commit']}/{lock['artifact_path']}/{name}"
@@ -143,11 +162,17 @@ def download_assets(lock, directory):
                         '--pattern', 'SHA256SUMS'], check=True)
 
 def main():
+    global SOURCE
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source-root', type=Path, default=SOURCE,
+                        help='Upstream checkout for local artifacts and the Windows smoke runner')
     parser.add_argument('--asset-dir', type=Path)
-    parser.add_argument('--runtime-root', type=Path, default=SOURCE / 'firmware-inbox/work/almighty-tools' if os.name == 'nt' else None)
+    parser.add_argument('--runtime-root', type=Path)
     parser.add_argument('--check-only', action='store_true')
     args = parser.parse_args()
+    SOURCE = args.source_root.resolve()
+    if args.runtime_root is None and os.name == 'nt':
+        args.runtime_root = SOURCE / 'firmware-inbox/work/almighty-tools'
     lock = json.loads(LOCK_FILE.read_text(encoding='utf-8'))
     with tempfile.TemporaryDirectory(prefix='almighty-download-') as temporary:
         directory = args.asset_dir or Path(temporary)
@@ -157,7 +182,7 @@ def main():
         smoke_test(files, args.runtime_root)
         if not args.check_only:
             install_release(manifest, files, lock)
-        print(f'Validated {lock["tag"]}: four programs, nine plugins, all manifest payload hashes')
+        print(f'Validated {lock["tag"]}: four programs, ten plugins, all manifest payload hashes')
 
 if __name__ == '__main__':
     main()

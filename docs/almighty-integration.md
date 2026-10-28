@@ -1,55 +1,33 @@
-# Almighty 发布版接入
+# UGreen Control v3.0.5 接入与迁移
 
-应用分支为 `almighty`，应用版本 3.0.1。当前固定使用
-[2026-10-27 N76 直控分支构建](https://github.com/BearHero520/UGREEN-NAS-Hardware/tree/7d36cc702445ce5439cecec207e052914a349f23/artifacts/Almighty/2026-10-27-n76-direct)。
-源码提交 `aff7991ee58709ad34b5afbc2787f0d21300368d`；资产提交
-`7d36cc702445ce5439cecec207e052914a349f23`。这是分支预览资产，不是 GitHub Release。
-未在 NAS 实机验证。上游新增 N76 显式直控，但兼容 CLI 不能将逐动作调用当作完整的选色/点亮事务；
-应用不调用 `ugreenctl led`，不启用直控、不猜测总线或地址，也不宣称已支持无驱动选色。
+应用从 `LLLED_FPK/almighty` 合入 `LLLED_FPK/main`，并迁移至 [UGreen-Control/main](https://github.com/BearHero520/UGreen-Control/tree/main)。后续在线更新及应用内 README 来自新仓库。应用标识保留 `App.Native.UGreenLED`，现有用户可在 fnOS 应用中心覆盖升级。
+
+## 固定的硬件载荷
+
+上游 `UGREEN-NAS-Hardware/Almighty` 合入 `main`；当前应用固定使用提交 [`b6d4666`](https://github.com/BearHero520/UGREEN-NAS-Hardware/tree/b6d46660c87db1566f7c74b5abe1b37df1223f50) 中的 `artifacts/Almighty/2026-10-28-dxp6800-wake-curve-local` 预览归档。归档、manifest 及 SHA256SUMS 哈希见 `scripts/hardware-release.json`。`git-artifact` 从不可变提交读取，构建不依赖开发机本地文件。
+
+这是已提交的实验性预览产物，尚无新增 NAS 实机验证。归档承载提交不代表整包二进制来自同一次源码构建；基包记录和 DXP6800 扩展源码哈希保留在归档中，构建记录使用源码哈希标识扩展的实际来源。
 
 ## 载荷与边界
 
-- 四个 Linux x86_64 程序全部来自同一发布包：`ugreenctl`、`ugreenctl-fand`、`ugreen_leds_cli`、`ugreenctl-ledd`。
-- 九个 BIOS 模型插件及上游文档、许可证、示例随包导入。插件存在不代表该型号支持全部 BIOS 写入功能。
-- BIOS、风扇、来电恢复仅由 `ugreenctl` 实现硬件访问；LED 只调用 `server/bin/ugreen_leds_cli`。
-- `ugreenctl-ledd` 是特定 GPIO 机型的资源持有服务，不是应用灯光策略守护进程。已随包提供，但不自动启用或接管硬件；DXP2800 GT 等机型仍需按上游文档配置资源持有服务。
-- 应用的 `led_daemon.sh` 继续处理网络、硬盘活动和用户设置，硬件操作统一走新版 CLI。启动恢复沿用现有应用适配，未重复启用上游示例服务。
-- 上游运行时最低 glibc 为 2.27；本应用 manifest 当前为 x86 平台，未混入 aarch64 载荷。
+- 四个 Linux x86_64 程序：`ugreenctl`、`ugreenctl-fand`、`ugreen_leds_cli`、`ugreenctl-ledd`，以及十个机型插件，均经归档及逐文件 SHA-256 校验。
+- BIOS、风扇、来电恢复、WOL 和 RTC 的检测、硬件访问、互斥锁与回读由上游实现；应用只提供适配、API、服务与 UI。
+- LED 请求只调用 `server/bin/ugreen_leds_cli`。应用不直接写入 I2C、sysfs、Super I/O、`/dev/port` 或 MCU 寄存器，也不调用 `ugreenctl led`。
+- `ugreenctl-ledd` 随包保留，不由应用自动启用。应用 `led_daemon.sh` 负责策略调度，硬件请求仍走内置 CLI。
+- WOL 与 RTC 独立于风扇插件清单；物理网卡及写后回读由上游检查。未建立网口自动映射的机型需要显式选择网卡。
+- DXP6800 使用独立插件，支持三路遥测、自定义曲线及 Pro 参数兼容预设；原厂 DXP6800 曲线仍未知，见 [DXP6800 接入说明](DXP6800_INTEGRATION.md)。
 
-新版兼容 CLI 写入必须显式带 `--force --apply`；读取只用 `-status`。
-机型探测、协议、锁及硬件读回由上游负责，不再传旧的手动 I²C 协议覆盖。
-iDX6011 Pro 直接使用上游 `netdev2`、`disk1` 等名字，不再重复偏移。
-DXP480T 的 N76 后端依赖厂商驱动；兼容入口支持开关、快慢闪烁，保留当前颜色。
-选色与呼吸请求会拒绝，界面已移除这些不支持的选项。旧呼吸设置恢复为常亮。
+## 校验与打包
 
-## 导入与校验
-
-`scripts/hardware-release.json` 固定仓库、标签、源码提交、压缩包、发布清单和 SHA256SUMS 的哈希。
-导入器验证全部发布清单文件、ELF 架构及必需文件，再运行不触及硬件的 CLI 和九插件加载检查。
-通过后才替换载荷，最后写 `lib/ugreenctl/build-info.json`。
-发布清单保存在 `lib/ugreenctl/release-manifest.json`，文档在 `lib/ugreenctl/upstream/`。
-
-```powershell
+```bash
 python scripts/build_ugreenctl.py
-# 已下载发布资产时：
-python scripts/build_ugreenctl.py --asset-dir ../UGREEN-NAS-Hardware/artifacts/Almighty/2026-10-27-n76-direct
+cd web-ui
+npm ci
+npm run check
+npm test
+npm run build
+cd ..
+python scripts/build_fpk.py --expect-version 3.0.5
 ```
 
-Windows 默认使用相邻源码仓库的隔离 QEMU runner 和
-`firmware-inbox/work/almighty-tools` 运行时；可用 `--runtime-root` 修改。
-Linux 直接运行发布程序。`--check-only` 验证但不替换应用文件。
-当前从公开仓库按不可变资产提交下载；导入器仍兼容通过已认证 `gh` 下载旧 Release。
-
-本地打包将实际四程序与九插件的哈希逐项对照固定发布清单，拒绝旧版本混用。
-远程打包使用本地已验证的载荷，不再编译旧 LED 后端。CI 同样下载固定发布包，
-当前公开分支资产下载不需要 `HARDWARE_READ_TOKEN`；本次未运行远程工作流。
-最终 FPK 和校验文件由打包入口输出至 `dist/`。接入操作不自动打包、推送或发布。
-
-## 界面
-
-继续使用 iOS 18 半透明磨砂卡片、柔和背景、系统蓝、系统字体、圆角分组。
-关于页面使用自适应排版，页面切换、按钮、开关和弹窗有动画，并尊重减少动态效果设置。
-实验室入口与 API 已移除；既有自定义盘位映射保留读取兼容。
-
-前端验证：`cd web-ui` 后运行 `npm run check`、`npm test`、`npm run build`。
-本地模拟预览：`python scripts/preview_web.py --no-open --port 8086`。
+Windows 导入需通过 `--source-root` 指定上游仓库，以使用其隔离 QEMU 运行环境。最终 FPK 和校验文件统一放到 `E:/工作台/LLLED_FPK/dist/`；CI 临时测试可使用 runner 的临时目录。发布附带固定文件名、版本文件名及版本文件的 SHA-256。

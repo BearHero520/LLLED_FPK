@@ -108,12 +108,12 @@ SETTINGS_FILE="${VAR_DIR}/settings.conf"
 PID_FILE="${RUNTIME_DIR}/led_daemon.pid"
 DISK_STATUS_FILE="${RUNTIME_DIR}/disk_status.tsv"
 NET_STATUS_FILE="${RUNTIME_DIR}/net_status.tsv"
-UPDATE_CACHE_FILE="${RUNTIME_DIR}/update_check.cache"
-UPDATE_REPOSITORY="BearHero520/LLLED_FPK"
+UPDATE_CACHE_FILE="${RUNTIME_DIR}/ugreen_control_update_check.cache"
+UPDATE_REPOSITORY="BearHero520/UGreen-Control"
 UPDATE_LATEST_URL="https://github.com/${UPDATE_REPOSITORY}/releases/latest"
 UPDATE_API_URL="https://api.github.com/repos/${UPDATE_REPOSITORY}/releases/latest"
 UPDATE_CACHE_TTL=21600
-ABOUT_README_CACHE_FILE="${RUNTIME_DIR}/github_readme.cache"
+ABOUT_README_CACHE_FILE="${RUNTIME_DIR}/ugreen_control_github_readme.cache"
 ABOUT_README_RAW_URL="${ABOUT_README_RAW_URL_OVERRIDE:-https://raw.githubusercontent.com/${UPDATE_REPOSITORY}/main/README.md}"
 ABOUT_README_SOURCE_URL="https://github.com/${UPDATE_REPOSITORY}/blob/main/README.md"
 ABOUT_README_CACHE_TTL=21600
@@ -362,7 +362,7 @@ fetch_github_readme() {
 }
 
 about_info_json() {
-    printf '{"ok":true,"display_name":"UGREEN工具箱","version":"%s","maintainer":"BearHero","license":"AGPL-3.0","repository_url":"https://github.com/%s","readme_url":"%s","qq_group":"1108837172"}' \
+    printf '{"ok":true,"display_name":"UGreen Control","version":"%s","maintainer":"BearHero","license":"AGPL-3.0","repository_url":"https://github.com/%s","readme_url":"%s","qq_group":"1108837172"}' \
         "$(json_str "$(current_app_version)")" "$(json_str "$UPDATE_REPOSITORY")" \
         "$(json_str "$ABOUT_README_SOURCE_URL")"
 }
@@ -508,6 +508,8 @@ bios_status_json() {
         "$(json_str "$chip_id")" "${BIOS_REVISION:-0}" "${BIOS_CPU_PWM:--1}" "${BIOS_SYS_PWM:--1}" "${BIOS_SYS2_PWM:--1}" \
         "${BIOS_CPU_RPM:-0}" "${BIOS_SYS_RPM:-0}" "${BIOS_SYS2_RPM:-0}" "$BIOS_CPU_MANUAL" "$BIOS_SYS_MANUAL" "$BIOS_SYS2_MANUAL" \
         "$(json_str "$BIOS_STARTUP_POLICY")" "$(json_str "$BIOS_WOL_POLICY")" "$(json_str "$error")" "$(json_str "$fan_error")" "$(json_str "$startup_error")" "$(json_str "$wol_error")"
+    printf ',"wol_supported":%s,"rtc_supported":%s,"wol_automatic":%s,"wol_interface":"%s"' \
+        "$BIOS_WOL_SUPPORTED" "$BIOS_RTC_SUPPORTED" "$BIOS_WOL_AUTOMATIC" "$(json_str "$(bios_selected_wol_interface)")"
     printf ',"fan_curve":%s' "$fan_curve"
     printf ',"power_schedule":{"available":%s,"enabled":%s,"days":"%s","wake_time":"%s","shutdown_time":"%s","rtc_epoch":%s,"error":"%s"}' \
         "$BIOS_POWER_SCHEDULE_AVAILABLE" "$BIOS_POWER_SCHEDULE_ENABLED" \
@@ -529,14 +531,11 @@ bios_write_confirmation_token() {
 
 bios_write_risk_acknowledgement_value() {
     local profile token
-    profile=$(bios_detected_profile)
+    profile=$(hardware_detected_product_name)
     token=$(bios_write_confirmation_token)
-    case "$profile" in
-        dx4600|dxp4800|dxp4800_plus|dxp4800_pro|dxp4800s|dxp480t_plus|dxp6800pro) ;;
-        *) return 1 ;;
-    esac
+    bios_supported_model || bios_wol_supported_model || bios_rtc_supported_model || return 1
     [[ -n "$token" ]] || return 1
-    printf '%s\n' "v1:${token}:${profile}"
+    printf '%s\n' "v2:${token}:${profile}"
 }
 
 bios_write_risk_acknowledged() {
@@ -885,7 +884,7 @@ case "$API_PATH" in
         elif ! [[ "$channel" =~ ^(cpu|sys|all)$ && "$pwm" =~ ^[0-9]+$ ]] || (( pwm < 0 || pwm > 255 )); then
             echo '{"ok":false,"error":"风扇参数无效"}'
         elif ! bios_write_confirmation_valid; then
-            if [[ "$(bios_detected_profile)" == "dx4600" || "$(bios_detected_profile)" == "dxp4800" || "$(bios_detected_profile)" == "dxp4800s" || "$(bios_detected_profile)" == "dxp6800pro" ]]; then
+            if [[ "$(bios_detected_profile)" == "dx4600" || "$(bios_detected_profile)" == "dxp4800" || "$(bios_detected_profile)" == "dxp4800s" || "$(bios_detected_profile)" == "dxp6800" || "$(bios_detected_profile)" == "dxp6800pro" ]]; then
                 echo '{"ok":false,"error":"固件逆向风扇写入需要先确认风险"}'
             else
                 echo '{"ok":false,"error":"直控风扇写入需要先确认 IT8613 直控风险"}'
@@ -957,13 +956,16 @@ case "$API_PATH" in
         ;;
     /bios/wol)
         policy=$(query_value policy)
-        if [[ "$REQUEST_METHOD" != "POST" ]]; then
+        interface=$(query_value interface)
+        if [[ "$REQUEST_METHOD" == "GET" ]]; then
+            bios_wol_query_json "$interface"
+        elif [[ "$REQUEST_METHOD" != "POST" ]]; then
             echo '{"ok":false,"error":"method not allowed"}'
         elif ! [[ "$policy" =~ ^(on|off)$ ]]; then
             echo '{"ok":false,"error":"网络唤醒参数无效"}'
         elif ! bios_write_confirmation_valid; then
             echo '{"ok":false,"error":"固件逆向网络唤醒写入需要先在页面确认风险"}'
-        elif bios_set_wol "$policy"; then
+        elif bios_set_wol_saved "$policy" "$interface"; then
             bios_status_json "网络唤醒策略已更新"
         else
             printf '{"ok":false,"error":"%s"}' "$(json_str "${BIOS_LAST_ERROR:-网络唤醒设置失败}")"

@@ -13,6 +13,29 @@ spec.loader.exec_module(build)
 
 
 class ImportTests(unittest.TestCase):
+    def test_local_build_uses_explicit_upstream_root(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / 'snapshot'
+            source.mkdir()
+            output = root / 'output'
+            output.mkdir()
+            lock = {'source_type': 'local-artifact', 'artifact_path': 'snapshot',
+                    'archive': 'a.tar.gz', 'manifest': 'a.json'}
+            for name in ('a.tar.gz', 'a.json', 'SHA256SUMS'):
+                (source / name).write_bytes(b'\x00\xfffixture')
+            with patch.object(build, 'SOURCE', root):
+                build.download_assets(lock, output)
+            self.assertEqual((output / 'a.tar.gz').read_bytes(), b'\x00\xfffixture')
+
+    def test_local_build_rejects_path_escape(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            with patch.object(build, 'SOURCE', root):
+                with self.assertRaisesRegex(ValueError, 'escapes source root'):
+                    build.download_assets({'source_type': 'local-artifact',
+                                           'artifact_path': '../outside'}, root)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -50,7 +73,7 @@ class ImportTests(unittest.TestCase):
         (server / 'bin/ugreen_leds_cli').write_bytes(b'old LED')
         build.install_release(manifest, files, lock, server)
         receipt = json.loads((server / 'lib/ugreenctl/build-info.json').read_text())
-        self.assertEqual(len(receipt['files']), 13)
+        self.assertEqual(len(receipt['files']), 14)
         self.assertEqual(receipt['release_tag'], 'preview')
         for p in build.PROGRAMS:
             self.assertEqual((server / 'bin' / p).read_bytes(), self.files[f'usr/local/bin/{p}'])

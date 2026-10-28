@@ -1,10 +1,25 @@
-# UGREEN工具箱
+# UGreen Control
 
 适用于飞牛 fnOS 的绿联 NAS 灯光、硬件监控与 BIOS 管理应用。
 
-当前版本：**3.0.1**
+当前版本：**3.0.5**
 
-`almighty` 分支现统一使用 [Almighty 2026-10-27 分支构建](https://github.com/BearHero520/UGREEN-NAS-Hardware/tree/7d36cc702445ce5439cecec207e052914a349f23/artifacts/Almighty/2026-10-27-n76-direct) 的控制程序、LED CLI 和机型插件。
+项目由 [LLLED_FPK](https://github.com/BearHero520/LLLED_FPK) 的 `almighty` 分支迁移至 [UGreen-Control](https://github.com/BearHero520/UGreen-Control) 的 `main`，后续应用开发与在线更新以新仓库为准。LLLED_FPK 同步发布 **v3.0.5**，用于现有用户迁移。应用标识仍为 `App.Native.UGreenLED`，可通过 fnOS 应用中心覆盖升级，保留现有配置。
+
+## 仓库迁移与分支合并
+
+- `LLLED_FPK/almighty` 可以并入 `LLLED_FPK/main`；本次 v3.0.5 将其当前应用实现合入主线，并同步到 `UGreen-Control/main`。
+- `UGREEN-NAS-Hardware/Almighty` 可以并入该仓库的 `main`；本次将配套硬件实现合入主线。实际分支名区分大小写，为 `Almighty`。
+- v3.0.5 起，在线更新查询 [UGreen-Control Releases](https://github.com/BearHero520/UGreen-Control/releases/latest)，关于页面读取新仓库 `main/README.md`。旧项目保留历史代码和迁移版本。
+- BIOS、风扇、来电恢复、WOL 与 RTC 的硬件检测和访问继续由 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 提供；应用仅适配 API、界面和服务。LED 操作统一调用包内 `server/bin/ugreen_leds_cli`。
+
+当前版本保留 Almighty 的独立 WOL／RTC、DXP6800 精确插件、自定义温控曲线及界面改进。硬件包固定到不可变提交和 SHA-256；源码、测试日志和硬件限制见 [接入说明](docs/almighty-integration.md)。本次迁移没有新增 NAS 实机验证。
+
+上游已实现的 BIOS／风扇和来电恢复能力继续开放，包括实验性路径，保留写入确认与上游硬件保护。WOL／RTC 按上游各自的精确机型清单独立开放，不再受风扇插件白名单限制；本包为 x86_64，覆盖对应的 23 款 x86 唤醒档案，ARM 机型需要 ARM 应用包。
+
+WOL 可自动匹配已建立映射的物理网口，也可手动指定 `enp3s0`、`eno1` 等实际名称并检测当前状态。保存成功后记住当前机型的网卡选择，失败不覆盖原选择；15 款上游尚无自动映射的机型必须显式指定网卡。物理网卡身份、Magic Packet 能力和写后回读由上游检查。RTC 独立匹配控制器，不依赖 WOL 查询或风扇插件是否可用。接口可读写不代表全部机型的实际关机唤醒、跨 BIOS 行为和跨重启持久化均已实测。
+
+重新校验或导入硬件包使用 `python scripts/build_ugreenctl.py`；Windows 环境还需通过 `--source-root` 指定上游仓库及其隔离运行环境。本地打包使用已导入且通过校验的文件。
 本分支硬件支持属于实验性，历史版本的验证状态不代表此次新版已通过 NAS 实机验证。
 DXP480T 的新版兼容接口支持开关和闪烁、保持当前颜色，暂不支持选色与呼吸。
 导入、校验及服务边界见 [接入说明](docs/almighty-integration.md)。
@@ -49,10 +64,10 @@ Plus 兼容温控预设采用 DXP6800 Pro 参数，也可使用自定义曲线�
 
 ## 下载与安装
 
-1. 从 [GitHub Releases](https://github.com/BearHero520/LLLED_FPK/releases) 下载最新的 `App.Native.UGreenLED.fpk`。
+1. 从 [GitHub Releases](https://github.com/BearHero520/UGreen-Control/releases) 下载最新的 `App.Native.UGreenLED.fpk`。
 2. 打开 fnOS 应用中心，选择手动安装。
 3. 选择下载的 FPK 文件并完成安装。
-4. 从 fnOS 桌面打开“UGREEN工具箱”。
+4. 从 fnOS 桌面打开“UGreen Control”。
 
 升级时下载新版本 FPK，再通过应用中心手动安装即可。应用不会静默更新。
 

@@ -40,3 +40,8 @@
 必要的源码、归属声明、测试、方法记录和已脱敏验证资料随 Almighty 分支保存；原厂镜像、原厂提取物和反汇编原文、第三方工具、运行库及构建缓存保持本地。
 
 源码原生构建与Windows交叉/QEMU复现分别见 `BUILD_REPRODUCIBILITY.zh-CN.md`。`validation/almighty/history/a18af13/` 是修复前历史证明，后续修复的验证记录单独列出，不能沿用历史24/24作为新代码的验收。
+
+
+## 2026-10-27 WOL / RTC 独立核对
+
+25 款的官方调用链和条件接入见 [WOL / RTC 核对表](ALL_MODELS_WAKE_EVIDENCE.zh-CN.md)。RTC 使用独立精确机型表，不再借用 WOL 标记；15 款 WOL 自动网口映射仍未确认，必须显式指定物理网卡。全部机型实际关机唤醒、逐 BIOS 行为和持久性仍待验证。此项不改变灯光/盘位未完成清单。

@@ -695,10 +695,10 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
 .log-heading { align-items: flex-start; }
 .log-heading .surface-help { max-width: 760px; margin-bottom: 0; }
 .log-toolbar { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
-.log-toolbar label { display: flex; min-width: 130px; flex-direction: column; gap: 6px; }
-.log-toolbar label span { color: var(--text-faint); font-size: 10px; font-weight: 800; letter-spacing: 0.04em; }
+.log-toolbar > label { display: flex; min-width: 130px; flex-direction: column; gap: 6px; }
+.log-toolbar > label > span { color: var(--text-faint); font-size: 10px; font-weight: 800; letter-spacing: 0.04em; }
 .log-toolbar .hardware-select { min-height: 38px; }
-.log-toolbar button { min-height: 38px; }
+.log-toolbar > button { min-height: 38px; }
 .log-console { min-height: 250px; max-height: 520px; margin: 14px 0 0; padding: 15px 16px; overflow: auto; border: 1px solid rgba(68, 116, 178, 0.22); border-radius: 16px; background: rgba(24, 34, 49, 0.93); color: #d7e4f5; font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 10px; line-height: 1.65; white-space: pre; tab-size: 2; scrollbar-width: thin; }
 .log-console:focus-visible { outline: 3px solid rgba(22, 119, 255, 0.24); outline-offset: 3px; }
 .log-console::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -811,8 +811,8 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   .hardware-actions { align-items: stretch; flex-direction: column; }
   .hardware-actions button { width: 100%; min-height: 44px; }
   .log-toolbar { align-items: stretch; }
-  .log-toolbar label { min-width: min(100%, 170px); flex: 1; }
-  .log-toolbar button { flex: 1 1 150px; min-height: 44px; }
+  .log-toolbar > label { min-width: min(100%, 170px); flex: 1; }
+  .log-toolbar > button { flex: 1 1 150px; min-height: 44px; }
   .log-footnote { flex-direction: column; gap: 4px; }
   #overviewDiskTable { min-width: 560px; table-layout: auto; }
   .preset-surface, .tier-surface { grid-column: auto; align-items: flex-start; flex-direction: column; }
@@ -865,8 +865,4 @@ input[type="number"]:disabled { opacity: 0.45; cursor: not-allowed; }
   input[type="color"] { width: 58px; }
   .mode-button span { display: none; }
   .mode-button { min-height: 44px; font-size: 18px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

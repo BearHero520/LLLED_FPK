@@ -82,14 +82,15 @@ jobs:
             "dist/App.Native.UGreenLED.fpk"
             "dist/App.Native.UGreenLED-$VERSION.fpk.sha256"
           )
+          notes="docs/releases/v$VERSION.md"
+          if [[ ! -f "$notes" ]]; then
+            notes="$RUNNER_TEMP/release-notes.md"
+            sed -n 's/^changelog[[:space:]]*=[[:space:]]*//p' App.Native.UGreenLED/manifest > "$notes"
+          fi
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
-            gh release edit "$RELEASE_TAG" \
-              --title "绿联 LED 灯控 v$VERSION" \
-              --notes "$(sed -n 's/^changelog[[:space:]]*=[[:space:]]*//p' App.Native.UGreenLED/manifest)"
+            gh release edit "$RELEASE_TAG" --title "UGreen Control v$VERSION" --notes-file "$notes"
           else
             gh release create "$RELEASE_TAG" "${assets[@]}" \
-              --title "绿联 LED 灯控 v$VERSION" \
-              --notes "$(sed -n 's/^changelog[[:space:]]*=[[:space:]]*//p' App.Native.UGreenLED/manifest)" \
-              --verify-tag
+              --title "UGreen Control v$VERSION" --notes-file "$notes" --verify-tag
           fi

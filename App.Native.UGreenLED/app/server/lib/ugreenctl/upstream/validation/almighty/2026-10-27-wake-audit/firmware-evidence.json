@@ -1,0 +1,1049 @@
+{
+  "schema_version": 1,
+  "audit_date": "2026-10-27",
+  "scope": "25 current models; DH2100/DH2100+ excluded",
+  "inputs": [
+    {
+      "group": "x86",
+      "input_path": "E:\\工作台\\固件\\6800plus.img",
+      "sha256": "73862c9c619f3e8b2279252326654f4915234dc8f437a71eb9a0067a724062c5",
+      "bytes": 1303473152,
+      "verified": true
+    },
+    {
+      "group": "dh2300",
+      "input_path": "E:\\工作台\\UGREEN-NAS-Hardware\\firmware-inbox\\input\\release_20260921-firmware_image-1.20.0.142-rk3576_release_arm64_6.1.27_nasync.img",
+      "sha256": "a3a645e4f61d3a49d69b0b2c06d61b269a776dd769aa673dedceced4a616b9d3",
+      "bytes": 963269632,
+      "verified": true
+    },
+    {
+      "group": "dh4300plus",
+      "input_path": "E:\\工作台\\UGREEN-NAS-Hardware\\firmware-inbox\\input\\release_20260921-firmware_image-1.20.0.142-rk3588_release_arm64_6.1.27_nasync.img",
+      "sha256": "837ebfe8fffa4b6221ac8aee13d4b364289eccffcc4076bed6660ee1a6cfe836",
+      "bytes": 875359232,
+      "verified": true
+    },
+    {
+      "group": "idx",
+      "input_path": "E:\\工作台\\UGREEN-NAS-Hardware\\firmware-inbox\\input\\release_agent_cli_20260930-firmware_image-1.20.12.30-intel_release_amd64_6.18_nasync.img",
+      "sha256": "10edeeb661587c4cb495e078b1f3e004d6005c83e6aa7b1c05d764c57df5b50e",
+      "bytes": 1298240512,
+      "verified": true
+    }
+  ],
+  "models": [
+    {
+      "product_name": "DH2300",
+      "input_group": "dh2300",
+      "firmware_daemon": "hwmonitor (ARM)",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified",
+        "of_path": "/ethernet@2a220000"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DT model + compatible",
+        "controller": "hym8563",
+        "evidence_level": "official runtime policy and DT wiring",
+        "resolution_seconds": 60,
+        "physical_wake": "unverified",
+        "of_path": "/i2c@2ac50000/hym8563@51"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "a23a6037be2b71074d51ecc267e93c185833059d9f72e735a4c67fd98a490baa"
+    },
+    {
+      "product_name": "DH2600",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-480t",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DH4300 Plus",
+      "input_group": "dh4300plus",
+      "firmware_daemon": "hwmonitor (ARM)",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified",
+        "note": "Both stock GMAC nodes disabled; explicit PCI Ethernet path only, no GMAC reuse."
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DT model + compatible",
+        "controller": "hym8563",
+        "evidence_level": "official runtime policy and DT wiring",
+        "resolution_seconds": 60,
+        "physical_wake": "unverified",
+        "of_path": "/i2c@fec80000/hym8563@51"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "b967789a1db1d7358a60c1b8e38c81faa1cb3cc1806baa74d6f622eb76c3eb7e"
+    },
+    {
+      "product_name": "DX4600",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": 2,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "implemented-conditional",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DX4600 Pro",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": 2,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "implemented-conditional",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DX4600+",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": 2,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "implemented-conditional",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DX4700",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DX4700+",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP2800",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor / hwmonitor-idx (system-version route)",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP2800 GT",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-amd",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP4800",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-amd",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": 2,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "implemented-conditional",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP4800 GT",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-amd",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP4800 Plus",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-480t",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": 2,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "implemented-conditional",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP4800 Pro",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-480t",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": 2,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "implemented-conditional",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP4800S",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": 2,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "implemented-conditional",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP480T Plus",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-480t",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": 1,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "implemented-conditional",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP6800",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-480t",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP6800 Plus",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-480t",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": 2,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "implemented-conditional",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP6800 Pro",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-480t",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": 2,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "implemented-conditional",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP6800 Ultra",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-480t",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP8800",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-480t",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP8800 Plus",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-480t",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP8800 Pro",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-480t",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "DXP8800 Ultra",
+      "input_group": "x86",
+      "firmware_daemon": "hwmonitor-480t",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d"
+    },
+    {
+      "product_name": "iDX6011 Pro",
+      "input_group": "idx",
+      "firmware_daemon": "hwmonitor-amd",
+      "wol": {
+        "state": "implemented-conditional",
+        "mechanism": "ethtool Magic Packet; driver capability and readback required",
+        "automatic_pci_count": null,
+        "explicit_interface_supported": true,
+        "automatic_mapping": "unconfirmed-requires-explicit-interface",
+        "physical_wake": "unverified"
+      },
+      "rtc": {
+        "state": "implemented-conditional",
+        "identity": "exact DMI product",
+        "controller": "rtc_cmos",
+        "evidence_level": "official runtime policy and built-in rtc-cmos; board ACPI/S5 not proven",
+        "resolution_seconds": 1,
+        "physical_wake": "unverified"
+      },
+      "rtc_script_sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "shutdown_script_sha256": "a8343172f6fb95018ab2cc467888c1d8f55bc556f6eee92373183c91a8b102fe"
+    }
+  ],
+  "evidence_files": [
+    {
+      "group": "x86",
+      "member": "etc/acpi/events/power-long",
+      "sha256": "466fbf9567d61474a34bf7c9669af94aad70a76528ff4f007f696101ea053835",
+      "size": 55
+    },
+    {
+      "group": "x86",
+      "member": "etc/acpi/events/power-short",
+      "sha256": "56d551f2298c87902bb95ff1db26815231e4af0b06ecd9697185c48c167e53c6",
+      "size": 57
+    },
+    {
+      "group": "x86",
+      "member": "etc/acpi/events/powerbtn-acpi-support",
+      "sha256": "314950a8ca247fff52a63a4879088c1c191b79cc95d8023b60eb68089a8fe432",
+      "size": 64
+    },
+    {
+      "group": "x86",
+      "member": "etc/startpre.d/hwmonitor.sh",
+      "sha256": "eca8e735ca1dd4212be408df0af736abff5aa5be190c5acf29060299fc2ef120",
+      "size": 1743
+    },
+    {
+      "group": "x86",
+      "member": "usr/sbin/OnSched",
+      "sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "size": 3431
+    },
+    {
+      "group": "x86",
+      "member": "usr/sbin/hwmonitor",
+      "sha256": "866c37a88a58917aaf7eb02a1f037847e63214d1c83d196253b92ad566147d6f",
+      "size": 276144
+    },
+    {
+      "group": "x86",
+      "member": "usr/sbin/hwmonitor-480t",
+      "sha256": "079d7a703e3ebd87aa59540712cba443c67e6863c5decaff187c06e5bcaa1541",
+      "size": 241464
+    },
+    {
+      "group": "x86",
+      "member": "usr/sbin/hwmonitor-amd",
+      "sha256": "084ab25012b855cd2c7fbcaf2cca3ecafa61b8b63a4b5c1b22c496c79152ef50",
+      "size": 257752
+    },
+    {
+      "group": "x86",
+      "member": "usr/sbin/hwmonitor-idx",
+      "sha256": "210c0123f23629450ec0f6cccdf71a0acab829a6efdd2710f100e7de25a1cce7",
+      "size": 294640
+    },
+    {
+      "group": "x86",
+      "member": "usr/sbin/preshutdown",
+      "sha256": "1ba5801ff95f9701ce120ddaf5e285de161dcfc0be95509014d7063554033c0d",
+      "size": 2930
+    },
+    {
+      "group": "dh2300",
+      "member": "etc/acpi/events/power-long",
+      "sha256": "466fbf9567d61474a34bf7c9669af94aad70a76528ff4f007f696101ea053835",
+      "size": 55
+    },
+    {
+      "group": "dh2300",
+      "member": "etc/acpi/events/power-short",
+      "sha256": "56d551f2298c87902bb95ff1db26815231e4af0b06ecd9697185c48c167e53c6",
+      "size": 57
+    },
+    {
+      "group": "dh2300",
+      "member": "etc/acpi/events/powerbtn-acpi-support",
+      "sha256": "314950a8ca247fff52a63a4879088c1c191b79cc95d8023b60eb68089a8fe432",
+      "size": 64
+    },
+    {
+      "group": "dh2300",
+      "member": "usr/sbin/OnSched",
+      "sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "size": 3431
+    },
+    {
+      "group": "dh2300",
+      "member": "usr/sbin/hwmonitor",
+      "sha256": "be3b63352f2d429700fb7ca41f7379552bae1c12e0cc96a776fae396887100c0",
+      "size": 345472
+    },
+    {
+      "group": "dh2300",
+      "member": "usr/sbin/preshutdown",
+      "sha256": "a23a6037be2b71074d51ecc267e93c185833059d9f72e735a4c67fd98a490baa",
+      "size": 1733
+    },
+    {
+      "group": "dh4300plus",
+      "member": "etc/acpi/events/power-long",
+      "sha256": "466fbf9567d61474a34bf7c9669af94aad70a76528ff4f007f696101ea053835",
+      "size": 55
+    },
+    {
+      "group": "dh4300plus",
+      "member": "etc/acpi/events/power-short",
+      "sha256": "56d551f2298c87902bb95ff1db26815231e4af0b06ecd9697185c48c167e53c6",
+      "size": 57
+    },
+    {
+      "group": "dh4300plus",
+      "member": "etc/acpi/events/powerbtn-acpi-support",
+      "sha256": "314950a8ca247fff52a63a4879088c1c191b79cc95d8023b60eb68089a8fe432",
+      "size": 64
+    },
+    {
+      "group": "dh4300plus",
+      "member": "usr/sbin/OnSched",
+      "sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "size": 3431
+    },
+    {
+      "group": "dh4300plus",
+      "member": "usr/sbin/hwmonitor",
+      "sha256": "be3b63352f2d429700fb7ca41f7379552bae1c12e0cc96a776fae396887100c0",
+      "size": 345472
+    },
+    {
+      "group": "dh4300plus",
+      "member": "usr/sbin/preshutdown",
+      "sha256": "b967789a1db1d7358a60c1b8e38c81faa1cb3cc1806baa74d6f622eb76c3eb7e",
+      "size": 1734
+    },
+    {
+      "group": "idx",
+      "member": "etc/acpi/events/power-long",
+      "sha256": "466fbf9567d61474a34bf7c9669af94aad70a76528ff4f007f696101ea053835",
+      "size": 55
+    },
+    {
+      "group": "idx",
+      "member": "etc/acpi/events/power-short",
+      "sha256": "56d551f2298c87902bb95ff1db26815231e4af0b06ecd9697185c48c167e53c6",
+      "size": 57
+    },
+    {
+      "group": "idx",
+      "member": "etc/acpi/events/powerbtn-acpi-support",
+      "sha256": "314950a8ca247fff52a63a4879088c1c191b79cc95d8023b60eb68089a8fe432",
+      "size": 64
+    },
+    {
+      "group": "idx",
+      "member": "etc/startpre.d/hwmonitor.sh",
+      "sha256": "eca8e735ca1dd4212be408df0af736abff5aa5be190c5acf29060299fc2ef120",
+      "size": 1743
+    },
+    {
+      "group": "idx",
+      "member": "usr/sbin/OnSched",
+      "sha256": "97f28662a2b6067c71b30e6761fd5b53738ed9621221f1a021d4a00d42264730",
+      "size": 3431
+    },
+    {
+      "group": "idx",
+      "member": "usr/sbin/hwmonitor",
+      "sha256": "866c37a88a58917aaf7eb02a1f037847e63214d1c83d196253b92ad566147d6f",
+      "size": 276144
+    },
+    {
+      "group": "idx",
+      "member": "usr/sbin/hwmonitor-480t",
+      "sha256": "079d7a703e3ebd87aa59540712cba443c67e6863c5decaff187c06e5bcaa1541",
+      "size": 241464
+    },
+    {
+      "group": "idx",
+      "member": "usr/sbin/hwmonitor-amd",
+      "sha256": "084ab25012b855cd2c7fbcaf2cca3ecafa61b8b63a4b5c1b22c496c79152ef50",
+      "size": 257752
+    },
+    {
+      "group": "idx",
+      "member": "usr/sbin/hwmonitor-idx",
+      "sha256": "210c0123f23629450ec0f6cccdf71a0acab829a6efdd2710f100e7de25a1cce7",
+      "size": 294640
+    },
+    {
+      "group": "idx",
+      "member": "usr/sbin/preshutdown",
+      "sha256": "a8343172f6fb95018ab2cc467888c1d8f55bc556f6eee92373183c91a8b102fe",
+      "size": 2796
+    }
+  ],
+  "daemon_calls": [
+    {
+      "binary": "firmware-inbox/work/almighty-wake-audit-20261027/x86/usr/sbin/hwmonitor",
+      "sha256": "866c37a88a58917aaf7eb02a1f037847e63214d1c83d196253b92ad566147d6f",
+      "references": [
+        {
+          "function": "load_hw_config",
+          "address": "0x5015",
+          "command": "ethtool -s eth0 wol g"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x5021",
+          "command": "ethtool -s eth1 wol g"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x5048",
+          "command": "ethtool -s eth0 wol d"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x5054",
+          "command": "ethtool -s eth1 wol d"
+        }
+      ],
+      "system_plt": "0x31f0"
+    },
+    {
+      "binary": "firmware-inbox/work/almighty-wake-audit-20261027/x86/usr/sbin/hwmonitor-480t",
+      "sha256": "079d7a703e3ebd87aa59540712cba443c67e6863c5decaff187c06e5bcaa1541",
+      "references": [
+        {
+          "function": "load_hw_config",
+          "address": "0x5586",
+          "command": "ethtool -s eth0 wol g"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x5592",
+          "command": "ethtool -s eth1 wol g"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x55c1",
+          "command": "ethtool -s eth0 wol d"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x55cd",
+          "command": "ethtool -s eth1 wol d"
+        }
+      ],
+      "system_plt": "0x3140"
+    },
+    {
+      "binary": "firmware-inbox/work/almighty-wake-audit-20261027/x86/usr/sbin/hwmonitor-amd",
+      "sha256": "084ab25012b855cd2c7fbcaf2cca3ecafa61b8b63a4b5c1b22c496c79152ef50",
+      "references": [
+        {
+          "function": "load_hw_config",
+          "address": "0x489a",
+          "command": "ethtool -s eth0 wol g"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x48a6",
+          "command": "ethtool -s eth1 wol g"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x48d1",
+          "command": "ethtool -s eth0 wol d"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x48dd",
+          "command": "ethtool -s eth1 wol d"
+        }
+      ],
+      "system_plt": "0x3150"
+    },
+    {
+      "binary": "firmware-inbox/work/almighty-wake-audit-20261027/x86/usr/sbin/hwmonitor-idx",
+      "sha256": "210c0123f23629450ec0f6cccdf71a0acab829a6efdd2710f100e7de25a1cce7",
+      "references": [
+        {
+          "function": "load_hw_config",
+          "address": "0x679f",
+          "command": "ethtool -s eth0 wol g"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x67ab",
+          "command": "ethtool -s eth1 wol g"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x67da",
+          "command": "ethtool -s eth0 wol d"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x67e6",
+          "command": "ethtool -s eth1 wol d"
+        }
+      ],
+      "system_plt": "0x41f0"
+    },
+    {
+      "binary": "firmware-inbox/work/almighty-wake-audit-20261027/dh2300/usr/sbin/hwmonitor",
+      "sha256": "be3b63352f2d429700fb7ca41f7379552bae1c12e0cc96a776fae396887100c0",
+      "references": [
+        {
+          "function": "load_hw_config",
+          "address": "0x5454",
+          "command": "ethtool -s eth0 wol g"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x5460",
+          "command": "ethtool -s eth1 wol g"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x5564",
+          "command": "ethtool -s eth0 wol d"
+        },
+        {
+          "function": "load_hw_config",
+          "address": "0x5570",
+          "command": "ethtool -s eth1 wol d"
+        }
+      ],
+      "system_plt": "0x3760"
+    }
+  ],
+  "limits": [
+    "Official scripts and kernel configuration do not establish actual S5 wake or exact per-BIOS ACPI behavior.",
+    "All 25 need actual shutdown/wake and reboot/power-loss persistence validation.",
+    "15 models require explicit NIC selection; no inference from ethN names or count.",
+    "No BIOS settings or RTC clock/calendar writes; no automatic shutdown or services installed."
+  ],
+  "controller_and_service_evidence": [
+    {
+      "group": "x86",
+      "member": "usr/lib/systemd/system/systemd-poweroff.service",
+      "sha256": "ff7d9638c977d666aa00c63c9dbf44187e684ea8f7aeb8d0afd6a7a6faa39c4e"
+    },
+    {
+      "group": "dh2300",
+      "member": "usr/lib/systemd/system/systemd-poweroff.service",
+      "sha256": "ff7d9638c977d666aa00c63c9dbf44187e684ea8f7aeb8d0afd6a7a6faa39c4e"
+    },
+    {
+      "group": "dh4300plus",
+      "member": "usr/lib/systemd/system/systemd-poweroff.service",
+      "sha256": "ff7d9638c977d666aa00c63c9dbf44187e684ea8f7aeb8d0afd6a7a6faa39c4e"
+    },
+    {
+      "group": "idx",
+      "member": "usr/lib/systemd/system/systemd-poweroff.service",
+      "sha256": "ff7d9638c977d666aa00c63c9dbf44187e684ea8f7aeb8d0afd6a7a6faa39c4e"
+    },
+    {
+      "file": "firmware-inbox/work/almighty-wake-audit-20261027/x86-modules.builtin",
+      "sha256": "1d4fd7bd77af348fe3abea6b3a5b02e3113b2b7aae41c594c0b8b0c0c1f95e30",
+      "rtc_builtin": [
+        "kernel/drivers/rtc/rtc-cmos.ko"
+      ]
+    },
+    {
+      "file": "firmware-inbox/work/almighty-wake-audit-20261027/idx-modules.builtin",
+      "sha256": "1d4fd7bd77af348fe3abea6b3a5b02e3113b2b7aae41c594c0b8b0c0c1f95e30",
+      "rtc_builtin": [
+        "kernel/drivers/rtc/rtc-cmos.ko"
+      ]
+    },
+    {
+      "file": "firmware-inbox/work/almighty-all-models/packages/24/ug-rk3576-dh2300.dtb",
+      "sha256": "1c6ebfbd969a0ea8a138dee45fa0e4e43eddb40784368400ef91dfe83df397bf"
+    },
+    {
+      "file": "firmware-inbox/work/almighty-all-models/packages/24/kernel-config.txt",
+      "sha256": "4fb5912b21965024d1762eee4f440eb670eefdddc07a4ecd3882fb48f829dcde"
+    },
+    {
+      "file": "firmware-inbox/work/almighty-all-models/packages/27/ug-rk3588c-4300plus.dtb",
+      "sha256": "d5521e3e3325a7a69e67b94949cebdce1aa01f9f26834edab3f577d2ebe60c3b"
+    },
+    {
+      "file": "firmware-inbox/work/almighty-all-models/packages/27/kernel-config.txt",
+      "sha256": "e29b3fbc1ba64bcc7e9c23dbda40c70be81185fd1fe540817fefffe576d90604"
+    },
+    {
+      "group": "x86",
+      "member": "etc/rc.local",
+      "sha256": "5b0bec8c61e8bec6bbcd4d4fd0067935357477268a41d68cd7d7f752dc9760d2",
+      "rtc_startup_calls": [
+        {
+          "line": 72,
+          "description": "invokes OnSched"
+        }
+      ]
+    },
+    {
+      "group": "dh2300",
+      "member": "etc/rc.local",
+      "sha256": "0c86c924b8646bad7d0039fa94db4f3a94126ec57db7c7bffc16644959b94ff3",
+      "rtc_startup_calls": [
+        {
+          "line": 47,
+          "description": "invokes OnSched"
+        }
+      ]
+    },
+    {
+      "group": "dh4300plus",
+      "member": "etc/rc.local",
+      "sha256": "1c2c76f8e18ed59d4531cbd146305574aed272a91d5626a9101819b9c27c6913",
+      "rtc_startup_calls": [
+        {
+          "line": 47,
+          "description": "invokes OnSched"
+        }
+      ]
+    },
+    {
+      "group": "idx",
+      "member": "etc/rc.local",
+      "sha256": "5b0bec8c61e8bec6bbcd4d4fd0067935357477268a41d68cd7d7f752dc9760d2",
+      "rtc_startup_calls": [
+        {
+          "line": 72,
+          "description": "invokes OnSched"
+        }
+      ]
+    }
+  ]
+}

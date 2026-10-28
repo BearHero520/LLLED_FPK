@@ -151,6 +151,7 @@ def main():
             "server/lib/ugreenctl/models/dxp2800.so",
             "server/lib/ugreenctl/models/dxp8800plus.so",
             "server/lib/ugreenctl/models/dxp6800plus.so",
+            "server/lib/ugreenctl/models/dxp6800.so",
             "server/lib/ugreenctl/build-info.json",
             "server/lib/ugreenctl/models/dxp4800.so",
             "server/lib/ugreenctl/models/dxp4800plus.so",

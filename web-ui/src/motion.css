@@ -77,16 +77,86 @@ input[type='checkbox']:not(.native-check input):checked, input[type='radio']:che
 .action-message { transition: opacity 200ms ease, transform 240ms var(--motion-ease); }
 .icon-button.busy > i, button:disabled > .bi-arrow-clockwise { animation: spin 900ms linear infinite; }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
-    scroll-behavior: auto !important;
-  }
-  button:enabled:active, .nav-item:enabled:active, .mode-button:enabled:active,
-  a.primary-button:active, a.secondary-button:active { transform: none; }
-}
+
 @media (forced-colors: active) {
   .native-check input[type='checkbox'] { appearance: auto; width: 26px; }
   .native-check input[type='checkbox']::before { display: none; }
 }
+
+/* Shared tactile feedback across every page. State changes never remount forms. */
+button, [role="button"], summary, .power26-choice, .bios-weekday,
+.bios-policy-choice, .bios-fan-mode-choice, .native-check, .bios-schedule-toggle {
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease,
+    box-shadow 240ms ease, opacity 180ms ease, transform 220ms var(--motion-ease);
+}
+button:enabled:active, .power26-choice:active, .bios-policy-choice:active,
+.bios-fan-mode-choice:active, .bios-weekday:active, summary:active { transform: scale(.97); }
+button:focus-visible, summary:focus-visible { outline: 3px solid rgba(0,122,255,.3); outline-offset: 3px; }
+@media(hover: hover) {
+ .primary-button:enabled:hover, .secondary-button:enabled:hover, .preset-button:enabled:hover,
+ .danger-button:enabled:hover { translate: 0 -1px; }
+}
+.primary-button, .secondary-button, .preset-button, .danger-button { transition: translate 180ms var(--motion-ease), background-color 220ms ease, color 220ms ease, border-color 220ms ease, box-shadow 240ms ease, opacity 180ms ease, transform 220ms var(--motion-ease); }
+.mode-button.active > i, .nav-item.active > i, .settings-tab.active > i,
+.power26-choice:has(input:checked) > i, .bios-policy-choice:has(input:checked) > i {
+  animation: choice-icon-arrive 280ms var(--motion-ease);
+}
+@keyframes choice-icon-arrive { from { opacity: .65; transform: scale(.8); } to { opacity: 1; transform: scale(1); } }
+.mode-button.active, .power26-choice:has(input:checked), .bios-weekday.active {
+  animation: choice-surface-confirm 300ms var(--motion-ease);
+}
+@keyframes choice-surface-confirm { from { filter: brightness(1.08); } to { filter: brightness(1); } }
+input[role="switch"] { appearance: none; -webkit-appearance: none; position: relative; flex: 0 0 46px; width: 46px; height: 28px; border: 1px solid rgba(60,60,67,.12); border-radius: 99px; background: #c8cbd4; cursor: pointer; transition: background-color 220ms ease, opacity 180ms ease, box-shadow 220ms ease; }
+input[role="switch"]::before { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: white; box-shadow: 0 1px 4px rgba(0,0,0,.2); transition: transform 260ms var(--motion-ease); }
+input[role="switch"]:checked { background: var(--blue); border-color: var(--blue); }
+input[role="switch"]:checked::before { transform: translateX(18px); }
+input[role="switch"]:focus-visible { outline: 3px solid rgba(0,122,255,.3); outline-offset: 3px; }
+input[role="switch"]:disabled { opacity: .45; cursor: not-allowed; }
+.activity-card .threshold-field { transition: opacity 220ms ease; }
+.activity-card:not(:has(input[role="switch"]:checked)) .threshold-field { opacity: .55; }
+.animated-lighting-tabs { position: relative; isolation: isolate; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 0; width: min(100%, 540px); padding: 4px; }
+.lighting-tab-indicator { position: absolute; pointer-events: none; z-index: -1; left: 4px; top: 4px; bottom: 4px; width: calc((100% - 8px) / 3); border: 1px solid rgba(255,255,255,.85); box-sizing: border-box; border-radius: 9px; background: rgba(255,255,255,.88); box-shadow: 0 3px 12px rgba(30,50,90,.12); transform: translateX(calc(var(--tab-index) * 100%)); transition: transform 320ms var(--motion-ease); }
+.animated-lighting-tabs .settings-tab { min-width: 0; justify-content: center; }
+.animated-lighting-tabs .settings-tab.active, .animated-lighting-tabs .settings-tab:hover { background: transparent; box-shadow: none; }
+.settings-surface:not([hidden]), .power26-network-options:not([hidden]), details[open] .hardware-guide-body {
+  animation: control-panel-arrive 280ms var(--motion-ease) both;
+}
+@keyframes control-panel-arrive { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+.hardware-guide-summary > .bi-chevron-down { transition: transform 240ms var(--motion-ease); }
+details[open] .hardware-guide-summary > .bi-chevron-down { transform: rotate(180deg); }
+input[type="range"]::-webkit-slider-thumb { transition: box-shadow 180ms ease, transform 180ms var(--motion-ease); }
+input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.12); box-shadow: 0 0 0 5px rgba(0,122,255,.12); }
+@media(max-width: 640px) { .animated-lighting-tabs { width: 100%; } }
+
+@media(forced-colors: active) {
+ input[role="switch"] { appearance: auto; width: 26px; }
+ input[role="switch"]::before { display: none; }
+ .lighting-tab-indicator { border: 2px solid Highlight; }
+}
+
+/* Lighting tabs: directional content arrival. */
+.settings-surface:not([hidden]) { animation: lighting-panel-slide 360ms var(--motion-ease) both; }
+@keyframes lighting-panel-slide { from { opacity: 0; transform: translateX(var(--panel-shift, 20px)) scale(.99); } to { opacity: 1; transform: translateX(0) scale(1); } }
+.animated-lighting-tabs .settings-tab { position: relative; overflow: hidden; }
+
+
+/* Clear selected states and shared glass switch motion. */
+.animated-lighting-tabs { width: min(100%, 420px); padding: 5px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,.62); border-radius: 18px; background: rgba(130,150,180,.10); box-shadow: inset 0 1px 3px rgba(36,55,85,.04); backdrop-filter: blur(20px); }
+.lighting-tab-indicator { z-index: 0; left: 5px; top: 5px; bottom: 5px; width: calc((100% - 10px) / 3); border-radius: 13px; background: linear-gradient(145deg,rgba(255,255,255,.96),rgba(248,252,255,.8)); border-color: rgba(255,255,255,.95); box-shadow: 0 3px 8px rgba(38,62,95,.10), 0 1px 2px rgba(38,62,95,.06); backdrop-filter: blur(16px); transition: transform 380ms var(--motion-ease); }
+.animated-lighting-tabs .settings-tab { z-index: 1; min-height: 44px; padding: 0 12px; gap: 9px; border-radius: 13px; color: #64748b; font-size: 13px; font-weight: 600; }
+.animated-lighting-tabs .settings-tab > i { font-size: 17px; transition: color 220ms ease; }
+.animated-lighting-tabs .settings-tab:not(.active):hover { color: #304560; background: rgba(255,255,255,.22); }
+.animated-lighting-tabs .settings-tab.active { color: #153758; font-weight: 650; }
+.animated-lighting-tabs .settings-tab.active > i { color: #007aff; }
+.animated-lighting-tabs .settings-tab:focus-visible { outline-offset: -3px; }
+.bios-mode-track { transition: background-color 260ms ease, border-color 260ms ease, box-shadow 260ms ease; backdrop-filter: blur(12px); }
+.bios-mode-track > span { transition: transform 320ms var(--motion-ease), box-shadow 220ms ease; }
+.bios-mode-label { transition: color 240ms ease; }
+.native-check input[type='checkbox'], input[role='switch'], .bios-schedule-toggle > input { box-shadow: inset 0 1px 3px rgba(33,55,85,.12); transition: background-color 260ms ease, border-color 260ms ease, box-shadow 260ms ease, opacity 180ms ease; }
+.native-check input[type='checkbox']::before, input[role='switch']::before, .bios-schedule-toggle > input::before { background: linear-gradient(145deg,#fff,rgba(244,249,255,.94)); transition: transform 320ms var(--motion-ease), box-shadow 220ms ease, scale 180ms ease; }
+.native-check input[type='checkbox']:checked, input[role='switch']:checked, .bios-schedule-toggle > input:checked { box-shadow: 0 2px 9px rgba(0,122,255,.2), inset 0 1px 1px rgba(255,255,255,.2); }
+.native-check input[type='checkbox']:enabled:active::before, input[role='switch']:enabled:active::before, .bios-schedule-toggle > input:enabled:active::before { scale: 1.08 .94; }
+.glass-brightness[data-disabled] { opacity: .45; }
+.glass-brightness[data-disabled] .glass-brightness-control { cursor: not-allowed; }
+.glass-brightness[data-disabled] .glass-brightness-tooltip { display: none; }

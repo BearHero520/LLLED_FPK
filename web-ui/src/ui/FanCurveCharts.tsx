@@ -527,16 +527,17 @@ export function StockFanCurve({ stock }: { stock: StockFanCurveData | null }) {
     chart.setOption({ ...option, series }, true);
   }, [chartRef, stock]);
 
+  const proCompatible = ["stock-6800", "stock-6800plus"].includes(String(stock?.profile));
   if (!stock?.available)
     return <p className="surface-help">暂未读取到该机型的原厂曲线记录。</p>;
   return (
     <section className="fan-curve-graph" aria-label="原厂温度 PWM 曲线">
       <div className="fan-curve-graph-heading">
         <div>
-          <span className="section-kicker">RECOVERED STOCK PROFILE</span>
-          <h3>原厂温度—PWM 曲线</h3>
+          <span className="section-kicker">{proCompatible ? "COMPATIBILITY PROFILE" : "RECOVERED STOCK PROFILE"}</span>
+          <h3>{proCompatible ? "兼容温度—PWM 曲线（采用 Pro 参数）" : "原厂温度—PWM 曲线"}</h3>
           <small>
-            来自 UGREEN-NAS-Hardware 的已恢复曲线；仅供查看，不能拖拽或修改。
+            {proCompatible ? "采用 DXP6800 Pro 参数，不代表本型号原厂曲线；仅供查看，不能拖拽或修改。" : "来自 UGREEN-NAS-Hardware 的已恢复曲线；仅供查看，不能拖拽或修改。"}
           </small>
         </div>
         <output>{stock.profile || "stock"}</output>

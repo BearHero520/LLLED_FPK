@@ -21,10 +21,15 @@ mkdir -p "$PLUGINS"
 : > "$PLUGINS/dxp480tplus.so"
 : > "$PLUGINS/dxp6800pro.so"
 : > "$PLUGINS/dxp6800plus.so"
+: > "$PLUGINS/dxp6800.so"
 cat > "$BIN" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$@" > "$UGREENCTL_ARGS"
 case " $* " in
+  *" network wol models "*|*" power rtc-wake models "*)
+    for product in 'DX4600' 'DX4600+' 'DX4600 Pro' 'DXP4800' 'DXP4800S' 'UGREEN DXP4800 Plus' 'UGREEN DXP4800 Pro' 'UGREEN DXP480T Plus' 'DXP6800 Pro' 'DXP6800 Plus'; do
+      printf 'mock\t%s\twol=automatic-or-explicit\n' "$product"
+    done ;;
   *" info "*) cat "$UGREENCTL_STATUS" ;;
   *" fan status "*) sed -n 's/^fan /fan /p' "$UGREENCTL_STATUS" ;;
   *" power startup get "*) sed -n 's/^startup: //p' "$UGREENCTL_STATUS" ;;
@@ -106,7 +111,7 @@ assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan 
 bios_set_startup last
 assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply power startup set restore "
 bios_set_wol on
-assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply network wol set on "
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--force --apply network wol set on "
 
 UGREEN_PRODUCT_NAME="DXP4800"
 cat > "$STATUS" <<'EOF'
@@ -130,7 +135,7 @@ assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan 
 bios_set_startup off
 assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply power startup set off "
 bios_set_wol off
-assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply network wol set off "
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--force --apply network wol set off "
 ! bios_set_wol invalid || fail "DXP4800 WOL must reject unknown policies"
 
 UGREEN_PRODUCT_NAME="DXP4800S"
@@ -185,7 +190,7 @@ assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan 
 bios_set_startup last
 assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply power startup set restore "
 bios_set_wol off
-assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply network wol set off "
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--force --apply network wol set off "
 
 UGREEN_PRODUCT_NAME="DXP6800 Pro"
 bios_supported_model || fail "DXP6800 Pro should expose guarded firmware-reversed BIOS control"
@@ -249,8 +254,44 @@ assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan 
 bios_set_startup last
 assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply power startup set restore "
 
-! bios_wol_supported_model || fail "Plus must not inherit unverified WOL"
+bios_wol_supported_model || fail "Plus firmware-mapped WOL must be available"
+bios_set_wol on
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--force --apply network wol set on "
 assert_eq "$(bios_fan_curve_stock_profile_for_model)" "stock-6800plus"
+
+UGREEN_PRODUCT_NAME="DXP6800"
+bios_supported_model || fail "DXP6800 should expose guarded firmware-reversed BIOS control"
+UGREEN_PRODUCT_NAME="UGREEN DXP6800"
+! bios_supported_model || fail "DXP6800 BIOS control must require the exact upstream DMI product name"
+UGREEN_PRODUCT_NAME="DXP6800"
+cat > "$STATUS" <<'EOF'
+model: dxp6800 (DXP6800 (firmware-reversed))
+controller: ITE IT8613 Super I/O
+startup: restore
+fan cpu: pwm=120 mode=manual tach=675 rpm=1000
+fan sys1: pwm=88 mode=manual tach=750 rpm=900
+fan sys2: pwm=88 mode=manual tach=450 rpm=1500
+EOF
+bios_read_status
+assert_eq "$BIOS_MODEL" "dxp6800"
+assert_eq "$BIOS_EXPERIMENTAL" "true"
+assert_eq "$BIOS_WRITE_CONFIRMATION_REQUIRED" "true"
+assert_eq "$BIOS_CPU_PWM" "120"
+assert_eq "$BIOS_SYS_PWM" "88"
+assert_eq "$BIOS_SYS2_PWM" "88"
+assert_eq "$BIOS_SYS2_RPM" "1500"
+bios_write_confirmation_required || fail "DXP6800 must require explicit write acknowledgement"
+bios_set_fan cpu 120
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan set cpu 120 "
+bios_set_fan sys 88
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan set sys 88 "
+! bios_set_fan all 88 || fail "DXP6800 must only expose the paired system fan target"
+! bios_set_fan sys 39 || fail "DXP6800 PWM below 40 must be rejected"
+bios_set_startup last
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply power startup set restore "
+
+! bios_wol_supported_model || fail "Plus must not inherit unverified WOL"
+assert_eq "$(bios_fan_curve_stock_profile_for_model)" "stock-6800"
 
 UGREEN_PRODUCT_NAME="UGREEN DXP480T Plus"
 cat > "$STATUS" <<'EOF'
@@ -281,7 +322,7 @@ assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply fan 
 bios_set_startup on
 assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --apply power startup set on "
 bios_set_wol off
-assert_eq "$(tr '\n' ' ' < "$ARGS")" "--plugin-dir $PLUGINS --force --apply network wol set off "
+assert_eq "$(tr '\n' ' ' < "$ARGS")" "--force --apply network wol set off "
 
 BIOS_TEST_IT87_MODULE_PATH="$TMP/it87-unloaded"
 cat > "$STATUS" <<'EOF'

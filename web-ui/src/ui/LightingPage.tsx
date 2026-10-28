@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { BrightnessSlider } from "./BrightnessSlider";
+import { ColorPicker } from "./ColorPicker";
+import { useState, type CSSProperties } from 'react';
 import { boundedInt, hexToRgb, mergeIni, rgbToHex, type IniData } from '../lib/ini';
 
 type ColorSetting = { key: string; label: string; def: string; brightness: number; off?: boolean };
@@ -46,11 +48,11 @@ function ColorGrid({ items, colorSection, brightnessSection, settings, onChange 
       const brightness = boundedInt(settings[brightnessSection]?.[item.key], 0, 255, item.brightness);
       return <div className="color-row" key={item.key}>
         <label>{item.label}</label>
-        <input type="color" value={rgbToHex(rawColor)} aria-label={`${item.label}颜色`} onChange={(event) => {
-          const [red, green, blue] = hexToRgb(event.target.value);
+        <ColorPicker value={rgbToHex(rawColor)} label={`${item.label}颜色`} onChange={(value) => {
+          const [red, green, blue] = hexToRgb(value);
           update(item.key, `${red} ${green} ${blue}`);
         }} />
-        <input className="brightness-input" type="range" min="0" max="255" step="1" value={brightness} aria-label={`${item.label}亮度`} onChange={(event) => update(item.key, undefined, boundedInt(event.target.value, 0, 255, item.brightness))} />
+        <BrightnessSlider value={brightness} label={`${item.label}亮度`} onChange={(value) => update(item.key, undefined, value)} />
         <output className="brightness-value">{brightness}</output>
       </div>;
     })}
@@ -64,6 +66,12 @@ function StandardLighting({ settings, onChange, onSave, onToast }: {
   onToast: (message: string, type?: 'ok' | 'err') => void;
 }) {
   const [panel, setPanel] = useState<'disk' | 'network' | 'power'>('disk');
+  const [direction, setDirection] = useState(1);
+  const changePanel = (next: 'disk' | 'network' | 'power') => {
+    const order = ['disk', 'network', 'power'];
+    setDirection(order.indexOf(next) >= order.indexOf(panel) ? 1 : -1);
+    setPanel(next);
+  };
   const [saving, setSaving] = useState(false);
   const save = async () => {
     setSaving(true);
@@ -76,29 +84,37 @@ function StandardLighting({ settings, onChange, onSave, onToast }: {
   const powerBrightness = boundedInt(settings.power?.brightness, 0, 255, 40);
 
   return <>
-    <div className="settings-tabs glass-surface" role="tablist" aria-label="灯光设置分类">
+    <div className="settings-tabs glass-surface animated-lighting-tabs" role="tablist" aria-label="灯光设置分类"
+      style={{ '--tab-index': ['disk', 'network', 'power'].indexOf(panel) } as CSSProperties}>
+      <span className="lighting-tab-indicator" aria-hidden="true" />
       {([['disk', 'bi-device-hdd', '硬盘灯'], ['network', 'bi-wifi', '网络灯'], ['power', 'bi-power', '电源灯']] as const).map(([key, icon, label]) => (
-        <button key={key} type="button" className={`settings-tab${panel === key ? ' active' : ''}`} role="tab" aria-selected={panel === key} onClick={() => setPanel(key)}><i className={`bi ${icon}`} aria-hidden="true" /><span>{label}</span></button>
+        <button key={key} type="button" className={`settings-tab${panel === key ? ' active' : ''}`} role="tab" aria-selected={panel === key} tabIndex={panel === key ? 0 : -1} id={`lighting-tab-${key}`} aria-controls={`lighting-panel-${key}`}
+          onKeyDown={(event) => {
+            const keys = ['disk', 'network', 'power'] as const;
+            const index = keys.indexOf(key);
+            const next = event.key === 'ArrowRight' ? (index + 1) % 3 : event.key === 'ArrowLeft' ? (index + 2) % 3 : event.key === 'Home' ? 0 : event.key === 'End' ? 2 : -1;
+            if (next >= 0) { event.preventDefault(); changePanel(keys[next]); (event.currentTarget.parentElement?.querySelector(`#lighting-tab-${keys[next]}`) as HTMLButtonElement)?.focus(); }
+          }} onClick={() => changePanel(key)}><i className={`bi ${icon}`} aria-hidden="true" /><span>{label}</span></button>
       ))}
     </div>
-    <div className="settings-layout">
-      <article className="glass-surface settings-surface" hidden={panel !== 'disk'}>
+    <div className="settings-layout" style={{ "--panel-shift": `${direction * 20}px` } as CSSProperties}>
+      <article className="glass-surface settings-surface" role="tabpanel" id="lighting-panel-disk" aria-labelledby="lighting-tab-disk" hidden={panel !== 'disk'}>
         <div className="section-heading"><div><span className="section-kicker">DISK LED</span><h2>硬盘状态颜色</h2></div><span className="soft-badge">智能模式</span></div>
         <p className="surface-help">为活动、空闲、休眠和离线状态设置颜色与亮度。</p>
         <ColorGrid items={diskStates} colorSection="disk_colors" brightnessSection="disk_brightness" settings={settings} onChange={onChange} />
       </article>
-      <article className="glass-surface settings-surface" hidden={panel !== 'network'}>
+      <article className="glass-surface settings-surface" role="tabpanel" id="lighting-panel-network" aria-labelledby="lighting-tab-network" hidden={panel !== 'network'}>
         <div className="section-heading"><div><span className="section-kicker">NETWORK LED</span><h2>网络状态颜色</h2></div></div>
         <p className="surface-help">外网、联网和断网状态分别使用独立颜色。</p>
         <ColorGrid items={networkStates} colorSection="netdev_colors" brightnessSection="netdev_brightness" settings={settings} onChange={onChange} />
       </article>
-      <article className="glass-surface settings-surface" hidden={panel !== 'power'}>
+      <article className="glass-surface settings-surface" role="tabpanel" id="lighting-panel-power" aria-labelledby="lighting-tab-power" hidden={panel !== 'power'}>
         <div className="section-heading"><div><span className="section-kicker">POWER LED</span><h2>电源灯</h2></div></div>
         <p className="surface-help">设置智能模式和全部开启时的电源灯表现。</p>
         <div className="color-grid">
-          <div className="color-row is-color-only"><label>智能模式</label><input type="color" value={rgbToHex(settings.power?.smart_color || '100 100 100')} aria-label="智能模式颜色" onChange={(event) => setPowerColor('smart_color', event.target.value)} /></div>
-          <div className="color-row is-color-only"><label>全部开启</label><input type="color" value={rgbToHex(settings.power?.all_on_color || '180 180 180')} aria-label="全部开启颜色" onChange={(event) => setPowerColor('all_on_color', event.target.value)} /></div>
-          <div className="color-row is-brightness-only"><label>亮度</label><input className="brightness-input" type="range" min="0" max="255" step="1" value={powerBrightness} aria-label="电源灯亮度" onChange={(event) => onChange(mergeIni(settings, { power: { brightness: String(boundedInt(event.target.value, 0, 255, 40)) } }))} /><output className="brightness-value">{powerBrightness}</output></div>
+          <div className="color-row is-color-only"><label>智能模式</label><ColorPicker value={rgbToHex(settings.power?.smart_color || '100 100 100')} label="智能模式颜色" onChange={(value) => setPowerColor('smart_color', value)} /></div>
+          <div className="color-row is-color-only"><label>全部开启</label><ColorPicker value={rgbToHex(settings.power?.all_on_color || '180 180 180')} label="全部开启颜色" onChange={(value) => setPowerColor('all_on_color', value)} /></div>
+          <div className="color-row is-brightness-only"><label>亮度</label><BrightnessSlider value={powerBrightness} label="电源灯亮度" onChange={(value) => onChange(mergeIni(settings, { power: { brightness: String(value) } }))} /><output className="brightness-value">{powerBrightness}</output></div>
         </div>
       </article>
       <article className="glass-surface preset-surface">

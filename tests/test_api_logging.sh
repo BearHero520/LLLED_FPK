@@ -53,15 +53,15 @@ assert_contains "$response" '"ok":true'
 ! grep -Fq 'supersecret' "$LOG_FILE" || fail "settings value leaked into log"
 
 response=$(request /about/info '' GET about-info-test)
-assert_contains "$response" '"display_name":"UGREEN工具箱"'
+assert_contains "$response" '"display_name":"UGreen Control"'
 manifest_version=$(sed -n 's/^version[[:space:]]*=[[:space:]]*//p' "$ROOT/App.Native.UGreenLED/manifest" | tr -d '\r')
 assert_contains "$response" "\"version\":\"$manifest_version\""
 assert_contains "$response" '"qq_group":"1108837172"'
 
 response=$(request /about/readme 'force=1' GET about-readme-test)
 assert_contains "$response" 'Status: 200 OK'
-assert_contains "$response" '# UGREEN工具箱'
-assert_contains "$response" 'github.com/BearHero520/LLLED_FPK/blob/main/README.md'
+assert_contains "$response" '# UGreen Control'
+assert_contains "$response" 'github.com/BearHero520/UGreen-Control/blob/main/README.md'
 
 response=$(request /logs/config 'level=debug' POST log-config-test)
 assert_contains "$response" '"ok":true'

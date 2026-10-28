@@ -29,7 +29,7 @@ type ReadmeData = {
 };
 type Toast = (message: string, type?: 'ok' | 'err') => void;
 
-const repositoryUrl = 'https://github.com/BearHero520/LLLED_FPK';
+const repositoryUrl = 'https://github.com/BearHero520/UGreen-Control';
 
 function readmeHref(value: string) {
   if (/^(https?:|#)/i.test(value)) return value;
@@ -137,8 +137,8 @@ export function AboutPage({ hidden, info, onToast }: { hidden: boolean; info: Ab
   return <section className="react-view" hidden={hidden} aria-label="关于">
     <div className="about-layout">
       <article className="glass-surface about-hero-surface">
-        <img src="./images/logo.png?v=2.1.0-toolbox" alt="UGREEN工具箱" className="about-logo" width="112" height="112" />
-        <div className="about-brand-copy"><span className="section-kicker">UGREEN NAS SYSTEM TOOLBOX</span><h2>{info?.display_name || 'UGREEN工具箱'}</h2><p>面向飞牛 fnOS 的绿联 NAS 灯光、硬件监控与 BIOS 管理工具。</p><div className="about-badges"><span>v{currentVersion}</span><span>{info?.license || 'AGPL-3.0'}</span><span>BearHero</span></div></div>
+        <img src="./images/logo.png?v=2.1.0-toolbox" alt="UGreen Control" className="about-logo" width="112" height="112" />
+        <div className="about-brand-copy"><span className="section-kicker">UGREEN NAS SYSTEM TOOLBOX</span><h2>{info?.display_name || 'UGreen Control'}</h2><p>面向飞牛 fnOS 的绿联 NAS 灯光、硬件监控与 BIOS 管理工具。</p><div className="about-badges"><span>v{currentVersion}</span><span>{info?.license || 'AGPL-3.0'}</span><span>BearHero</span></div></div>
         <div className="about-contact"><span><i className="bi bi-people" aria-hidden="true" />测试 QQ 群</span><strong>{info?.qq_group || '1108837172'}</strong><small>欢迎反馈机型兼容性与测试记录</small></div>
       </article>
 

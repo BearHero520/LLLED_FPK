@@ -1,5 +1,7 @@
 # Firmware-derived Wake-on-LAN map
 
+> 2026-10-27：当前 25 款独立 WOL / RTC 接入及自动网口缺项以 [全机型核对表](ALL_MODELS_WAKE_EVIDENCE.zh-CN.md) 为准。下文保留早期固件与插件路由证据。
+
 This record is the source of truth for the Wake-on-LAN (WOL) model mappings in
 `ugreenctl`. It is static clean-room analysis of the official UGOS Pro
 firmware, not a physical validation record.
@@ -36,6 +38,26 @@ The runtime plugins intentionally accept only their documented exact DMI names;
 the firmware's prefix tests are not reproduced as fuzzy matching.
 
 ## Implementation and safeguards
+
+### DXP6800 Plus, confirmed 2026-10-27
+
+Official UGOS Pro 1.20.0.0142 (`6800plus.img`, SHA-256
+`73862c9c619f3e8b2279252326654f4915234dc8f437a71eb9a0067a724062c5`)
+routes exact DXP6800 Plus to `hwmonitor-480t` in
+`fw/etc/startpre.d/hwmonitor.sh`. The selected daemon has SHA-256
+`079d7a703e3ebd87aa59540712cba443c67e6863c5decaff187c06e5bcaa1541`
+and contains `ethtool -s eth0 wol g`, `ethtool -s eth1 wol g`, their `wol d`
+counterparts, and `power.wake_on`. Extraction remains in
+`firmware-inbox/work/dxp6800plus/`. The independent Plus route now uses the
+shared guarded WOL implementation. It accepts two renamed physical PCI Ethernet
+interfaces on fnOS or other Linux systems; it never requires literal eth0/eth1,
+selects by stable PCI order, and excludes virtual interfaces and Wi-Fi.
+The existing Linux RTC implementation is enabled by the plugin capability.
+This is firmware evidence and software integration, not physical wake validation.
+
+`test-wol-runtime` covers renamed enp/eno interfaces, a virtual eth0, bridges,
+bonds, veth and Wi-Fi exclusion, unsupported Magic Packet preflight, readback
+mismatch, and ambiguous physical-adapter count refusal.
 
 WOL is NIC configuration, not a BIOS or Super-I/O setting. The implementation
 uses the Linux ethtool ioctl equivalent to the stock command, never launches a

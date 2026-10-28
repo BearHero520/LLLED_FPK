@@ -166,7 +166,9 @@ def validate_project() -> None:
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp480tplus.so",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp6800pro.so",
         PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp6800plus.so",
-        PROJECT / "app" / "server" / "vendor" / "UGREEN-NAS-Hardware" / "LICENSE",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "upstream" / "LICENSE",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "upstream" / "docs" / "FAN_CURVE.md",
+        PROJECT / "app" / "server" / "lib" / "ugreenctl" / "models" / "dxp6800.so",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
     if missing:
@@ -250,7 +252,9 @@ def verify_package(package: Path, *, expected_checksum: str, expected_version: s
                 "server/lib/ugreenctl/models/dxp480tplus.so",
                 "server/lib/ugreenctl/models/dxp6800pro.so",
                 "server/lib/ugreenctl/models/dxp6800plus.so",
-                "server/vendor/UGREEN-NAS-Hardware/LICENSE",
+                "server/lib/ugreenctl/upstream/LICENSE",
+                "server/lib/ugreenctl/upstream/docs/FAN_CURVE.md",
+                "server/lib/ugreenctl/models/dxp6800.so",
             }.issubset(app_names):
                 raise SystemExit("FPK app.tgz 结构校验失败")
 

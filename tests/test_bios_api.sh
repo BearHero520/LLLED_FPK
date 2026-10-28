@@ -18,16 +18,21 @@ mkdir -p "$PLUGINS"
 : > "$PLUGINS/dxp480tplus.so"
 : > "$PLUGINS/dxp6800pro.so"
 : > "$PLUGINS/dxp6800plus.so"
+: > "$PLUGINS/dxp6800.so"
 cat > "$BIN" <<'EOF'
 #!/bin/sh
 printf 'CALL' >> "$UGREENCTL_CALLS"
 for arg in "$@"; do printf ' <%s>' "$arg" >> "$UGREENCTL_CALLS"; done
 printf '\n' >> "$UGREENCTL_CALLS"
 case " $* " in
+  *" network wol models "*|*" power rtc-wake models "*)
+    for product in 'DX4600' 'DXP4800' 'DXP4800S' 'DXP4800 Plus' 'DXP4800 Pro' 'DXP480T Plus' 'DXP6800 Pro' 'DXP6800 Plus' 'DXP8800 Plus'; do
+      printf 'mock\t%s\twol=automatic-or-explicit\n' "$product"
+    done ;;
   *" info "*)
     if [ "$UGREEN_PRODUCT_NAME" = 'DX4600' ]; then
       echo 'model: dx4600 (UGREEN DX4600 / DX4600+ / DX4600 Pro (firmware-reversed))'
-    elif [ "$UGREEN_PRODUCT_NAME" = 'DXP6800 Pro' ]; then
+    elif [ "$UGREEN_PRODUCT_NAME" = 'DXP6800 Pro' ] || [ "$UGREEN_PRODUCT_NAME" = 'DXP6800' ]; then
       echo 'model: dxp6800pro (DXP6800 Pro (firmware-reversed))'
     elif [ "$UGREEN_PRODUCT_NAME" = 'DXP4800' ]; then
       echo 'model: dxp4800 (UGREEN DXP4800 (firmware-reversed))'
@@ -38,7 +43,7 @@ case " $* " in
   *" fan status "*)
     if [ "$UGREEN_PRODUCT_NAME" = 'DX4600' ]; then
       echo 'fan sys: pwm=64 mode=manual tach=750 rpm=900'
-    elif [ "$UGREEN_PRODUCT_NAME" = 'DXP6800 Pro' ]; then
+    elif [ "$UGREEN_PRODUCT_NAME" = 'DXP6800 Pro' ] || [ "$UGREEN_PRODUCT_NAME" = 'DXP6800' ]; then
       printf '%s\n' \
         'fan cpu: pwm=120 mode=manual tach=675 rpm=1000' \
         'fan sys1: pwm=88 mode=manual tach=750 rpm=900' \
@@ -91,7 +96,7 @@ assert_contains "$json" '"fan_mode_writable":false'
 : > "$CALLS"
 json=$(request /bios/fan 'channel=sys&pwm=39&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":false'
-[[ ! -s "$CALLS" ]] || fail "PWM below 40 reached ugreenctl"
+! grep -Eq '<--apply>|<set>|<clear>' "$CALLS" || fail "PWM below 40 reached ugreenctl"
 
 json=$(request /bios/fan 'channel=sys&pwm=40&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":true'
@@ -101,7 +106,7 @@ grep -Fq ' <--force> <--apply> <fan> <set> <sys> <40>' "$CALLS" || fail "fan wri
 json=$(request /bios/fan/mode 'channel=sys&mode=auto&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":false'
 assert_contains "$json" '暂时只开放手动 PWM'
-[[ ! -s "$CALLS" ]] || fail "fan mode write reached ugreenctl"
+! grep -Eq '<--apply>|<set>|<clear>' "$CALLS" || fail "fan mode write reached ugreenctl"
 
 export UGREEN_PRODUCT_NAME="DX4600"
 json=$(request /bios/status)
@@ -119,7 +124,7 @@ assert_contains "$json" '"profile":"stock-4600"'
 json=$(request /bios/fan 'channel=sys&pwm=64' POST)
 assert_contains "$json" '"ok":false'
 assert_contains "$json" '固件逆向风扇写入需要先确认风险'
-[[ ! -s "$CALLS" ]] || fail "unconfirmed DX4600 PWM reached ugreenctl"
+! grep -Eq '<--apply>|<set>|<clear>' "$CALLS" || fail "unconfirmed DX4600 PWM reached ugreenctl"
 json=$(request /bios/fan 'channel=sys&pwm=64&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":true'
 grep -Fq ' <--force> <--apply> <fan> <set> <sys> <64>' "$CALLS" || fail "DX4600 fan write did not use --force --apply"
@@ -179,19 +184,19 @@ assert_contains "$json" '"cpu_fan_present":false'
 json=$(request /bios/wol 'policy=off' POST)
 assert_contains "$json" '"ok":false'
 assert_contains "$json" '固件逆向网络唤醒写入需要先在页面确认风险'
-[[ ! -s "$CALLS" ]] || fail "unconfirmed DXP4800 WOL write reached ugreenctl"
+! grep -Eq '<--apply>|<set>|<clear>' "$CALLS" || fail "unconfirmed DXP4800 WOL write reached ugreenctl"
 
 json=$(request /bios/confirmation 'confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":true'
 assert_contains "$json" '"write_confirmation_acknowledged":true'
-grep -Fq 'write_risk_acknowledgement=v1:firmware-reversed:dxp4800' "$TMP/var/settings.conf" \
+grep -Fq 'write_risk_acknowledgement=v2:firmware-reversed:DXP4800' "$TMP/var/settings.conf" \
   || fail "BIOS risk acknowledgement was not saved per model"
 json=$(request /bios/status)
 assert_contains "$json" '"write_confirmation_acknowledged":true'
 : > "$CALLS"
 json=$(request /bios/wol 'policy=off' POST)
 assert_contains "$json" '"ok":false'
-[[ ! -s "$CALLS" ]] || fail "saved acknowledgement bypassed the per-write confirmation token"
+! grep -Eq '<--apply>|<set>|<clear>' "$CALLS" || fail "saved acknowledgement bypassed the per-write confirmation token"
 
 json=$(request /bios/wol 'policy=off&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":true'
@@ -219,7 +224,7 @@ assert_contains "$json" '"write_confirmation_acknowledged":false'
 json=$(request /bios/fan 'channel=sys&pwm=120' POST)
 assert_contains "$json" '"ok":false'
 assert_contains "$json" '固件逆向风扇写入需要先确认风险'
-[[ ! -s "$CALLS" ]] || fail "unconfirmed DXP6800 Pro PWM reached ugreenctl"
+! grep -Eq '<--apply>|<set>|<clear>' "$CALLS" || fail "unconfirmed DXP6800 Pro PWM reached ugreenctl"
 
 json=$(request /bios/fan 'channel=sys&pwm=120&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":true'
@@ -228,11 +233,39 @@ grep -Fq ' <--force> <--apply> <fan> <set> <sys> <120>' "$CALLS" || fail "DXP680
 : > "$CALLS"
 json=$(request /bios/fan 'channel=sys1&pwm=120&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":false'
-[[ ! -s "$CALLS" ]] || fail "DXP6800 Pro individual system fan write reached ugreenctl"
+! grep -Eq '<--apply>|<set>|<clear>' "$CALLS" || fail "DXP6800 Pro individual system fan write reached ugreenctl"
 
 json=$(request /bios/startup 'policy=last&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":true'
 grep -Fq ' <--force> <--apply> <power> <startup> <set> <restore>' "$CALLS" || fail "DXP6800 Pro startup write did not use --force --apply"
+
+export UGREEN_PRODUCT_NAME="DXP6800"
+json=$(request /bios/status)
+assert_contains "$json" '"model":"dxp6800"'
+assert_contains "$json" '"cpu_rpm":1000'
+assert_contains "$json" '"sys_rpm":900'
+assert_contains "$json" '"sys2_rpm":1500'
+assert_contains "$json" '"write_confirmation_required":true'
+assert_contains "$json" '"write_confirmation_acknowledged":false'
+
+: > "$CALLS"
+json=$(request /bios/fan 'channel=sys&pwm=120' POST)
+assert_contains "$json" '"ok":false'
+assert_contains "$json" '固件逆向风扇写入需要先确认风险'
+! grep -Eq '<--apply>|<set>|<clear>' "$CALLS" || fail "unconfirmed DXP6800 PWM reached ugreenctl"
+
+json=$(request /bios/fan 'channel=sys&pwm=120&confirm=firmware-reversed' POST)
+assert_contains "$json" '"ok":true'
+grep -Fq ' <--force> <--apply> <fan> <set> <sys> <120>' "$CALLS" || fail "DXP6800 paired fan write did not use --force --apply"
+
+: > "$CALLS"
+json=$(request /bios/fan 'channel=sys1&pwm=120&confirm=firmware-reversed' POST)
+assert_contains "$json" '"ok":false'
+! grep -Eq '<--apply>|<set>|<clear>' "$CALLS" || fail "DXP6800 individual system fan write reached ugreenctl"
+
+json=$(request /bios/startup 'policy=last&confirm=firmware-reversed' POST)
+assert_contains "$json" '"ok":true'
+grep -Fq ' <--force> <--apply> <power> <startup> <set> <restore>' "$CALLS" || fail "DXP6800 startup write did not use --force --apply"
 
 export UGREEN_PRODUCT_NAME="DXP4800 Pro"
 json=$(request /bios/status)
@@ -249,7 +282,7 @@ grep -Fq ' <--force> <--apply> <power> <startup> <set> <restore>' "$CALLS" || fa
 # All currently supported exact products use the same persistent API contract.
 for UGREEN_PRODUCT_NAME in 'DX4600' 'DX4600+' 'DX4600 Pro' 'DXP4800' \
     'DXP4800 Plus' 'UGREEN DXP4800 Plus' 'DXP4800 Pro' 'UGREEN DXP4800 Pro' \
-    'DXP4800S' 'DXP480T Plus' 'UGREEN DXP480T Plus' 'DXP6800 Plus' 'DXP6800 Pro'; do
+    'DXP4800S' 'DXP480T Plus' 'UGREEN DXP480T Plus' 'DXP6800 Plus' 'DXP6800 Pro' 'DXP6800'; do
     : > "$CALLS"
     json=$(request /bios/startup 'policy=off&confirm=firmware-reversed' POST)
     assert_json "$json"

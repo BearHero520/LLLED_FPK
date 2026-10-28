@@ -1,13 +1,27 @@
 {
   "repository": "BearHero520/UGREEN-NAS-Hardware",
-  "tag": "almighty-20261027-n76-direct",
-  "commit": "aff7991ee58709ad34b5afbc2787f0d21300368d",
+  "tag": "local-almighty-dxp6800-wake-curve-20261028",
+  "commit": "7d36cc702445ce5439cecec207e052914a349f23",
   "archive": "ugreenctl-almighty-0.2.0-linux-x86_64-preview.tar.gz",
-  "archive_sha256": "9827b4f1c0f0f251634bf07041c6ff2f9b6504e5e212c3ff1520174ad95389c1",
+  "archive_sha256": "0f40b78e8ae4c63c8075ada14e6672891d458e13183ea88cea09111fd195d3a8",
   "manifest": "ugreenctl-almighty-0.2.0-linux-x86_64-preview.manifest.json",
-  "manifest_sha256": "9df3544af4a0dc0ea84fd5323fc9f5fde4c589998e60fed19fc612e0ecf21cb3",
-  "checksums_sha256": "cbdbf0d10f925d7fddf511708b65463c12b04538bf787b51d16567f9b7124f4b",
+  "manifest_sha256": "e111965ff54de98f1b0a3e4549085bcae7797ffd724e75248109b4ca9951e7d1",
+  "checksums_sha256": "ae12ede0da2f0a90e09285f793b9cdfad76fdc5cd825bebba18c26311381e1b8",
   "source_type": "git-artifact",
-  "artifact_commit": "7d36cc702445ce5439cecec207e052914a349f23",
-  "artifact_path": "artifacts/Almighty/2026-10-27-n76-direct"
+  "artifact_path": "artifacts/Almighty/2026-10-28-dxp6800-wake-curve-local",
+  "source_state": "immutable committed preview archive; binary provenance remains embedded source hashes and base receipt; physical validation not performed",
+  "base": {
+    "repository": "BearHero520/UGREEN-NAS-Hardware",
+    "tag": "local-almighty-20261027-wake",
+    "commit": "7d36cc702445ce5439cecec207e052914a349f23",
+    "archive": "ugreenctl-almighty-0.2.0-linux-x86_64-preview.tar.gz",
+    "archive_sha256": "b9a6c86fa641d5b1e66ccd7b7edd06e36a27953e29ecfcedc5c27de4aab261de",
+    "manifest": "ugreenctl-almighty-0.2.0-linux-x86_64-preview.manifest.json",
+    "manifest_sha256": "1f3e3b376082ba5b3eeaadc142bfa15736b2fa2ef1640675ae73822b554aed34",
+    "checksums_sha256": "71f2b14c004e7fe6d3e2d004d03275414fa0b8f226dec5ca345d2c1fb4794713",
+    "source_type": "local-artifact",
+    "artifact_path": "artifacts/Almighty/2026-10-27-wake",
+    "source_state": "working-tree; exact source hashes and full CTest logs in manifest"
+  },
+  "artifact_commit": "b6d46660c87db1566f7c74b5abe1b37df1223f50"
 }

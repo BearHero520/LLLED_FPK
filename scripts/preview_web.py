@@ -110,6 +110,7 @@ class PreviewState:
         self.bios_sys2_manual = False
         self.bios_startup = "last"
         self.bios_wol = "on"
+        self.bios_wol_interface = ""
         self.bios_power_schedule_enabled = False
         self.bios_power_schedule_days = ""
         self.bios_power_schedule_wake_time = ""
@@ -205,6 +206,10 @@ class PreviewState:
             "startup": self.bios_startup if supported else "unknown",
             "startup_available": supported,
             "wol_available": supported,
+            "wol_supported": supported,
+            "rtc_supported": supported,
+            "wol_automatic": supported,
+            "wol_interface": self.bios_wol_interface,
             "wol": self.bios_wol if supported else "unknown",
             "wol_error": "" if supported else "此机型没有固件证明的网络唤醒映射",
             "power_schedule": {
@@ -874,6 +879,16 @@ class PreviewHandler(BaseHTTPRequestHandler):
             self.send_json(STATE.bios_payload("来电启动策略已更新"))
             return
         if path == "/bios/wol":
+            if method == "GET" and any(key in query for key in ("policy", "confirm")):
+                self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
+                return
+            interface = (query.get("interface") or [""])[0]
+            if interface and not re.fullmatch(r"[a-zA-Z0-9_.-]{1,15}", interface):
+                self.send_json({"ok": False, "error": "网卡名称无效"})
+                return
+            if method == "GET":
+                self.send_json({"ok": True, "available": True, "interface": interface, "policy": STATE.bios_wol})
+                return
             policy = (query.get("policy") or [""])[0]
             if method != "POST":
                 self.send_json({"ok": False, "error": "method not allowed"}, HTTPStatus.METHOD_NOT_ALLOWED)
@@ -889,6 +904,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 return
             with STATE.lock:
                 STATE.bios_wol = policy
+                STATE.bios_wol_interface = interface
             self.send_json(STATE.bios_payload("网络唤醒策略已更新"))
             return
         if path == "/bios/power-schedule":
@@ -968,20 +984,20 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 "current_version": CURRENT_VERSION,
                 "latest_version": latest,
                 "latest_tag": tag,
-                "release_url": f"https://github.com/BearHero520/LLLED_FPK/releases/tag/{tag}",
-                "download_url": f"https://github.com/BearHero520/LLLED_FPK/releases/download/{tag}/App.Native.UGreenLED.fpk",
+                "release_url": f"https://github.com/BearHero520/UGreen-Control/releases/tag/{tag}",
+                "download_url": f"https://github.com/BearHero520/UGreen-Control/releases/download/{tag}/App.Native.UGreenLED.fpk",
                 "checked_at": int(now),
             })
             return
         if path == "/about/info":
             self.send_json({
                 "ok": True,
-                "display_name": "UGREEN工具箱",
+                "display_name": "UGreen Control",
                 "version": CURRENT_VERSION,
                 "maintainer": "BearHero",
                 "license": "AGPL-3.0",
-                "repository_url": "https://github.com/BearHero520/LLLED_FPK",
-                "readme_url": "https://github.com/BearHero520/LLLED_FPK/blob/main/README.md",
+                "repository_url": "https://github.com/BearHero520/UGreen-Control",
+                "readme_url": "https://github.com/BearHero520/UGreen-Control/blob/main/README.md",
                 "qq_group": "1108837172",
             })
             return
@@ -990,7 +1006,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 "ok": True,
                 "reachable": True,
                 "cached": False,
-                "source_url": "https://github.com/BearHero520/LLLED_FPK/blob/main/README.md",
+                "source_url": "https://github.com/BearHero520/UGreen-Control/blob/main/README.md",
                 "fetched_at": int(now),
                 "content": README.read_text(encoding="utf-8"),
             })
@@ -1051,7 +1067,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="预览 UGREEN工具箱 Web UI")
+    parser = argparse.ArgumentParser(description="预览 UGreen Control Web UI")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--profile", choices=sorted(PROFILE_META), default="dxp6800", help="预览指定机型能力")

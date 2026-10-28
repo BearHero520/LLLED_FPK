@@ -210,4 +210,9 @@ operation, not a BIOS or LED control operation.
 
 ## DXP6800 Plus
 
-Exact DMI `DXP6800 Plus` has an independent firmware-reversed plugin from UGOS Pro 1.20.0.0142. It provides CPU PWM, paired system PWM, three tachometers and AC recovery, with hwmon priority, guarded direct fallback and `--force --apply`. Custom software curves and `stock-6800plus` are supported. At the user's request, this compatibility preset adopts DXP6800 Pro parameters; it is not a recovered Plus factory curve. The user reports physical validation, but its detailed scope is unavailable. WOL remains unverified. See [firmware evidence](DXP6800_1.20_FIRMWARE_CHECK.zh-CN.md).
+Exact DMI `DXP6800 Plus` has an independent firmware-reversed plugin from UGOS Pro 1.20.0.0142. It provides CPU PWM, paired system PWM, three tachometers and AC recovery, with hwmon priority, guarded direct fallback and `--force --apply`. Custom software curves and `stock-6800plus` are supported. At the user's request, this compatibility preset adopts DXP6800 Pro parameters; it is not a recovered Plus factory curve. The user reports physical validation, but its detailed scope is unavailable. WOL and RTC are exposed as firmware-reversed: the 1.20 hwmonitor-480t route confirms eth0/eth1 Magic Packet policy, with the shared physical-PCI renamed-interface resolver on fnOS and other Linux distributions. Actual wake after shutdown remains unvalidated. See [firmware evidence](DXP6800_1.20_FIRMWARE_CHECK.zh-CN.md).
+
+
+## 2026-10-27 WOL / RTC 独立核对
+
+25 款的官方调用链和条件接入见 [WOL / RTC 核对表](ALL_MODELS_WAKE_EVIDENCE.zh-CN.md)。RTC 使用独立精确机型表，不再借用 WOL 标记；15 款 WOL 自动网口映射仍未确认，必须显式指定物理网卡。全部机型实际关机唤醒、逐 BIOS 行为和持久性仍待验证。此项不改变灯光/盘位未完成清单。

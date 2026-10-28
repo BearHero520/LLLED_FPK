@@ -36,6 +36,7 @@ and linearly interpolates between them; it never writes a stop/zero PWM.
 | DXP480T Plus | `stock-480tplus` | 25 / 55 / 75 / 85 / 95 | disabled (0 / 0 / 0 / 0 / 0) | 40 / 50 / 60 / 70 / 80 | 55 / 90 / 110 / 128 | 70 / 130 / 150 / 200 |
 | DXP6800 Pro | `stock-6800pro` | 25 / 38 / 55 / 75 / 90 | 30 / 35 / 43 / 48 / 55 | 45 / 50 / 60 / 65 / 70 | 64 / 130 / 210 / 230 | 80 / 130 / 210 / 230 |
 | DXP6800 Plus (Pro parameters, user-selected) | `stock-6800plus` | 25 / 38 / 55 / 75 / 90 | 30 / 35 / 43 / 48 / 55 | 45 / 50 / 60 / 65 / 70 | 64 / 130 / 210 / 230 | 80 / 130 / 210 / 230 |
+| DXP6800 (Pro parameters, user-selected) | `stock-6800` | 25 / 38 / 55 / 75 / 90 | 30 / 35 / 43 / 48 / 55 | 45 / 50 / 60 / 65 / 70 | 64 / 130 / 210 / 230 | 80 / 130 / 210 / 230 |
 
 On 2026-10-16 the user explicitly requested Pro parameters for Plus. The
 `stock-6800plus` compatibility preset shares the Pro thermal policy, including
@@ -140,3 +141,5 @@ fan sysfs or Super I/O nodes directly.
 
 DXP4800S: UGOS Pro 1.19.1.0126 now uses `dxp4800s.conf`; its thresholds
 and PWM points reconfirm `stock-4800s` unchanged. See [firmware evidence](DXP4800S_1.19.md).
+
+On 2026-10-28 the user authorized using Plus/Pro curves when the native curve is missing. Exact DXP6800 uses the independent `stock-6800` compatibility preset with the same Pro points and CPU floor as Plus. This is a user-selected compatibility policy, not a recovered DXP6800 factory curve; model routing, ownership guards, safe minimum and temperature-loss failsafe remain unchanged.

@@ -20,7 +20,7 @@ level=off
 [fan_curve]
 enabled=false
 EOF
-for model in dx4600 dxp4800 dxp4800plus dxp4800s dxp480tplus dxp6800pro dxp6800plus; do : > "$PLUGINS/$model.so"; done
+for model in dx4600 dxp4800 dxp4800plus dxp4800s dxp480tplus dxp6800pro dxp6800plus dxp6800; do : > "$PLUGINS/$model.so"; done
 cat > "$BIN" <<'EOF'
 #!/bin/sh
 printf 'CALL' >> "$UGREENCTL_CALLS"
@@ -110,6 +110,24 @@ assert_contains "$json" '"ok":true'
 json=$(request /bios/fan-curve 'action=start&mode=stock-6800pro&confirm=firmware-reversed' POST)
 assert_contains "$json" '"ok":false'
 assert_contains "$json" '必须与检测到的精确机型匹配'
+json=$(request /bios/fan-curve 'action=start&mode=custom&confirm=firmware-reversed&interval=10&downshift=60&minimum=40&cpu=42%2C50%2C70%2C78%2C90&hdd=30%2C40%2C46%2C52%2C55&ssd=50%2C55%2C60%2C65%2C70&pwm=65%2C125%2C200%2C235&require_storage=false' POST)
+assert_contains "$json" '"ok":true'
+[[ "$(sed -n 's/^cpu=//p' "$CONFIG")" == "42,50,70,78,90" ]] || fail "URL-encoded CPU curve was not decoded"
+[[ "$(sed -n 's/^hdd=//p' "$CONFIG")" == "30,40,46,52,55" ]] || fail "URL-encoded HDD curve was not decoded"
+[[ "$(sed -n 's/^ssd=//p' "$CONFIG")" == "50,55,60,65,70" ]] || fail "URL-encoded SSD curve was not decoded"
+[[ "$(sed -n 's/^pwm=//p' "$CONFIG")" == "65,125,200,235" ]] || fail "URL-encoded PWM curve was not decoded"
+json=$(request /bios/fan-curve 'action=stop' POST)
+assert_contains "$json" '"ok":true'
+
+export UGREEN_PRODUCT_NAME="DXP6800"
+json=$(request /bios/fan-curve 'action=start&mode=stock-6800pro&confirm=firmware-reversed' POST)
+assert_contains "$json" '"ok":false'
+json=$(request /bios/fan-curve 'action=start&mode=stock-6800&confirm=firmware-reversed' POST)
+assert_contains "$json" '"ok":true'
+assert_contains "$json" '"available":true,"profile":"stock-6800"'
+[[ "$(sed -n 's/^profile=//p' "$CONFIG")" == "stock-6800" ]] || fail "DXP6800 Pro-parameter compatibility preset was not persisted"
+json=$(request /bios/fan-curve 'action=stop' POST)
+assert_contains "$json" '"ok":true'
 json=$(request /bios/fan-curve 'action=start&mode=custom&confirm=firmware-reversed&interval=10&downshift=60&minimum=40&cpu=42%2C50%2C70%2C78%2C90&hdd=30%2C40%2C46%2C52%2C55&ssd=50%2C55%2C60%2C65%2C70&pwm=65%2C125%2C200%2C235&require_storage=false' POST)
 assert_contains "$json" '"ok":true'
 [[ "$(sed -n 's/^cpu=//p' "$CONFIG")" == "42,50,70,78,90" ]] || fail "URL-encoded CPU curve was not decoded"

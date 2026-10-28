@@ -13,16 +13,15 @@ contains both parts of scheduled power control in `rootfs-base.squashfs`:
 - `usr/sbin/rtcwake` and the kernel RTC stack are present in the same official
   image.
 
-`ugreenctl power rtc-wake get|set|clear` is a guarded clean-room equivalent of
-the firmware RTC operation. It is available only to an exact model plugin with
-the separately firmware-mapped WOL capability, requires `--force --apply` for
-writes, discovers a Linux `wakealarm` interface, clears before setting, and
-verifies readback. It does not write Super-I/O or LED registers.
-
-RTC scheduled wake does not read or configure a network interface and is
-therefore unaffected by fnOS interface renaming. The WOL capability is used
-only as a conservative model-eligibility gate; the wake transaction itself is
-performed exclusively through the discovered Linux RTC `wakealarm` node.
+The current 25-model audit supersedes the old WOL-based eligibility gate:
+see [independent RTC and WOL evidence](ALL_MODELS_WAKE_EVIDENCE.zh-CN.md).
+`ugreenctl power rtc-wake get|set|clear` now matches a separate exact-model RTC
+table before plugin loading. No WOL capability bit or NIC is consulted. Writes
+require `--force --apply`, a trusted process lock, stable machine/BIOS identity,
+a unique matching RTC, clear-before-set and readback on the same selected path.
+ARM additionally requires the firmware DT model/compatible and HYM8563 OF node;
+its alarm epoch must be minute-aligned. x86 requires a unique rtc_cmos wakealarm.
+The generic firmware RTC stack does not prove each board's ACPI/S5 wake path.
 
 Linux exposes an empty `wakealarm` file when no alarm is armed. `ugreenctl`
 reports that state as epoch `0` (disabled), rather than treating it as a broken

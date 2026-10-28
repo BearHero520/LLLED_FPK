@@ -1,7 +1,7 @@
 {
     ".url": {
         "App.Native.UGreenLED.Web": {
-            "title": "UGREEN工具箱",
+            "title": "UGreen Control",
             "icon": "images/ugreen-toolbox-{0}.png",
             "type": "iframe",
             "protocol": "http",
