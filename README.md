@@ -1,12 +1,10 @@
 # UGreen Control
 
-UGreen Control 是面向飞牛 fnOS 的绿联 NAS 硬件工具箱，将灯光控制、硬件状态监测，以及兼容机型的风扇和电源管理集中到一个界面。
+UGreen Control 是面向飞牛 fnOS 的开源绿联 NAS 硬件工具箱，将灯光控制、硬件状态监测，以及兼容机型的风扇和电源管理集中到一个 Web 界面，让日常查看和设置更方便。
 
 当前版本：**3.0.6**
 
 [下载最新版本](https://github.com/BearHero520/UGreen-Control/releases/latest) · [v3.0.6 更新说明](docs/releases/v3.0.6.md) · [问题反馈](https://github.com/BearHero520/UGreen-Control/issues)
-
-本项目由原 **LLLED_FPK 仓库直接更名**为 UGreen-Control，提交历史、Issues、Stars、Fork、标签及 Releases 均保留，旧地址会重定向到新地址。应用标识仍为 `App.Native.UGreenLED`，现有用户可通过 fnOS 应用中心覆盖升级并保留配置。
 
 ## 主要功能
 
@@ -18,19 +16,6 @@ UGreen Control 是面向飞牛 fnOS 的绿联 NAS 硬件工具箱，将灯光控
 - **应用更新**：在“关于”页面检查版本、获取安装包并阅读项目说明。
 
 不同机型的可用功能和验证状态不同，请以应用内检测结果及对应硬件文档为准。
-
-## v3.0.6 更新
-
-- 固定使用 [UGREEN-NAS-Hardware v0.3.0](https://github.com/BearHero520/UGREEN-NAS-Hardware/releases/tag/v0.3.0)，整体更新四个硬件程序、十个机型插件及随包上游文档。
-- 导入和打包同时校验发布标签、主分支提交、归档、manifest 与逐文件 SHA-256，移除旧局部扩展源码快照。
-- 保留独立 WOL / RTC、实际网口选择、DXP6800 三路遥测及 Pro 参数兼容曲线。
-- 应用按正式版本发布，可通过原 `App.Native.UGreenLED` 应用标识覆盖升级并保留配置。
-
-应用正式发布不改变上游硬件包的 `experimental-incomplete` 状态。DXP6800 原厂温控曲线仍未知，兼容预设采用 DXP6800 Pro 参数；DXP480T 的兼容 LED 入口支持开关、闪烁和保持当前颜色，暂不支持选色与呼吸。v3.0.6 未新增 NAS 实机写入或关机唤醒验证。
-
-应用通过内置 CLI 完成硬件操作。BIOS、风扇、来电恢复及唤醒能力由独立的 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 提供；LED 操作统一调用包内 `server/bin/ugreen_leds_cli`。载荷来源、校验记录和接入边界见[硬件接入说明](docs/almighty-integration.md)。
-
-测试与反馈 QQ 群：**1108837172**
 
 ## 系统要求
 
@@ -60,9 +45,16 @@ UGreen Control 是面向飞牛 fnOS 的绿联 NAS 硬件工具箱，将灯光控
 3. 选择下载的 FPK 文件并完成安装。
 4. 从 fnOS 桌面打开“UGreen Control”。
 
-升级时下载新版本 FPK，再通过应用中心手动安装即可。应用不会静默更新。
+升级时下载新版本 FPK，再通过应用中心手动安装即可。应用标识沿用 `App.Native.UGreenLED`，现有用户可覆盖升级并保留配置。应用不会静默更新。
 
 ## 使用方法
+
+### 第一次使用
+
+1. 打开“概览”，确认识别到的 NAS 机型，查看温度、风扇和服务状态。
+2. 在“设备与高级”中核对硬盘与 LED 映射，必要时使用“重新检测”。
+3. 进入“灯光设置”选择模式、颜色和亮度；需要按读写速度闪灯时，在“活动提示”中配置阈值。
+4. 如需管理风扇或电源，打开“BIOS 控制”，先确认可用功能和当前状态，再保存设置。
 
 ### 灯光模式
 
@@ -72,21 +64,43 @@ UGreen Control 是面向飞牛 fnOS 的绿联 NAS 硬件工具箱，将灯光控
 | 开启全部 | 所有可用灯保持常亮 |
 | 智能模式 | 根据硬盘和网络状态自动控制灯光 |
 
-在“灯光设置”中选择颜色和亮度并保存。启用速度闪动后，磁盘或网络速度达到设置的阈值时，灯光会按速度快慢闪动。
+在“灯光设置”中选择颜色和亮度并保存。在“活动提示”中启用速度闪动后，磁盘或网络速度达到设置的阈值时，灯光会按速度快慢闪动。可选颜色与效果以当前机型提供的能力为准。
 
 ### 盘位映射
 
 应用会自动识别硬盘与灯位。在“设备与高级”页面查看盘位映射，或重新检测以恢复自动映射。
 
-实验室及其临时灯光接管接口已移除；既有自定义映射仍可读取。
+已有的自定义映射仍可读取。更换硬盘或调整盘位后，建议重新核对映射。
 
 ### BIOS 与风扇控制
 
-受支持机型会显示 BIOS 控制页面，可配置风扇、来电启动、网络唤醒和定时开关机。页面未显示的功能表示当前机型或硬件环境不支持。
+“BIOS 控制”页面按检测结果提供风扇、来电启动、网络唤醒和定时开关机设置。页面提示不可用的功能，需要先核对当前机型和硬件环境。
 
-实验性功能会要求风险确认。修改风扇或电源设置后，请观察温度和设备状态是否正常。
+| 设置 | 用法 |
+| --- | --- |
+| 风扇 | 选择固定 PWM、自动温控或自定义曲线，按页面提示应用设置；自动温控由软件服务持续运行。 |
+| 来电启动 | 选择恢复供电后的开机、关机或恢复原状态策略，并保存。 |
+| 网络唤醒 | 选择自动匹配或实际物理网口，设置 WOL 开关并保存。 |
+| 定时开关机 | 选择重复日期、开机和关机时间后启用计划；时间以 NAS 系统时区为准。 |
 
-## 本地打包
+实验性功能会要求风险确认。修改风扇或电源设置后，请观察温度和设备状态是否正常。WOL／RTC 设置回读成功与实际关机后能否唤醒需要分别验证。
+
+DXP6800 的原厂温控曲线仍未知，兼容预设采用 DXP6800 Pro 参数；DXP480T 系列的兼容 LED 入口支持开关、闪烁和保持当前颜色，暂不支持选色与呼吸。应用发布版本不改变各机型硬件能力的实验性标注。
+
+## 开发与本地打包
+
+源码包含 Web 界面、应用服务及硬件接入层。克隆时获取上游硬件子模块：
+
+```bash
+git clone --recurse-submodules https://github.com/BearHero520/UGreen-Control.git
+cd UGreen-Control
+```
+
+使用 Python 3.10+ 可在本地预览界面；预览使用模拟数据，不访问 NAS 硬件：
+
+```bash
+python scripts/preview_web.py
+```
 
 仓库已包含打包所需文件。在仓库根目录运行：
 
@@ -95,6 +109,8 @@ python scripts/build_fpk.py
 ```
 
 Windows 本地安装包和校验文件默认生成到 `E:/工作台/LLLED_FPK/dist/`；Linux / CI 默认使用检出目录的 `dist/`。
+
+硬件操作通过内置 CLI 完成。BIOS、风扇、来电恢复及唤醒能力由 [UGREEN-NAS-Hardware](https://github.com/BearHero520/UGREEN-NAS-Hardware) 提供；LED 操作统一调用包内 `server/bin/ugreen_leds_cli`。载荷来源、校验记录与开发边界见[硬件接入说明](docs/almighty-integration.md)。版本变更见 [Releases](https://github.com/BearHero520/UGreen-Control/releases) 和 [v3.0.6 更新说明](docs/releases/v3.0.6.md)。
 
 ## 日志与排错
 
@@ -112,6 +128,29 @@ Windows 本地安装包和校验文件默认生成到 `E:/工作台/LLLED_FPK/di
 4. 日志中是否存在 `WARN` 或 `ERROR`。
 
 如果 LED 硬件暂时不可用，应用管理页面仍可打开，后台会继续尝试连接硬件。
+
+## 参与和反馈
+
+欢迎通过 [Issues](https://github.com/BearHero520/UGreen-Control/issues) 反馈问题或提出建议，也欢迎提交 Pull Request 改进功能、适配和文档。反馈时请提供精确机型、fnOS 版本、应用版本、复现步骤和相关诊断日志；分享日志前请先隐藏序列号、MAC 地址等个人信息。
+
+测试与反馈 QQ 群：**1108837172**。
+
+## 支持作者
+
+如果这个项目对你有帮助，欢迎点一颗 ⭐ **Star**，让更多人发现它。
+愿意的话，也可以请作者喝杯咖啡，为后续适配、测试和维护添一点动力。
+打赏完全自愿，量力随心；你的使用、反馈和分享，同样是很好的支持。谢谢你！
+
+<details>
+<summary>☕ 展开支付宝 / 微信打赏码</summary>
+
+| 支付宝 | 微信支付 |
+| --- | --- |
+| <a href="docs/assets/donate/alipay.jpg"><img src="docs/assets/donate/alipay.jpg" alt="支付宝自愿打赏二维码" width="260"></a> | <a href="docs/assets/donate/wechat.png"><img src="docs/assets/donate/wechat.png" alt="微信支付自愿打赏二维码" width="260"></a> |
+
+点击图片可查看原图。
+
+</details>
 
 ## 相关项目
 
